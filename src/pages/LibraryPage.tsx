@@ -13,7 +13,7 @@ export function LibraryPage() {
   if (isLoading || !data) {
     return (
       <div className="grid min-h-screen place-items-center p-6 font-black text-[#6f6a60]">
-        보관함을 불러오는 중...
+        코스를 불러오는 중...
       </div>
     );
   }
@@ -21,9 +21,9 @@ export function LibraryPage() {
   return (
     <section className="p-[22px_18px_28px]">
       <PageHeader
-        eyebrow="저장한 동네"
-        title="보관함"
-        description="저장한 장소와 쪽지를 모아 나만의 코스로 엮어보세요."
+        eyebrow="나의 여행"
+        title="코스"
+        description="저장한 장소와 SPOT을 모아 여행 동선을 관리해보세요."
       />
 
       <div className="mt-6 mb-3 flex items-center justify-between gap-3">
