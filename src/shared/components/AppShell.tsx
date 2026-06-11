@@ -1,18 +1,33 @@
-import { Map, Plus, UserRound, Archive, Home } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Home, Map, Plus, Route, UserRound } from "lucide-react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 const navItems = [
   { to: "/", label: "홈", icon: Home },
   { to: "/map", label: "지도", icon: Map },
   { to: "/note/new", label: "추가", icon: Plus, featured: true },
-  { to: "/library", label: "보관함", icon: Archive },
+  { to: "/library", label: "코스", icon: Route },
   { to: "/my", label: "마이", icon: UserRound }
 ];
 
 export function AppShell() {
+  const location = useLocation();
+  const isMapPage = location.pathname === "/map";
+
   return (
-    <div className="mx-auto min-h-screen w-full max-w-[430px] bg-[var(--spot-app-bg)] shadow-[0_0_0_1px_rgba(17,17,17,0.06)] transition-colors sm:my-6 sm:min-h-[calc(100vh-48px)] sm:overflow-hidden sm:rounded-3xl">
-      <main className="min-h-screen pb-[calc(84px+env(safe-area-inset-bottom))]">
+    <div
+      className={`mx-auto w-full max-w-[430px] bg-[var(--spot-app-bg)] shadow-[0_0_0_1px_rgba(17,17,17,0.06)] transition-colors sm:my-6 sm:rounded-3xl ${
+        isMapPage
+          ? "h-[100dvh] overflow-hidden sm:h-[calc(100dvh-48px)]"
+          : "min-h-screen sm:min-h-[calc(100vh-48px)] sm:overflow-hidden"
+      }`}
+    >
+      <main
+        className={
+          isMapPage
+            ? "h-full overflow-hidden"
+            : "min-h-screen pb-[calc(84px+env(safe-area-inset-bottom))]"
+        }
+      >
         <Outlet />
       </main>
       <nav
