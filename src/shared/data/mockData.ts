@@ -41,6 +41,8 @@ export const notes: LocalNote[] = [
     id: "note-1",
     body: "시장 소리가 멀어질 때쯤 잔잔한 음악이 잘 어울려요.",
     authorName: "지우",
+    authorAvatarUrl:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=180&q=80",
     category: "music",
     visibility: "public",
     placeName: "망원시장 골목",
@@ -51,6 +53,8 @@ export const notes: LocalNote[] = [
     id: "note-2",
     body: "비 오면 창가 자리가 먼저 차요. 조금 일찍 가는 게 좋아요.",
     authorName: "민서",
+    authorAvatarUrl:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=180&q=80",
     category: "tip",
     visibility: "friends",
     placeName: "성수 카페 거리",
@@ -61,10 +65,36 @@ export const notes: LocalNote[] = [
     id: "note-3",
     body: "한강으로 빠지는 골목에서 해가 제일 부드럽게 보여요.",
     authorName: "나",
+    authorAvatarUrl:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=180&q=80",
     category: "best",
     visibility: "private",
     placeName: "망원한강공원 입구",
     coordinates: { lat: 37.5545, lng: 126.897 },
+    saved: false
+  },
+  {
+    id: "note-4",
+    body: "빵 나오는 시간이 겹치면 골목 전체에 버터 냄새가 퍼져요.",
+    authorName: "도윤",
+    authorAvatarUrl:
+      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=180&q=80",
+    category: "tip",
+    visibility: "friends",
+    placeName: "성수 베이커리 골목",
+    coordinates: { lat: 37.5462, lng: 127.0428 },
+    saved: true
+  },
+  {
+    id: "note-5",
+    body: "서울숲 안쪽 벤치는 오후 네 시쯤 햇빛이 딱 좋아요.",
+    authorName: "하린",
+    authorAvatarUrl:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=180&q=80",
+    category: "best",
+    visibility: "friends",
+    placeName: "서울숲 은행나무길",
+    coordinates: { lat: 37.5451, lng: 127.0393 },
     saved: false
   }
 ];

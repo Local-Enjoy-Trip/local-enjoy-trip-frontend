@@ -30,6 +30,7 @@ export type LocalNote = {
   id: string;
   body: string;
   authorName: string;
+  authorAvatarUrl?: string;
   category: NoteCategory;
   visibility: Visibility;
   placeName: string;
