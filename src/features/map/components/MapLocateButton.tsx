@@ -1,18 +1,25 @@
 import { Crosshair } from "lucide-react";
+import type { DrawerSnap } from "./MapVisibleDrawer";
 
 export function MapLocateButton({
-  drawerExpanded,
+  drawerSnap,
+  hasSelectedPoint,
   onRequestLocation,
 }: {
-  drawerExpanded: boolean;
+  drawerSnap: DrawerSnap;
+  hasSelectedPoint: boolean;
   onRequestLocation: () => void;
 }) {
   return (
     <div
-      className={`pointer-events-auto absolute right-4 transition-[bottom] duration-200 ${
-        drawerExpanded
-          ? "bottom-[calc(52vh+92px+env(safe-area-inset-bottom))]"
-          : "bottom-[calc(214px+92px+env(safe-area-inset-bottom))]"
+      className={`pointer-events-auto absolute right-4 transition-[bottom,opacity] duration-200 ${
+        drawerSnap === "full"
+          ? "pointer-events-none bottom-[calc(87px+env(safe-area-inset-bottom))] opacity-0"
+          : drawerSnap === "hidden"
+            ? "bottom-[calc(87px+env(safe-area-inset-bottom))]"
+            : hasSelectedPoint
+              ? "bottom-[calc(50vh+87px+env(safe-area-inset-bottom))]"
+              : "bottom-[calc(36vh+87px+env(safe-area-inset-bottom))]"
       }`}
     >
       <button

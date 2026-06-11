@@ -1,12 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getMapPins } from "@/shared/api/mockApi";
 import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
 import { FallbackMapLayer } from "@/features/map/components/FallbackMapLayer";
 import { MapFilterChips } from "@/features/map/components/MapFilterChips";
 import { MapLocateButton } from "@/features/map/components/MapLocateButton";
 import { MapSearchBar } from "@/features/map/components/MapSearchBar";
-import { MapVisibleDrawer } from "@/features/map/components/MapVisibleDrawer";
+import {
+  type DrawerSnap,
+  MapVisibleDrawer,
+} from "@/features/map/components/MapVisibleDrawer";
 import { useKakaoMap } from "@/features/map/hooks/useKakaoMap";
 import { isInBounds } from "@/features/map/lib/kakaoMap";
 import {
@@ -35,7 +38,7 @@ export function MapPage() {
   const requestLocation = location.requestLocation;
   const requestedInitialLocationRef = useRef(false);
   const [query, setQuery] = useState("");
-  const [drawerExpanded, setDrawerExpanded] = useState(false);
+  const [drawerSnap, setDrawerSnap] = useState<DrawerSnap>("default");
 
   const allPoints = useMemo(() => {
     if (!data) return [];
@@ -58,7 +61,17 @@ export function MapPage() {
     [allPoints, filter, query, selectedFriend],
   );
 
-  const kakao = useKakaoMap(filteredPoints, selectPin);
+  const selectMapPin = useCallback(
+    (pinId: string | null) => {
+      selectPin(pinId);
+      if (pinId) {
+        setDrawerSnap("default");
+      }
+    },
+    [selectPin],
+  );
+
+  const kakao = useKakaoMap(filteredPoints, selectMapPin);
   const recenterMapTo = kakao.recenterTo;
 
   const visiblePoints = useMemo(
@@ -103,6 +116,7 @@ export function MapPage() {
 
   const selectVisiblePoint = (point: MapPoint) => {
     selectPin(point.id);
+    setDrawerSnap("default");
     kakao.moveTo(point.coordinates);
   };
 
@@ -129,7 +143,7 @@ export function MapPage() {
         {kakao.status === "missing-key" || kakao.status === "error" ? (
           <FallbackMapLayer
             clusters={fallbackClusters}
-            onSelectPoint={selectPin}
+            onSelectPoint={selectMapPin}
           />
         ) : null}
       </div>
@@ -149,20 +163,31 @@ export function MapPage() {
         </div>
 
         <MapLocateButton
-          drawerExpanded={drawerExpanded}
+          drawerSnap={drawerSnap}
+          hasSelectedPoint={selectedPoint !== null}
           onRequestLocation={requestLocation}
         />
 
         {location.status === "error" ? (
-          <p className="pointer-events-auto absolute right-4 bottom-[calc(308px+env(safe-area-inset-bottom))] left-4 m-0 rounded-xl bg-white/95 px-3 py-2.5 text-sm font-extrabold text-[#24463d] shadow-[0_10px_24px_rgba(17,17,17,0.12)]">
+          <p
+            className={`pointer-events-auto absolute right-4 left-4 m-0 rounded-xl bg-white/95 px-3 py-2.5 text-sm font-extrabold text-[#24463d] shadow-[0_10px_24px_rgba(17,17,17,0.12)] transition-[bottom,opacity] duration-200 ${
+              drawerSnap === "full"
+                ? "pointer-events-none bottom-[calc(87px+env(safe-area-inset-bottom))] opacity-0"
+                : drawerSnap === "hidden"
+                  ? "bottom-[calc(87px+env(safe-area-inset-bottom))]"
+                  : selectedPoint
+                    ? "bottom-[calc(50vh+87px+env(safe-area-inset-bottom))]"
+                    : "bottom-[calc(36vh+87px+env(safe-area-inset-bottom))]"
+            }`}
+          >
             {location.error}
           </p>
         ) : null}
 
         <MapVisibleDrawer
-          drawerExpanded={drawerExpanded}
+          drawerSnap={drawerSnap}
           onSelectPoint={selectVisiblePoint}
-          onToggleExpanded={() => setDrawerExpanded((expanded) => !expanded)}
+          onSnapChange={setDrawerSnap}
           selectedPoint={selectedPoint}
           visiblePoints={visiblePoints}
         />
