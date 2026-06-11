@@ -1,0 +1,58 @@
+export type Visibility = "public" | "friends" | "private";
+
+export type PinKind = "place" | "note" | "friend" | "saved";
+
+export type NoteCategory =
+  | "best"
+  | "music"
+  | "book"
+  | "movie"
+  | "tip"
+  | "move";
+
+export type Coordinates = {
+  lat: number;
+  lng: number;
+};
+
+export type Place = {
+  id: string;
+  name: string;
+  area: string;
+  summary: string;
+  tags: string[];
+  coordinates: Coordinates;
+  imageUrl: string;
+  saved: boolean;
+};
+
+export type LocalNote = {
+  id: string;
+  body: string;
+  authorName: string;
+  category: NoteCategory;
+  visibility: Visibility;
+  placeName: string;
+  coordinates: Coordinates;
+  saved: boolean;
+};
+
+export type Experience = {
+  id: string;
+  title: string;
+  area: string;
+  description: string;
+  weatherFit: string;
+  imageUrl: string;
+  badgeLabel: string;
+  detailLabel: string;
+  placeIds: string[];
+};
+
+export type Course = {
+  id: string;
+  title: string;
+  area: string;
+  stopCount: number;
+  visibility: Visibility;
+};
