@@ -1,0 +1,84 @@
+import type { Coordinates, LocalNote, Place } from "@/shared/types/domain";
+
+export type KakaoLatLng = {
+  getLat: () => number;
+  getLng: () => number;
+};
+
+export type KakaoBounds = {
+  contain: (latlng: KakaoLatLng) => boolean;
+};
+
+export type KakaoMapInstance = {
+  getBounds: () => KakaoBounds;
+  getLevel: () => number;
+  panTo: (latlng: KakaoLatLng) => void;
+  relayout: () => void;
+  setCenter: (latlng: KakaoLatLng) => void;
+  setLevel: (level: number, options?: { anchor?: KakaoLatLng }) => void;
+};
+
+export type KakaoCustomOverlay = {
+  setMap: (map: KakaoMapInstance | null) => void;
+};
+
+export type KakaoMaps = {
+  CustomOverlay: new (options: {
+    content: HTMLElement;
+    position: KakaoLatLng;
+    yAnchor?: number;
+    zIndex?: number;
+  }) => KakaoCustomOverlay;
+  LatLng: new (lat: number, lng: number) => KakaoLatLng;
+  Map: new (
+    container: HTMLElement,
+    options: { center: KakaoLatLng; level: number }
+  ) => KakaoMapInstance;
+  event: {
+    addListener: (
+      target: KakaoMapInstance,
+      type: "idle" | "zoom_changed",
+      handler: () => void
+    ) => void;
+    removeListener: (
+      target: KakaoMapInstance,
+      type: "idle" | "zoom_changed",
+      handler: () => void
+    ) => void;
+  };
+  load: (callback: () => void) => void;
+};
+
+export type MapPoint =
+  | {
+      id: string;
+      kind: "place";
+      name: string;
+      coordinates: Coordinates;
+      saved: boolean;
+      source: Place;
+    }
+  | {
+      id: string;
+      kind: "spot";
+      name: string;
+      authorName: string;
+      authorAvatarUrl?: string;
+      coordinates: Coordinates;
+      saved: boolean;
+      source: LocalNote;
+    };
+
+export type MarkerCluster = {
+  id: string;
+  center: Coordinates;
+  points: MapPoint[];
+};
+
+declare global {
+  interface Window {
+    kakao?: {
+      maps: KakaoMaps;
+    };
+  }
+}
