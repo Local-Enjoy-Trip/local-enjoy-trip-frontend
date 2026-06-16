@@ -5,10 +5,12 @@ import type { MarkerCluster } from "../types";
 
 export function FallbackMapLayer({
   clusters,
-  onSelectPoint
+  onSelectPoint,
+  selectedPointId
 }: {
   clusters: MarkerCluster[];
   onSelectPoint: (pointId: string) => void;
+  selectedPointId: string | null;
 }) {
   return (
     <div
@@ -21,6 +23,8 @@ export function FallbackMapLayer({
       {clusters.map((cluster, index) => {
         const point = cluster.points[0];
         const position = getFallbackPosition(cluster.center);
+        const isSelected =
+          cluster.points.length === 1 && point.id === selectedPointId;
 
         if (cluster.points.length > 1) {
           return (
@@ -39,7 +43,11 @@ export function FallbackMapLayer({
         if (point.kind === "place") {
           return (
             <button
-              className="place-star-marker absolute -translate-x-1/2 -translate-y-full"
+              className={`place-star-marker absolute -translate-x-1/2 -translate-y-full ${
+                isSelected
+                  ? "z-10 scale-110 drop-shadow-[0_14px_24px_rgba(24,91,61,0.28)]"
+                  : ""
+              }`}
               key={point.id}
               style={{
                 ...position,
@@ -55,7 +63,11 @@ export function FallbackMapLayer({
 
         return (
           <button
-            className="spot-avatar-marker absolute -translate-x-1/2 -translate-y-full"
+            className={`spot-avatar-marker absolute -translate-x-1/2 -translate-y-full ${
+              isSelected
+                ? "z-10 scale-110 drop-shadow-[0_14px_24px_rgba(24,91,61,0.28)]"
+                : ""
+            }`}
             key={point.id}
             style={position}
             type="button"

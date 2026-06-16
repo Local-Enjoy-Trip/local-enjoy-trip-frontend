@@ -5,7 +5,11 @@ import { loadKakaoMap } from "../lib/kakaoMap";
 import { clusterPoints } from "../lib/mapPoints";
 import type { KakaoBounds, KakaoCustomOverlay, KakaoMapInstance, MapPoint } from "../types";
 
-export function useKakaoMap(points: MapPoint[], onSelectPoint: (id: string) => void) {
+export function useKakaoMap(
+  points: MapPoint[],
+  onSelectPoint: (id: string) => void,
+  selectedPointId: string | null,
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
   const overlaysRef = useRef<KakaoCustomOverlay[]>([]);
@@ -101,10 +105,13 @@ export function useKakaoMap(points: MapPoint[], onSelectPoint: (id: string) => v
     clusterPoints(points, level).forEach((cluster, index) => {
       const content = document.createElement("button");
       content.type = "button";
+      const isSinglePoint = cluster.points.length === 1;
+      const isSelected =
+        isSinglePoint && cluster.points[0].id === selectedPointId;
       content.className =
-        cluster.points.length > 1
+        !isSinglePoint
           ? "map-cluster-marker"
-          : getOverlayClassName(cluster.points[0]);
+          : getOverlayClassName(cluster.points[0], isSelected);
       if (cluster.points.length === 1 && cluster.points[0].kind === "place") {
         content.style.setProperty(
           "--marker-color",
@@ -135,12 +142,12 @@ export function useKakaoMap(points: MapPoint[], onSelectPoint: (id: string) => v
         position: new kakaoMaps.LatLng(cluster.center.lat, cluster.center.lng),
         content,
         yAnchor: 1,
-        zIndex: cluster.points.length > 1 ? 8 : 10
+        zIndex: isSelected ? 20 : cluster.points.length > 1 ? 8 : 10
       });
       overlay.setMap(mapRef.current);
       overlaysRef.current.push(overlay);
     });
-  }, [level, onSelectPoint, points, status]);
+  }, [level, onSelectPoint, points, selectedPointId, status]);
 
   const moveTo = useCallback((coordinates: Coordinates) => {
     if (!mapRef.current || !window.kakao) return;
@@ -159,8 +166,13 @@ export function useKakaoMap(points: MapPoint[], onSelectPoint: (id: string) => v
   return { bounds, containerRef, level, moveTo, recenterTo, status };
 }
 
-function getOverlayClassName(point: MapPoint) {
-  return point.kind === "place" ? "place-star-marker" : "spot-avatar-marker";
+function getOverlayClassName(point: MapPoint, selected: boolean) {
+  const baseClassName =
+    point.kind === "place" ? "place-star-marker" : "spot-avatar-marker";
+
+  return selected
+    ? `${baseClassName} scale-110 drop-shadow-[0_14px_24px_rgba(24,91,61,0.28)]`
+    : baseClassName;
 }
 
 function getOverlayContent(point: MapPoint) {

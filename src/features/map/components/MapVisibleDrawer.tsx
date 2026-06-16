@@ -28,12 +28,14 @@ export function MapVisibleDrawer({
   drawerSnap,
   onSelectPoint,
   onSnapChange,
+  selectedPointId,
   selectedPoint,
   visiblePoints,
 }: {
   drawerSnap: DrawerSnap;
   onSelectPoint: (point: MapPoint) => void;
   onSnapChange: (snap: DrawerSnap) => void;
+  selectedPointId: string | null;
   selectedPoint: MapPoint | null;
   visiblePoints: MapPoint[];
 }) {
@@ -171,7 +173,11 @@ export function MapVisibleDrawer({
 
       <div className="h-[calc(100%-78px)] touch-pan-y overflow-y-auto px-4 pb-4">
         {selectedPoint ? (
-          <MapListCard point={selectedPoint} featured />
+          <MapListCard
+            point={selectedPoint}
+            featured
+            selected={selectedPoint.id === selectedPointId}
+          />
         ) : visiblePoints.length > 0 ? (
           <div className="grid gap-2.5">
             {visiblePoints.map((point) => (
@@ -179,6 +185,7 @@ export function MapVisibleDrawer({
                 key={point.id}
                 point={point}
                 onSelect={() => onSelectPoint(point)}
+                selected={point.id === selectedPointId}
               />
             ))}
           </div>

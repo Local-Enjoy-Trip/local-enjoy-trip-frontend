@@ -5,11 +5,13 @@ import type { MapPoint } from "../types";
 export function MapListCard({
   featured = false,
   onSelect,
-  point
+  point,
+  selected = false
 }: {
   featured?: boolean;
   onSelect?: () => void;
   point: MapPoint;
+  selected?: boolean;
 }) {
   const isPlace = point.kind === "place";
   const description = isPlace ? point.source.summary : point.source.body;
@@ -19,10 +21,13 @@ export function MapListCard({
   return (
     <article
       className={`rounded-2xl border p-3 ${
-        featured
+        selected
+          ? "border-[#185B3D] bg-[#F1F7F1] shadow-[0_10px_24px_rgba(24,91,61,0.14)]"
+          : featured
           ? "mb-2 border-[#185B3D]/20 bg-[#F1F7F1]"
           : "border-[#efeee9] bg-white"
       }`}
+      data-selected={selected}
     >
       <button
         className="flex w-full items-start gap-3 border-0 bg-transparent p-0 text-left"

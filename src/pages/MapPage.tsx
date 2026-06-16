@@ -71,7 +71,7 @@ export function MapPage() {
     [selectPin],
   );
 
-  const kakao = useKakaoMap(filteredPoints, selectMapPin);
+  const kakao = useKakaoMap(filteredPoints, selectMapPin, selectedPinId);
   const recenterMapTo = kakao.recenterTo;
 
   const visiblePoints = useMemo(
@@ -80,6 +80,15 @@ export function MapPage() {
         isInBounds(point.coordinates, kakao.bounds),
       ),
     [filteredPoints, kakao.bounds],
+  );
+
+  const visibleSelectedPinId = useMemo(
+    () =>
+      selectedPinId &&
+      visiblePoints.some((point) => point.id === selectedPinId)
+        ? selectedPinId
+        : null,
+    [selectedPinId, visiblePoints],
   );
 
   const fallbackClusters = useMemo(
@@ -144,6 +153,7 @@ export function MapPage() {
           <FallbackMapLayer
             clusters={fallbackClusters}
             onSelectPoint={selectMapPin}
+            selectedPointId={visibleSelectedPinId}
           />
         ) : null}
       </div>
@@ -188,6 +198,7 @@ export function MapPage() {
           drawerSnap={drawerSnap}
           onSelectPoint={selectVisiblePoint}
           onSnapChange={setDrawerSnap}
+          selectedPointId={visibleSelectedPinId}
           selectedPoint={selectedPoint}
           visiblePoints={visiblePoints}
         />
