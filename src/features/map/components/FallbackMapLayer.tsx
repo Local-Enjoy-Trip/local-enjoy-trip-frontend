@@ -1,14 +1,17 @@
 import type { CSSProperties } from "react";
-import { placeColors } from "../constants";
+import type { Coordinates } from "@/shared/types/domain";
+import { getPlaceMarkerColor } from "../constants";
 import { getFallbackPosition } from "../lib/mapPoints";
 import type { MarkerCluster } from "../types";
 
 export function FallbackMapLayer({
   clusters,
+  currentLocation,
   onSelectPoint,
   selectedPointId
 }: {
   clusters: MarkerCluster[];
+  currentLocation: Coordinates | null;
   onSelectPoint: (pointId: string) => void;
   selectedPointId: string | null;
 }) {
@@ -20,7 +23,13 @@ export function FallbackMapLayer({
       <div className="mock-map-grid" />
       <div className="absolute top-[14%] left-[7%] h-12 w-44 rounded-full bg-white/70 blur-[1px]" />
       <div className="absolute top-[46%] right-[6%] h-24 w-32 rounded-[42%] bg-[#cce8d0]/80" />
-      {clusters.map((cluster, index) => {
+      {currentLocation ? (
+        <div
+          className="current-location-marker absolute -translate-x-1/2 -translate-y-1/2"
+          style={getFallbackPosition(currentLocation)}
+        />
+      ) : null}
+      {clusters.map((cluster) => {
         const point = cluster.points[0];
         const position = getFallbackPosition(cluster.center);
         const isSelected =
@@ -29,7 +38,9 @@ export function FallbackMapLayer({
         if (cluster.points.length > 1) {
           return (
             <button
-              className="map-cluster-marker absolute -translate-x-1/2 -translate-y-full"
+              className={`map-cluster-marker absolute -translate-x-1/2 -translate-y-full ${
+                cluster.points.length >= 100 ? "is-large" : ""
+              }`}
               key={cluster.id}
               style={position}
               type="button"
@@ -44,14 +55,12 @@ export function FallbackMapLayer({
           return (
             <button
               className={`place-star-marker absolute -translate-x-1/2 -translate-y-full ${
-                isSelected
-                  ? "z-10 scale-110 drop-shadow-[0_14px_24px_rgba(24,91,61,0.28)]"
-                  : ""
+                isSelected ? "is-selected z-10" : ""
               }`}
               key={point.id}
               style={{
                 ...position,
-                "--marker-color": placeColors[index % placeColors.length]
+                "--marker-color": getPlaceMarkerColor(point)
               } as CSSProperties}
               type="button"
               onClick={() => onSelectPoint(point.id)}
@@ -64,9 +73,7 @@ export function FallbackMapLayer({
         return (
           <button
             className={`spot-avatar-marker absolute -translate-x-1/2 -translate-y-full ${
-              isSelected
-                ? "z-10 scale-110 drop-shadow-[0_14px_24px_rgba(24,91,61,0.28)]"
-                : ""
+              isSelected ? "is-selected z-10" : ""
             }`}
             key={point.id}
             style={position}

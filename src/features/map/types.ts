@@ -5,6 +5,16 @@ export type KakaoLatLng = {
   getLng: () => number;
 };
 
+export type KakaoPoint = {
+  x: number;
+  y: number;
+};
+
+export type KakaoMapProjection = {
+  containerPointFromCoords: (latlng: KakaoLatLng) => KakaoPoint;
+  coordsFromContainerPoint: (point: KakaoPoint) => KakaoLatLng;
+};
+
 export type KakaoBounds = {
   contain: (latlng: KakaoLatLng) => boolean;
 };
@@ -12,6 +22,7 @@ export type KakaoBounds = {
 export type KakaoMapInstance = {
   getBounds: () => KakaoBounds;
   getLevel: () => number;
+  getProjection: () => KakaoMapProjection;
   panTo: (latlng: KakaoLatLng) => void;
   relayout: () => void;
   setCenter: (latlng: KakaoLatLng) => void;
@@ -34,6 +45,7 @@ export type KakaoMaps = {
     container: HTMLElement,
     options: { center: KakaoLatLng; level: number }
   ) => KakaoMapInstance;
+  Point: new (x: number, y: number) => KakaoPoint;
   event: {
     addListener: (
       target: KakaoMapInstance,

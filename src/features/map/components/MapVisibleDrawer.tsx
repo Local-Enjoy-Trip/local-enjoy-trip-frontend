@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Crosshair } from "lucide-react";
 import type { MapPoint } from "../types";
 import { MapListCard } from "./MapListCard";
 
@@ -20,12 +21,15 @@ function getSnapOffset(
   if (snap === "full") return 0;
   if (snap === "hidden") return drawerHeight + 24;
 
-  const defaultHeight = window.innerHeight * (hasSelectedPoint ? 0.5 : 0.36);
+  const defaultHeight = hasSelectedPoint
+    ? Math.min(260, window.innerHeight * 0.32)
+    : window.innerHeight * 0.36;
   return Math.max(0, drawerHeight - defaultHeight);
 }
 
 export function MapVisibleDrawer({
   drawerSnap,
+  onRequestLocation,
   onSelectPoint,
   onSnapChange,
   selectedPointId,
@@ -33,6 +37,7 @@ export function MapVisibleDrawer({
   visiblePoints,
 }: {
   drawerSnap: DrawerSnap;
+  onRequestLocation: () => void;
   onSelectPoint: (point: MapPoint) => void;
   onSnapChange: (snap: DrawerSnap) => void;
   selectedPointId: string | null;
@@ -139,12 +144,29 @@ export function MapVisibleDrawer({
   return (
     <aside
       aria-hidden={drawerSnap === "hidden"}
-      className={`pointer-events-auto fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-20 mx-auto h-[calc(100dvh-88px-env(safe-area-inset-bottom)-env(safe-area-inset-top))] w-full max-w-[430px] rounded-t-[22px] bg-white shadow-[0_-14px_34px_rgba(17,17,17,0.18)] will-change-transform sm:border-x sm:border-black/10 ${
+      className={`pointer-events-auto fixed inset-x-0 top-[calc(124px+env(safe-area-inset-top))] bottom-[calc(72px+env(safe-area-inset-bottom))] z-20 mx-auto w-full max-w-[430px] rounded-t-[22px] bg-white shadow-[0_-14px_34px_rgba(17,17,17,0.18)] will-change-transform sm:border-x sm:border-black/10 ${
         drawerSnap === "hidden" && dragOffset === null ? "pointer-events-none" : ""
       }`}
       ref={drawerRef}
       style={drawerStyle}
     >
+      <div
+        className={`absolute -top-16 right-4 transition-opacity duration-200 ${
+          drawerSnap === "full"
+            ? "pointer-events-none opacity-0"
+            : "pointer-events-auto opacity-100"
+        }`}
+      >
+        <button
+          className="grid size-11 touch-manipulation select-none place-items-center rounded-full border border-black/5 bg-white text-[#1e2a26] shadow-[0_7px_18px_rgba(17,17,17,0.18)]"
+          onClick={onRequestLocation}
+          type="button"
+          aria-label="현재 위치"
+        >
+          <Crosshair size={20} strokeWidth={2.4} />
+        </button>
+      </div>
+
       <button
         aria-label={
           drawerSnap === "full" ? "드로어 기본 높이로 내리기" : "드로어 전체로 펼치기"
@@ -160,18 +182,26 @@ export function MapVisibleDrawer({
         <span className="mx-auto mt-1.5 block h-1 w-11 rounded-full bg-[#cfcfcf]" />
       </button>
 
-      <div className="flex items-center justify-between px-4 pb-2">
-        <div>
-          <p className="m-0 text-xs font-black text-[#185B3D]">
-            {selectedPoint ? "선택한 장소" : "지도에 보이는 장소"}
-          </p>
-          <h2 className="m-0 mt-1 text-[1.05rem] font-black text-[#171717]">
-            {selectedPoint ? selectedPoint.name : `${visiblePoints.length}개 발견`}
-          </h2>
+      {!selectedPoint ? (
+        <div className="flex items-center justify-between px-4 pb-2">
+          <div>
+            <p className="m-0 text-xs font-black text-[#185B3D]">
+              지도에 보이는 장소
+            </p>
+            <h2 className="m-0 mt-1 text-[1.05rem] font-black text-[#171717]">
+              {visiblePoints.length}개 발견
+            </h2>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="h-[calc(100%-78px)] touch-pan-y overflow-y-auto px-4 pb-4">
+      <div
+        className={`touch-pan-y overflow-y-auto px-4 pb-4 ${
+          selectedPoint
+            ? "h-[calc(100%-30px)] pt-3"
+            : "h-[calc(100%-78px)] pt-2"
+        }`}
+      >
         {selectedPoint ? (
           <MapListCard
             point={selectedPoint}

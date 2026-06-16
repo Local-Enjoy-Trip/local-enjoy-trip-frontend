@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getMapPins } from "@/shared/api/mockApi";
 import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
 import { FallbackMapLayer } from "@/features/map/components/FallbackMapLayer";
 import { MapFilterChips } from "@/features/map/components/MapFilterChips";
-import { MapLocateButton } from "@/features/map/components/MapLocateButton";
 import { MapSearchBar } from "@/features/map/components/MapSearchBar";
 import {
   type DrawerSnap,
@@ -36,7 +35,6 @@ export function MapPage() {
   } = useMapStore();
   const location = useCurrentLocation();
   const requestLocation = location.requestLocation;
-  const requestedInitialLocationRef = useRef(false);
   const [query, setQuery] = useState("");
   const [drawerSnap, setDrawerSnap] = useState<DrawerSnap>("default");
 
@@ -71,7 +69,33 @@ export function MapPage() {
     [selectPin],
   );
 
-  const kakao = useKakaoMap(filteredPoints, selectMapPin, selectedPinId);
+  const currentLocation =
+    location.status === "success" ? location.coordinates : null;
+
+  const selectedPoint = useMemo(
+    () => allPoints.find((point) => point.id === selectedPinId) ?? null,
+    [allPoints, selectedPinId],
+  );
+  const selectedDrawerHeight = Math.min(260, window.innerHeight * 0.32);
+  const currentDrawerHeight =
+    drawerSnap === "hidden"
+      ? 0
+      : drawerSnap === "full"
+        ? Math.max(0, window.innerHeight - 196)
+        : selectedPoint
+          ? selectedDrawerHeight
+          : window.innerHeight * 0.36;
+  const mapBottomInset = 72 + currentDrawerHeight;
+  const selectedPointBottomInset = 72 + selectedDrawerHeight;
+
+  const kakao = useKakaoMap(
+    filteredPoints,
+    selectMapPin,
+    selectedPinId,
+    currentLocation,
+    mapBottomInset,
+    selectedPointBottomInset,
+  );
   const recenterMapTo = kakao.recenterTo;
 
   const visiblePoints = useMemo(
@@ -96,11 +120,6 @@ export function MapPage() {
     [kakao.level, visiblePoints],
   );
 
-  const selectedPoint = useMemo(
-    () => allPoints.find((point) => point.id === selectedPinId) ?? null,
-    [allPoints, selectedPinId],
-  );
-
   useEffect(() => {
     if (
       selectedPinId &&
@@ -109,13 +128,6 @@ export function MapPage() {
       selectPin(null);
     }
   }, [allPoints, selectPin, selectedPinId]);
-
-  useEffect(() => {
-    if (!requestedInitialLocationRef.current) {
-      requestedInitialLocationRef.current = true;
-      requestLocation();
-    }
-  }, [requestLocation]);
 
   useEffect(() => {
     if (location.status === "success" && kakao.status === "ready") {
@@ -152,6 +164,7 @@ export function MapPage() {
         {kakao.status === "missing-key" || kakao.status === "error" ? (
           <FallbackMapLayer
             clusters={fallbackClusters}
+            currentLocation={currentLocation}
             onSelectPoint={selectMapPin}
             selectedPointId={visibleSelectedPinId}
           />
@@ -172,12 +185,6 @@ export function MapPage() {
           />
         </div>
 
-        <MapLocateButton
-          drawerSnap={drawerSnap}
-          hasSelectedPoint={selectedPoint !== null}
-          onRequestLocation={requestLocation}
-        />
-
         {location.status === "error" ? (
           <p
             className={`pointer-events-auto absolute right-4 left-4 m-0 rounded-xl bg-white/95 px-3 py-2.5 text-sm font-extrabold text-[#24463d] shadow-[0_10px_24px_rgba(17,17,17,0.12)] transition-[bottom,opacity] duration-200 ${
@@ -196,6 +203,7 @@ export function MapPage() {
 
         <MapVisibleDrawer
           drawerSnap={drawerSnap}
+          onRequestLocation={requestLocation}
           onSelectPoint={selectVisiblePoint}
           onSnapChange={setDrawerSnap}
           selectedPointId={visibleSelectedPinId}

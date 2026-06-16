@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Coordinates } from "@/shared/types/domain";
-import { mapCenter, placeColors } from "../constants";
+import { getPlaceMarkerColor, initialMapLevel, mapCenter } from "../constants";
 import { loadKakaoMap } from "../lib/kakaoMap";
 import { clusterPoints } from "../lib/mapPoints";
 import type { KakaoBounds, KakaoCustomOverlay, KakaoMapInstance, MapPoint } from "../types";
@@ -9,6 +9,9 @@ export function useKakaoMap(
   points: MapPoint[],
   onSelectPoint: (id: string) => void,
   selectedPointId: string | null,
+  currentLocation: Coordinates | null,
+  mapBottomInset: number,
+  selectedPointBottomInset: number,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
@@ -17,7 +20,32 @@ export function useKakaoMap(
     "loading"
   );
   const [bounds, setBounds] = useState<KakaoBounds | null>(null);
-  const [level, setLevel] = useState(5);
+  const [level, setLevel] = useState(initialMapLevel);
+
+  const focusMapOn = useCallback(
+    (coordinates: Coordinates, bottomInset: number, nextLevel?: number) => {
+      if (!mapRef.current || !window.kakao) return;
+
+      if (nextLevel) {
+        mapRef.current.setLevel(nextLevel);
+      }
+
+      const target = new window.kakao.maps.LatLng(
+        coordinates.lat,
+        coordinates.lng
+      );
+      const projection = mapRef.current.getProjection();
+      const targetPoint = projection.containerPointFromCoords(target);
+      const adjustedPoint = new window.kakao.maps.Point(
+        targetPoint.x,
+        targetPoint.y + Math.round(bottomInset / 2)
+      );
+      const adjustedCenter = projection.coordsFromContainerPoint(adjustedPoint);
+
+      mapRef.current.panTo(adjustedCenter);
+    },
+    []
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +71,7 @@ export function useKakaoMap(
         const center = new kakaoMaps.LatLng(mapCenter.lat, mapCenter.lng);
         const map = new kakaoMaps.Map(mapContainer, {
           center,
-          level: 5
+          level: initialMapLevel
         });
 
         mapRef.current = map;
@@ -102,7 +130,7 @@ export function useKakaoMap(
     const kakaoMaps = window.kakao?.maps;
     if (status !== "ready" || !mapRef.current || !kakaoMaps) return;
 
-    clusterPoints(points, level).forEach((cluster, index) => {
+    clusterPoints(points, level).forEach((cluster) => {
       const content = document.createElement("button");
       content.type = "button";
       const isSinglePoint = cluster.points.length === 1;
@@ -110,12 +138,12 @@ export function useKakaoMap(
         isSinglePoint && cluster.points[0].id === selectedPointId;
       content.className =
         !isSinglePoint
-          ? "map-cluster-marker"
+          ? getClusterClassName(cluster.points.length)
           : getOverlayClassName(cluster.points[0], isSelected);
       if (cluster.points.length === 1 && cluster.points[0].kind === "place") {
         content.style.setProperty(
           "--marker-color",
-          placeColors[index % placeColors.length]
+          getPlaceMarkerColor(cluster.points[0])
         );
       }
       content.innerHTML =
@@ -136,6 +164,7 @@ export function useKakaoMap(
         }
 
         onSelectPoint(cluster.points[0].id);
+        focusMapOn(cluster.center, selectedPointBottomInset);
       });
 
       const overlay = new kakaoMaps.CustomOverlay({
@@ -147,21 +176,47 @@ export function useKakaoMap(
       overlay.setMap(mapRef.current);
       overlaysRef.current.push(overlay);
     });
-  }, [level, onSelectPoint, points, selectedPointId, status]);
 
-  const moveTo = useCallback((coordinates: Coordinates) => {
-    if (!mapRef.current || !window.kakao) return;
-    mapRef.current.panTo(new window.kakao.maps.LatLng(coordinates.lat, coordinates.lng));
-    mapRef.current.setLevel(4);
-  }, []);
+    if (currentLocation) {
+      const content = document.createElement("div");
+      content.className = "current-location-marker";
 
-  const recenterTo = useCallback((coordinates: Coordinates) => {
-    if (!mapRef.current || !window.kakao) return;
-    mapRef.current.setCenter(
-      new window.kakao.maps.LatLng(coordinates.lat, coordinates.lng)
-    );
-    mapRef.current.setLevel(4);
-  }, []);
+      const overlay = new kakaoMaps.CustomOverlay({
+        position: new kakaoMaps.LatLng(
+          currentLocation.lat,
+          currentLocation.lng
+        ),
+        content,
+        yAnchor: 0.5,
+        zIndex: 35
+      });
+      overlay.setMap(mapRef.current);
+      overlaysRef.current.push(overlay);
+    }
+  }, [
+    currentLocation,
+    focusMapOn,
+    level,
+    onSelectPoint,
+    points,
+    selectedPointBottomInset,
+    selectedPointId,
+    status
+  ]);
+
+  const moveTo = useCallback(
+    (coordinates: Coordinates) => {
+      focusMapOn(coordinates, selectedPointBottomInset, 4);
+    },
+    [focusMapOn, selectedPointBottomInset]
+  );
+
+  const recenterTo = useCallback(
+    (coordinates: Coordinates) => {
+      focusMapOn(coordinates, mapBottomInset, 4);
+    },
+    [focusMapOn, mapBottomInset]
+  );
 
   return { bounds, containerRef, level, moveTo, recenterTo, status };
 }
@@ -170,9 +225,13 @@ function getOverlayClassName(point: MapPoint, selected: boolean) {
   const baseClassName =
     point.kind === "place" ? "place-star-marker" : "spot-avatar-marker";
 
-  return selected
-    ? `${baseClassName} scale-110 drop-shadow-[0_14px_24px_rgba(24,91,61,0.28)]`
-    : baseClassName;
+  return selected ? `${baseClassName} is-selected` : baseClassName;
+}
+
+function getClusterClassName(count: number) {
+  return count >= 100
+    ? "map-cluster-marker is-large"
+    : "map-cluster-marker";
 }
 
 function getOverlayContent(point: MapPoint) {

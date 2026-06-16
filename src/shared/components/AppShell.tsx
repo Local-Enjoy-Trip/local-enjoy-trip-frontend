@@ -376,7 +376,7 @@ export function AppShell() {
             aria-label={
               isCreateMenuOpen ? "만들기 메뉴 닫기" : "만들기 메뉴 열기"
             }
-            className={`grid h-10 w-10 place-items-center rounded-full border-0 text-white outline-none transition-[background-color,box-shadow,transform] duration-200 active:scale-95 ${
+            className={`grid h-12 w-12 place-items-center rounded-full border-0 text-white outline-none transition-[background-color,box-shadow,transform] duration-200 active:scale-95 ${
               isCreateMenuOpen
                 ? "bg-black shadow-[0_8px_18px_rgba(17,17,17,0.2)]"
                 : "bg-[#FF4300] shadow-[0_8px_18px_rgba(255,67,0,0.24)]"
@@ -388,7 +388,7 @@ export function AppShell() {
               className={`transition-transform duration-300 ease-out ${
                 isCreateMenuOpen ? "rotate-45" : "rotate-0"
               }`}
-              size={23}
+              size={27}
               strokeWidth={2.4}
             />
           </button>
