@@ -1,11 +1,44 @@
-import { Camera, MapPinned } from "lucide-react";
-import { FormEvent, useState } from "react";
-import { PageHeader } from "@/shared/components/PageHeader";
+import {
+  Check,
+  ImagePlus,
+  X,
+} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import { LocationSelector } from "@/features/home/components/LocationSelector";
+import type { HomeLocation } from "@/features/home/types/homeTypes";
 import type { Visibility } from "@/shared/types/domain";
 
+const MAX_BODY_LENGTH = 80;
+
 export function CreateNotePage() {
-  const [visibility, setVisibility] = useState<Visibility>("friends");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedLocation, setSelectedLocation] =
+    useState<HomeLocation>("장안1동");
+  const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [body, setBody] = useState("");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [visibility, setVisibility] = useState<Visibility>("friends");
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+
+  function handleImageRemove() {
+    setImagePreview(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -13,82 +46,161 @@ export function CreateNotePage() {
   }
 
   return (
-    <section className="p-[22px_18px_28px]">
-      <PageHeader
-        eyebrow="빠른 기록"
-        title="쪽지 남기기"
-        description="지도에서 위치를 고르고, 그 순간의 감각을 한 줄로 남겨보세요."
-      />
+    <section className="min-h-screen bg-white px-5 pt-[calc(26px+env(safe-area-inset-top))] pb-8 text-[#111111]">
+      <header>
+        <h1 className="m-0 text-[1.85rem] leading-tight font-black tracking-[-0.045em]">
+          박기현님의 SPOT 쪽지
+        </h1>
+        <p className="mt-2 mb-0 text-sm font-medium text-[#777]">
+          여행지에서 발견한 순간을 한 장과 한 줄로 남겨보세요.
+        </p>
 
-      <form className="grid gap-4" onSubmit={handleSubmit}>
-        <label className="grid gap-2 font-black text-[#3d3932]">
-          한 줄 내용
-          <textarea
-            className="w-full resize-y rounded-lg border border-black/10 bg-white p-3.5 leading-normal text-[#24231f]"
-            maxLength={80}
-            onChange={(event) => setBody(event.target.value)}
-            placeholder="시장 소리가 멀어질 때쯤 잔잔한 음악이 잘 어울려요."
-            rows={4}
-            value={body}
+        <LocationSelector
+          selectedLocation={selectedLocation}
+          isOpen={isLocationOpen}
+          hint="쪽지를 남길 지역을 변경할 수 있어요"
+          onToggle={() => setIsLocationOpen((isOpen) => !isOpen)}
+          onSelect={(location) => {
+            setSelectedLocation(location);
+            setIsLocationOpen(false);
+          }}
+        />
+      </header>
+
+      <form className="mt-7 grid gap-7" onSubmit={handleSubmit}>
+        <div>
+          <div className="mb-3">
+            <h2 className="m-0 text-base font-black">사진</h2>
+            <p className="mt-1 mb-0 text-xs font-medium text-[#888]">
+              선택 사항 · 한 장만 첨부할 수 있어요
+            </p>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            className="sr-only"
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
           />
-          <small className="justify-self-end text-[#8d887f]">
-            {body.length}/80
-          </small>
+
+          <AnimatePresence mode="wait">
+            {imagePreview ? (
+              <motion.div
+                className="relative aspect-[16/10] w-full overflow-hidden rounded-[22px] bg-[#f5f5f5]"
+                key="preview"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.18 }}
+              >
+                <img
+                  className="h-full w-full object-cover"
+                  src={imagePreview}
+                  alt="첨부 사진 미리보기"
+                />
+                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/60 to-transparent p-3 pt-10">
+                  <button
+                    className="rounded-full border border-white/25 bg-black/30 px-3.5 py-2 text-xs font-black text-white backdrop-blur-md"
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    사진 변경
+                  </button>
+                  <button
+                    className="grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-black/30 text-white backdrop-blur-md"
+                    type="button"
+                    onClick={handleImageRemove}
+                    aria-label="첨부 사진 삭제"
+                  >
+                    <X size={18} strokeWidth={2.5} />
+                  </button>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.button
+                className="flex min-h-[148px] w-full items-center justify-center gap-4 rounded-[22px] border border-dashed border-[#d8d8d8] bg-[#fafafa] text-left transition-[border-color,background-color] hover:border-[#FF4300] hover:bg-[#fff8f5]"
+                key="empty"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="사진 한 장 첨부"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <span className="grid h-13 w-13 flex-none place-items-center rounded-full bg-[#FF4300] text-white shadow-[0_8px_20px_rgba(255,67,0,0.2)]">
+                  <ImagePlus size={23} strokeWidth={2.2} />
+                </span>
+                <span>
+                  <strong className="block text-sm font-black text-[#222]">
+                    사진 추가하기
+                  </strong>
+                  <small className="mt-1 block text-xs font-medium text-[#888]">
+                    갤러리에서 여행 사진을 선택하세요
+                  </small>
+                </span>
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <label className="grid gap-3 font-black text-[#222]">
+          쪽지 내용
+          <div className="relative">
+            <textarea
+              className="min-h-[154px] w-full resize-none rounded-[22px] border border-[#e5e5e5] bg-white p-4 pb-9 leading-relaxed font-semibold text-[#222] outline-none transition-[border-color,box-shadow] placeholder:font-medium placeholder:text-[#aaa] focus:border-[#FF4300] focus:shadow-[0_0_0_3px_rgba(255,67,0,0.09)]"
+              maxLength={MAX_BODY_LENGTH}
+              onChange={(event) => setBody(event.target.value)}
+              placeholder="시장 소리가 멀어질 때쯤 잔잔한 음악이 잘 어울려요."
+              value={body}
+            />
+            <span
+              className={`pointer-events-none absolute right-4 bottom-3 text-xs font-bold ${
+                body.length >= MAX_BODY_LENGTH ? "text-[#FF4300]" : "text-[#bbb]"
+              }`}
+            >
+              {body.length}/{MAX_BODY_LENGTH}
+            </span>
+          </div>
         </label>
 
-        <button
-          className="flex w-full items-center gap-3 rounded-lg border border-black/10 bg-white p-4 text-left text-[#24231f]"
-          type="button"
-        >
-          <MapPinned size={22} />
-          <span className="grid gap-1">
-            <strong>위치 선택</strong>
-            <small className="text-[#6f6a60]">
-              지도에서 쪽지를 남길 위치를 고릅니다.
-            </small>
-          </span>
-        </button>
+        <fieldset className="m-0 border-0 p-0">
+          <legend className="mb-3 text-base font-black text-[#222]">
+            공개 범위
+          </legend>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ["public", "전체공개"],
+              ["friends", "친구공개"],
+              ["private", "나만보기"],
+            ].map(([value, label]) => {
+              const isSelected = visibility === value;
 
-        <button
-          className="flex w-full items-center gap-3 rounded-lg border border-black/10 bg-white p-4 text-left text-[#24231f]"
-          type="button"
-        >
-          <Camera size={22} />
-          <span className="grid gap-1">
-            <strong>사진 첨부</strong>
-            <small className="text-[#6f6a60]">
-              선택 사항 · MVP에서는 파일 업로드로 시작합니다.
-            </small>
-          </span>
-        </button>
-
-        <fieldset className="flex gap-2 border-0 p-0">
-          <legend className="mb-2 w-full font-black">공개 범위</legend>
-          {[
-            ["public", "전체공개"],
-            ["friends", "친구공개"],
-            ["private", "나만보기"],
-          ].map(([value, label]) => (
-            <button
-              className={`min-h-9 rounded-full border border-black/10 px-3.5 text-sm font-extrabold ${
-                visibility === value
-                  ? "bg-[#116149] text-[#fffaf0]"
-                  : "bg-[#fffaf0]/90 text-[#625d54]"
-              }`}
-              key={value}
-              onClick={() => setVisibility(value as Visibility)}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
+              return (
+                <button
+                  className={`min-h-11 rounded-xl border text-sm font-black transition-[background-color,border-color,color] ${
+                    isSelected
+                      ? "border-[#FF4300] bg-[#fff0eb] text-[#FF4300]"
+                      : "border-[#e8e8e8] bg-white text-[#777]"
+                  }`}
+                  key={value}
+                  type="button"
+                  onClick={() => setVisibility(value as Visibility)}
+                  aria-pressed={isSelected}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </fieldset>
 
         <button
-          className="mt-1 inline-flex min-h-[52px] w-full items-center justify-center rounded-lg bg-[#116149] font-black text-[#fffaf0] disabled:bg-[#e6e0d5] disabled:text-[#8d887f]"
+          className="inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#FF4300] font-black text-white shadow-[0_12px_26px_rgba(255,67,0,0.22)] transition-[opacity,transform,box-shadow] active:scale-[0.99] disabled:bg-[#efefef] disabled:text-[#aaa] disabled:shadow-none"
           disabled={!body.trim()}
           type="submit"
         >
+          {body.trim() ? <Check size={19} strokeWidth={3} /> : null}
           등록하기
         </button>
       </form>

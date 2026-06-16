@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "../shared/components/AppShell";
 import { CreateNotePage } from "../pages/CreateNotePage";
+import { CreateCoursePage } from "../pages/CreateCoursePage";
 import { HomePage } from "../pages/HomePage";
 import { LibraryPage } from "../pages/LibraryPage";
 import { MapPage } from "../pages/MapPage";
@@ -13,6 +14,7 @@ export const router = createBrowserRouter([
       { path: "/", element: <HomePage /> },
       { path: "/map", element: <MapPage /> },
       { path: "/note/new", element: <CreateNotePage /> },
+      { path: "/course/new", element: <CreateCoursePage /> },
       { path: "/library", element: <LibraryPage /> },
       { path: "/my", element: <MyPage /> }
     ]
