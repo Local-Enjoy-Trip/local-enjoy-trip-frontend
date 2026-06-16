@@ -211,7 +211,7 @@ function MyNavIcon({ isActive }: { isActive: boolean }) {
 const navItems = [
   { to: "/", label: "홈", icon: Home },
   { to: "/map", label: "지도", icon: Map },
-  { to: "/library", label: "코스", icon: Route },
+  { to: "/course", label: "코스", icon: Route },
   { to: "/my", label: "마이", icon: UserRound },
 ];
 
@@ -222,7 +222,7 @@ const createItems = [
     icon: NotebookPen,
   },
   {
-    to: "/library",
+    to: "/course/new",
     label: "코스 만들기",
     icon: MapPinned,
   },
@@ -407,7 +407,7 @@ export function AppShell() {
               {({ isActive }) => (
                 <>
                   <span className="relative grid h-8 w-9 place-items-center text-black">
-                    {item.to === "/library" ? (
+                    {item.to === "/course" ? (
                       <CourseNavIcon isActive={isActive} />
                     ) : item.to === "/my" ? (
                       <MyNavIcon isActive={isActive} />

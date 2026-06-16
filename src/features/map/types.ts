@@ -33,6 +33,10 @@ export type KakaoCustomOverlay = {
   setMap: (map: KakaoMapInstance | null) => void;
 };
 
+export type KakaoPolyline = {
+  setMap: (map: KakaoMapInstance | null) => void;
+};
+
 export type KakaoMaps = {
   CustomOverlay: new (options: {
     content: HTMLElement;
@@ -46,6 +50,13 @@ export type KakaoMaps = {
     options: { center: KakaoLatLng; level: number }
   ) => KakaoMapInstance;
   Point: new (x: number, y: number) => KakaoPoint;
+  Polyline: new (options: {
+    path: KakaoLatLng[];
+    strokeColor?: string;
+    strokeOpacity?: number;
+    strokeStyle?: "solid" | "shortdash" | "shortdot" | "dash" | "dot" | "longdash" | "dashdot" | "longdashdot";
+    strokeWeight?: number;
+  }) => KakaoPolyline;
   event: {
     addListener: (
       target: KakaoMapInstance,

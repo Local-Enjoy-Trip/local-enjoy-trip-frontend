@@ -52,7 +52,7 @@ export function CreateCoursePage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     window.alert("백엔드 연결 후 코스가 저장됩니다.");
-    navigate("/library");
+    navigate("/course");
   }
 
   return (
