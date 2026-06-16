@@ -1,14 +1,16 @@
-import { Heart, Route, Star, UserRound } from "lucide-react";
+import { Heart, Route, UserRound } from "lucide-react";
 import { categoryLabels, visibilityLabels } from "@/shared/lib/labels";
 import type { MapPoint } from "../types";
 
 export function MapListCard({
   featured = false,
+  onAddToCourse,
   onSelect,
   point,
   selected = false
 }: {
   featured?: boolean;
+  onAddToCourse?: (point: MapPoint) => void;
   onSelect?: () => void;
   point: MapPoint;
   selected?: boolean;
@@ -16,45 +18,65 @@ export function MapListCard({
   const isPlace = point.kind === "place";
   const description = isPlace ? point.source.summary : point.source.body;
   const tagClassName =
-    "inline-flex rounded-full bg-[#f1f6f1] px-[7px] py-1 text-[11px] font-black text-[#315343]";
+    "inline-flex rounded-full bg-[#F4F3EF] px-[7px] py-1 text-[11px] font-black text-[#6A665F]";
 
   return (
     <article
-      className={`rounded-2xl border p-3 ${
-        selected
-          ? "border-[#185B3D] bg-[#F1F7F1] shadow-[0_10px_24px_rgba(24,91,61,0.14)]"
-          : featured
-          ? "mb-2 border-[#185B3D]/20 bg-[#F1F7F1]"
+      className={`relative rounded-2xl border p-2.5 ${
+        featured
+          ? "mb-2 border-[#E6E2DA] bg-[#FAF9F6]"
           : "border-[#efeee9] bg-white"
       }`}
       data-selected={selected}
     >
+      <div className="absolute top-3 right-3 z-10 flex gap-1">
+        <button
+          aria-label={point.saved ? "찜 해제" : "찜"}
+          className="grid size-8 place-items-center rounded-full border border-black/5 bg-white/90 text-[#4B4741] shadow-[0_4px_12px_rgba(17,17,17,0.08)]"
+          type="button"
+        >
+          <Heart
+            size={16}
+            fill={point.saved ? "#FF5A66" : "none"}
+            className={point.saved ? "text-[#FF5A66]" : ""}
+          />
+        </button>
+        <button
+          aria-label="추가할 코스 선택"
+          className="grid size-8 place-items-center rounded-full border border-black/5 bg-white/90 text-[#3E4A43] shadow-[0_4px_12px_rgba(17,17,17,0.08)]"
+          onClick={() => onAddToCourse?.(point)}
+          type="button"
+        >
+          <Route size={15} strokeWidth={2.4} />
+        </button>
+      </div>
       <button
         className="flex w-full items-start gap-3 border-0 bg-transparent p-0 text-left"
         onClick={onSelect}
         type="button"
       >
         <span
-          className={`grid h-11 w-11 flex-none place-items-center overflow-hidden rounded-2xl ${
-            isPlace ? "bg-[#FFF1E6] text-[#F97316]" : "bg-[#EAF7EE] text-[#185B3D]"
+          className={`grid h-24 w-24 flex-none place-items-center overflow-hidden rounded-xl ${
+            isPlace ? "bg-[#F4F0EA] text-[#8A8176]" : "bg-[#F2F1ED] text-[#625F58]"
           }`}
         >
           {isPlace ? (
-            <Star size={22} fill="currentColor" />
+            <img
+              className="h-full w-full object-cover"
+              alt=""
+              src={point.source.imageUrl}
+            />
           ) : point.authorAvatarUrl ? (
             <img className="h-full w-full object-cover" alt="" src={point.authorAvatarUrl} />
           ) : (
             <UserRound size={22} />
           )}
         </span>
-        <span className="min-w-0 flex-1">
+        <span className="min-w-0 flex-1 pr-[74px]">
           <span className="flex items-center gap-2">
             <strong className="truncate text-[0.96rem] font-black text-[#171717]">
               {point.name}
             </strong>
-            {point.saved ? (
-              <Heart size={15} fill="#FF5A66" className="text-[#FF5A66]" />
-            ) : null}
           </span>
           <span className="mt-1 line-clamp-2 block text-sm font-semibold leading-snug text-[#706B64]">
             {description}
@@ -80,22 +102,6 @@ export function MapListCard({
           </span>
         </span>
       </button>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#ece9e3] bg-white text-sm font-black text-[#26231f]"
-          type="button"
-        >
-          <Heart size={16} />
-          찜
-        </button>
-        <button
-          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border-0 bg-[#185B3D] text-sm font-black text-white"
-          type="button"
-        >
-          <Route size={16} />
-          여행코스
-        </button>
-      </div>
     </article>
   );
 }

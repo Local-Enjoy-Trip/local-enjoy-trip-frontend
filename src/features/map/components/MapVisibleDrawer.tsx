@@ -5,7 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { Crosshair } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Crosshair, Plus } from "lucide-react";
+import { courses } from "@/shared/data/mockData";
 import type { MapPoint } from "../types";
 import { MapListCard } from "./MapListCard";
 
@@ -47,6 +48,7 @@ export function MapVisibleDrawer({
   const drawerRef = useRef<HTMLElement>(null);
   const dragStartRef = useRef({ offset: 0, time: 0, y: 0 });
   const dragMovedRef = useRef(false);
+  const [courseTarget, setCourseTarget] = useState<MapPoint | null>(null);
   const [drawerHeight, setDrawerHeight] = useState(0);
   const [dragOffset, setDragOffset] = useState<number | null>(null);
 
@@ -182,30 +184,75 @@ export function MapVisibleDrawer({
         <span className="mx-auto mt-1.5 block h-1 w-11 rounded-full bg-[#cfcfcf]" />
       </button>
 
-      {!selectedPoint ? (
-        <div className="flex items-center justify-between px-4 pb-2">
-          <div>
-            <p className="m-0 text-xs font-black text-[#185B3D]">
-              지도에 보이는 장소
-            </p>
-            <h2 className="m-0 mt-1 text-[1.05rem] font-black text-[#171717]">
-              {visiblePoints.length}개 발견
-            </h2>
-          </div>
-        </div>
-      ) : null}
-
       <div
-        className={`touch-pan-y overflow-y-auto px-4 pb-4 ${
-          selectedPoint
-            ? "h-[calc(100%-30px)] pt-3"
-            : "h-[calc(100%-78px)] pt-2"
-        }`}
+        className="h-[calc(100%-30px)] touch-pan-y overflow-y-auto px-4 pt-3 pb-4"
       >
-        {selectedPoint ? (
+        {courseTarget ? (
+          <div>
+            <div className="mb-4 flex items-start gap-3">
+              <button
+                aria-label="장소 목록으로 돌아가기"
+                className="grid size-9 flex-none place-items-center rounded-full border-0 bg-[#F4F3EF] text-[#4B4741]"
+                onClick={() => setCourseTarget(null)}
+                type="button"
+              >
+                <ChevronLeft size={19} />
+              </button>
+              <div className="min-w-0">
+                <p className="m-0 text-xs font-black text-[#6A665F]">
+                  추가할 코스 선택
+                </p>
+                <h2 className="m-0 mt-1 truncate text-lg font-black text-[#171717]">
+                  {courseTarget.name}
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              {courses.map((course) => (
+                <button
+                  className="flex items-center gap-3 rounded-xl border border-[#EEEAE2] bg-white p-3 text-left"
+                  key={course.id}
+                  onClick={() => setCourseTarget(null)}
+                  type="button"
+                >
+                  <span className="grid size-10 flex-none place-items-center rounded-lg bg-[#F4F3EF] text-[#3E4A43]">
+                    <Check size={18} strokeWidth={2.4} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm font-black text-[#171717]">
+                      {course.title}
+                    </strong>
+                    <small className="mt-0.5 block text-xs font-bold text-[#807A72]">
+                      {course.area} · {course.stopCount}개 장소
+                    </small>
+                  </span>
+                </button>
+              ))}
+              <button
+                className="mt-1 flex items-center gap-3 rounded-xl border border-dashed border-[#D8D3C9] bg-[#FAF9F6] p-3 text-left"
+                type="button"
+              >
+                <span className="grid size-10 flex-none place-items-center rounded-lg bg-white text-[#3E4A43]">
+                  <Plus size={18} strokeWidth={2.4} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <strong className="block text-sm font-black text-[#171717]">
+                    새 코스 만들기
+                  </strong>
+                  <small className="mt-0.5 block text-xs font-bold text-[#807A72]">
+                    이 장소로 새 여행 코스를 시작해요.
+                  </small>
+                </span>
+                <ChevronRight size={18} className="text-[#AAA49B]" />
+              </button>
+            </div>
+          </div>
+        ) : selectedPoint ? (
           <MapListCard
             point={selectedPoint}
             featured
+            onAddToCourse={setCourseTarget}
             selected={selectedPoint.id === selectedPointId}
           />
         ) : visiblePoints.length > 0 ? (
@@ -214,6 +261,7 @@ export function MapVisibleDrawer({
               <MapListCard
                 key={point.id}
                 point={point}
+                onAddToCourse={setCourseTarget}
                 onSelect={() => onSelectPoint(point)}
                 selected={point.id === selectedPointId}
               />
