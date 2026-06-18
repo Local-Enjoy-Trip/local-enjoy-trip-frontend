@@ -31,6 +31,7 @@ export type KakaoMapInstance = {
 
 export type KakaoCustomOverlay = {
   setMap: (map: KakaoMapInstance | null) => void;
+  setZIndex: (zIndex: number) => void;
 };
 
 export type KakaoPolyline = {

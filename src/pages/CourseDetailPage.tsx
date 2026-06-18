@@ -1,7 +1,6 @@
 import {
   ArrowLeft,
   CheckSquare,
-  ChevronDown,
   Menu,
   Navigation,
   Plane,
@@ -195,10 +194,18 @@ function FallbackRouteMapPreview() {
   );
 }
 
-function CourseRouteMap({ className = "" }: { className?: string }) {
+function CourseRouteMap({
+  activeStopId,
+  className = "",
+}: {
+  activeStopId: number;
+  className?: string;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
+  const markerElementsRef = useRef<Map<number, HTMLButtonElement>>(new Map());
   const overlaysRef = useRef<KakaoCustomOverlay[]>([]);
+  const overlaysByStopIdRef = useRef<Map<number, KakaoCustomOverlay>>(new Map());
   const polylineRef = useRef<KakaoPolyline | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "missing-key" | "error">(
     "loading",
@@ -259,6 +266,10 @@ function CourseRouteMap({ className = "" }: { className?: string }) {
 
     overlaysRef.current.forEach((overlay) => overlay.setMap(null));
     overlaysRef.current = [];
+    const overlaysByStopId = overlaysByStopIdRef.current;
+    overlaysByStopId.clear();
+    const markerElements = markerElementsRef.current;
+    markerElements.clear();
     polylineRef.current?.setMap(null);
 
     const path = stops.map(
@@ -277,9 +288,14 @@ function CourseRouteMap({ className = "" }: { className?: string }) {
     stops.forEach((stop) => {
       const marker = document.createElement("button");
       marker.type = "button";
-      marker.className = `course-route-marker ${markerColorClass[stop.accent]}`;
-      marker.textContent = String(stop.id);
+      marker.className = "course-route-marker";
       marker.setAttribute("aria-label", `${stop.id}. ${stop.title}`);
+      markerElements.set(stop.id, marker);
+
+      const markerDot = document.createElement("span");
+      markerDot.className = `course-route-marker-dot ${markerColorClass[stop.accent]}`;
+      markerDot.textContent = String(stop.id);
+      marker.append(markerDot);
 
       const overlay = new kakaoMaps.CustomOverlay({
         content: marker,
@@ -289,8 +305,58 @@ function CourseRouteMap({ className = "" }: { className?: string }) {
       });
       overlay.setMap(map);
       overlaysRef.current.push(overlay);
+      overlaysByStopId.set(stop.id, overlay);
     });
+
+    const refreshRouteOverlays = () => {
+      const currentMap = mapRef.current;
+      if (!currentMap) return;
+
+      window.requestAnimationFrame(() => {
+        overlaysRef.current.forEach((overlay) => {
+          overlay.setMap(null);
+          overlay.setMap(currentMap);
+        });
+        polylineRef.current?.setMap(null);
+        polylineRef.current?.setMap(currentMap);
+      });
+    };
+
+    kakaoMaps.event.addListener(map, "zoom_changed", refreshRouteOverlays);
+    kakaoMaps.event.addListener(map, "idle", refreshRouteOverlays);
+
+    return () => {
+      kakaoMaps.event.removeListener(map, "zoom_changed", refreshRouteOverlays);
+      kakaoMaps.event.removeListener(map, "idle", refreshRouteOverlays);
+      overlaysRef.current.forEach((overlay) => overlay.setMap(null));
+      overlaysRef.current = [];
+      overlaysByStopId.clear();
+      markerElements.clear();
+      polylineRef.current?.setMap(null);
+    };
   }, [status]);
+
+  useEffect(() => {
+    const kakaoMaps = window.kakao?.maps;
+    const map = mapRef.current;
+    const activeStop = stops.find((stop) => stop.id === activeStopId);
+
+    markerElementsRef.current.forEach((marker, stopId) => {
+      marker.classList.toggle("is-active", stopId === activeStopId);
+    });
+    overlaysByStopIdRef.current.forEach((overlay, stopId) => {
+      overlay.setZIndex(stopId === activeStopId ? 1000 : 20 + stopId);
+    });
+
+    if (status !== "ready" || !kakaoMaps || !map || !activeStop) return;
+
+    map.panTo(
+      new kakaoMaps.LatLng(
+        activeStop.coordinates.lat,
+        activeStop.coordinates.lng,
+      ),
+    );
+  }, [activeStopId, status]);
 
   return (
     <section
@@ -314,15 +380,19 @@ function CourseRouteMap({ className = "" }: { className?: string }) {
 }
 
 function CourseRouteDrawer({
+  activeStopId,
   drawerCoverOffset,
   drawerTop,
   headerOffset,
+  setActiveStopId,
   setDrawerCoverOffset,
   setHeaderOffset,
 }: {
+  activeStopId: number;
   drawerCoverOffset: number;
   drawerTop: number;
   headerOffset: number;
+  setActiveStopId: Dispatch<SetStateAction<number>>;
   setDrawerCoverOffset: Dispatch<SetStateAction<number>>;
   setHeaderOffset: Dispatch<SetStateAction<number>>;
 }) {
@@ -336,6 +406,7 @@ function CourseRouteDrawer({
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const isExpanded = drawerTop === 0;
+  const isHeaderCollapsed = headerOffset >= HEADER_COLLAPSE_DISTANCE;
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -392,7 +463,7 @@ function CourseRouteDrawer({
     };
   }
 
-  function moveDrawerFromScroll(deltaY: number) {
+  function moveHeaderFromRouteScroll(deltaY: number) {
     const scroller = scrollerRef.current;
     const isMovingTowardLowerContent = deltaY > 0;
     const isMovingBackToTop = deltaY < 0;
@@ -402,9 +473,13 @@ function CourseRouteDrawer({
       isMovingTowardLowerContent &&
       headerOffset < HEADER_COLLAPSE_DISTANCE
     ) {
+      const remainingCollapse = HEADER_COLLAPSE_DISTANCE - headerOffset;
+      const collapseDelta = Math.min(remainingCollapse, deltaY);
+
       setHeaderOffset((current) =>
-        Math.min(HEADER_COLLAPSE_DISTANCE, current + deltaY),
+        Math.min(HEADER_COLLAPSE_DISTANCE, current + collapseDelta),
       );
+
       return true;
     }
 
@@ -417,7 +492,7 @@ function CourseRouteDrawer({
   }
 
   function handleListWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    if (moveDrawerFromScroll(event.deltaY)) {
+    if (moveHeaderFromRouteScroll(event.deltaY)) {
       event.preventDefault();
     }
   }
@@ -435,15 +510,47 @@ function CourseRouteDrawer({
     const deltaY = previousY - currentY;
     touchStartYRef.current = currentY;
 
-    if (moveDrawerFromScroll(deltaY)) {
+    if (moveHeaderFromRouteScroll(deltaY)) {
       event.preventDefault();
     }
+  }
+
+  function updateActiveStopFromScroll() {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const scrollerRect = scroller.getBoundingClientRect();
+    const targetY = scrollerRect.top + 10;
+    const stopElements = Array.from(
+      scroller.querySelectorAll<HTMLElement>("[data-stop-id]"),
+    );
+
+    const closestStopId = stopElements.reduce<number | null>(
+      (closestId, element) => {
+        const currentDistance = Math.abs(
+          element.getBoundingClientRect().top - targetY,
+        );
+        const closestElement = closestId
+          ? scroller.querySelector<HTMLElement>(`[data-stop-id="${closestId}"]`)
+          : null;
+        const closestDistance = closestElement
+          ? Math.abs(closestElement.getBoundingClientRect().top - targetY)
+          : Number.POSITIVE_INFINITY;
+
+        return currentDistance < closestDistance
+          ? Number(element.dataset.stopId)
+          : closestId;
+      },
+      null,
+    );
+
+    if (closestStopId) setActiveStopId(closestStopId);
   }
 
   return (
     <motion.section
       aria-label="day 1 경로"
-      className="absolute inset-x-0 bottom-[-96px] z-20 flex flex-col bg-[#F8F7F3] shadow-[0_-14px_32px_rgba(17,17,17,0.12)]"
+      className="absolute inset-x-0 bottom-[-96px] z-20 flex flex-col bg-[#F2F2F0] shadow-[0_-14px_32px_rgba(17,17,17,0.12)]"
       initial={{ top: 278 }}
       animate={{
         borderTopLeftRadius: isExpanded ? 0 : 28,
@@ -452,10 +559,10 @@ function CourseRouteDrawer({
       }}
       transition={{ type: "spring", stiffness: 360, damping: 34 }}
     >
-      <div className="flex-none px-5">
+      <div className="flex-none">
         <button
           aria-label={isExpanded ? "경로 드로어 내리기" : "경로 드로어 올리기"}
-          className="mx-auto grid h-11 w-24 cursor-grab place-items-center border-0 bg-transparent p-0 touch-none active:cursor-grabbing"
+          className="grid h-11 w-full cursor-grab place-items-center border-0 bg-transparent p-0 touch-none active:cursor-grabbing"
           data-testid="course-route-drawer-handle"
           onClick={() => {
             if (ignoreClickRef.current) return;
@@ -468,79 +575,94 @@ function CourseRouteDrawer({
         >
           <span className="h-1.5 w-12 rounded-full bg-[#D8D5CE]" />
         </button>
-        <div className="mb-4 flex items-center justify-between">
-          <button
-            className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-left"
-            type="button"
-          >
-            <span className="text-[1.35rem] font-black text-[#333]">day 1</span>
-            <span className="text-[1.25rem] font-black text-[#B0AAA3]">
-              6.17/수
-            </span>
-            <ChevronDown size={22} className="text-[#333]" />
-          </button>
-          <button
-            className="border-0 bg-transparent p-0 text-lg font-black text-[#777]"
-            type="button"
-          >
-            편집
-          </button>
-        </div>
       </div>
 
       <div
-        className="flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(192px+env(safe-area-inset-bottom))]"
+        className={`flex-1 overscroll-contain px-5 pt-2 pb-[calc(60dvh+env(safe-area-inset-bottom))] ${
+          isHeaderCollapsed ? "overflow-y-auto" : "overflow-hidden"
+        }`}
         data-testid="course-route-drawer-scroller"
+        onScroll={updateActiveStopFromScroll}
         onTouchMove={handleListTouchMove}
         onTouchStart={handleListTouchStart}
         onWheel={handleListWheel}
         ref={scrollerRef}
       >
         {stops.map((stop) => (
-          <StopTimelineItem key={stop.id} stop={stop} />
+          <StopTimelineItem
+            isActive={stop.id === activeStopId}
+            key={stop.id}
+            onSelect={() => setActiveStopId(stop.id)}
+            stop={stop}
+          />
         ))}
       </div>
     </motion.section>
   );
 }
 
-function StopTimelineItem({ stop }: { stop: CourseStop }) {
+function StopTimelineItem({
+  isActive,
+  onSelect,
+  stop,
+}: {
+  isActive: boolean;
+  onSelect: () => void;
+  stop: CourseStop;
+}) {
   return (
-    <div className="grid grid-cols-[76px_1fr] gap-3">
-      <div className="relative flex flex-col items-center">
+    <div
+      className="grid w-full cursor-pointer grid-cols-[58px_1fr] gap-2"
+      data-stop-id={stop.id}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      <div className="relative flex min-h-[72px] flex-col items-center pt-2">
+        <span
+          className={`absolute left-1/2 w-px -translate-x-1/2 bg-[#DEDCD6] ${
+            stop.id === 1 ? "top-[-14px]" : "top-[-26px]"
+          } ${stop.id < stops.length ? "bottom-[-18px]" : "bottom-9"}`}
+        />
         {stop.distanceFromPrevious ? (
-          <span className="mb-3 rounded-lg border border-[#ECE8E0] bg-white px-2.5 py-1 text-sm font-black text-[#5F5A54] shadow-[0_4px_12px_rgba(31,38,35,0.04)]">
+          <span className="absolute top-[-26px] z-10 rounded-md border border-[#E4E1DA] bg-white px-2 py-0.5 text-[0.7rem] font-black text-[#5F5A54] shadow-[0_4px_12px_rgba(31,38,35,0.04)]">
             {stop.distanceFromPrevious}
           </span>
-        ) : (
-          <span className="mb-3 h-8" />
-        )}
+        ) : null}
         <span
-          className={`z-10 grid size-9 place-items-center rounded-full text-base font-black ${accentClass[stop.accent]}`}
+          className={`z-10 grid size-8 place-items-center rounded-full text-sm font-black ${accentClass[stop.accent]}`}
         >
           {stop.id}
         </span>
-        {stop.id < stops.length ? (
-          <span className="absolute top-[76px] bottom-[-36px] w-px bg-[#E6E1D8]" />
-        ) : null}
       </div>
 
-      <article className="mb-4 rounded-2xl bg-white p-4 shadow-[0_10px_28px_rgba(31,38,35,0.06)]">
+      <article
+        className={`mb-3 rounded-xl bg-white px-3.5 py-3 shadow-[0_8px_18px_rgba(31,38,35,0.05)] transition ${
+          isActive ? "ring-2 ring-[#7957F2]/20" : ""
+        }`}
+      >
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="m-0 truncate text-[1.15rem] font-black text-[#272727]">
+            <h3 className="m-0 truncate text-[0.98rem] font-black text-[#272727]">
               {stop.title}
             </h3>
-            <p className="mt-1 mb-0 text-sm font-bold text-[#9A958E]">
+            <p className="mt-0.5 mb-0 text-xs font-bold text-[#9A958E]">
               {stop.category}
             </p>
           </div>
           <button
             aria-label={`${stop.title} 리뷰`}
-            className="grid size-10 flex-none place-items-center rounded-full border-0 bg-transparent text-[#D7D4CF]"
+            className="grid size-8 flex-none place-items-center rounded-full border-0 bg-transparent text-[#D7D4CF]"
+            onClick={(event) => event.stopPropagation()}
             type="button"
           >
-            <Star size={24} fill="currentColor" />
+            <Star size={20} fill="currentColor" />
           </button>
         </div>
       </article>
@@ -550,6 +672,7 @@ function StopTimelineItem({ stop }: { stop: CourseStop }) {
 
 export function CourseDetailPage() {
   const navigate = useNavigate();
+  const [activeStopId, setActiveStopId] = useState(stops[0]?.id ?? 1);
   const [drawerCoverOffset, setDrawerCoverOffset] = useState(0);
   const [headerOffset, setHeaderOffset] = useState(0);
   const headerHeight = HEADER_EXPANDED_HEIGHT - headerOffset;
@@ -740,11 +863,13 @@ export function CourseDetailPage() {
         className="relative min-h-0 flex-1 overflow-hidden bg-[#E7F0E8]"
         data-testid="course-route-stage"
       >
-        <CourseRouteMap className="h-[278px]" />
+        <CourseRouteMap activeStopId={activeStopId} className="h-[278px]" />
         <CourseRouteDrawer
+          activeStopId={activeStopId}
           drawerCoverOffset={drawerCoverOffset}
           drawerTop={drawerTop}
           headerOffset={headerOffset}
+          setActiveStopId={setActiveStopId}
           setDrawerCoverOffset={setDrawerCoverOffset}
           setHeaderOffset={setHeaderOffset}
         />

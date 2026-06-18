@@ -343,26 +343,38 @@ a {
 
 .course-route-marker {
   appearance: none;
-  border: 3px solid #ffffff;
-  border-radius: 999px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.62) inset,
-    0 10px 22px rgba(17, 17, 17, 0.22);
-  color: #ffffff;
+  border: 0;
+  background: transparent;
   cursor: pointer;
   display: grid;
-  font: inherit;
-  font-size: 16px;
-  font-weight: 950;
-  height: 40px;
-  letter-spacing: 0;
-  line-height: 1;
+  height: 54px;
   padding: 0;
   place-items: center;
+  position: relative;
   transition:
     filter 160ms ease,
-    translate 160ms ease;
-  width: 40px;
+    height 160ms ease,
+    translate 160ms ease,
+    width 160ms ease;
+  width: 46px;
+}
+
+.course-route-marker-dot {
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 5px 12px rgba(17, 17, 17, 0.2);
+  color: #ffffff;
+  display: grid;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 950;
+  height: 26px;
+  letter-spacing: 0;
+  line-height: 1;
+  place-items: center;
+  position: relative;
+  width: 26px;
+  z-index: 2;
 }
 
 .course-route-marker:hover {
@@ -370,15 +382,60 @@ a {
   translate: 0 -2px;
 }
 
-.course-route-marker.is-violet {
+.course-route-marker.is-active {
+  filter: saturate(1.16);
+  translate: 0 -10px;
+  z-index: 40;
+}
+
+.course-route-marker.is-active .course-route-marker-dot {
+  left: 50%;
+  font-size: 13px;
+  height: 34px;
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  width: 34px;
+}
+
+.course-route-marker.is-active::before {
+  background: #ffffff;
+  border-radius: 999px;
+  box-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.86) inset,
+    0 10px 22px rgba(17, 17, 17, 0.24);
+  content: "";
+  height: 46px;
+  left: 50%;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  width: 46px;
+  z-index: 0;
+}
+
+.course-route-marker.is-active::after {
+  background: #ffffff;
+  border-radius: 0 0 4px;
+  content: "";
+  height: 18px;
+  left: 50%;
+  position: absolute;
+  top: 33px;
+  transform: translateX(-50%) rotate(45deg);
+  width: 18px;
+  z-index: 0;
+}
+
+.course-route-marker-dot.is-violet {
   background: #7957f2;
 }
 
-.course-route-marker.is-coral {
+.course-route-marker-dot.is-coral {
   background: #f56565;
 }
 
-.course-route-marker.is-mint {
+.course-route-marker-dot.is-mint {
   background: #49bfb0;
 }
 
