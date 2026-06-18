@@ -234,6 +234,9 @@ export function AppShell() {
   const createMenuRef = useRef<HTMLDivElement>(null);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const isMapPage = location.pathname === "/map";
+  const isCourseDetailPage =
+    location.pathname.startsWith("/course/") && location.pathname !== "/course/new";
+  const usesFixedViewport = isMapPage || isCourseDetailPage;
 
   useEffect(() => {
     setIsCreateMenuOpen(false);
@@ -268,14 +271,14 @@ export function AppShell() {
   return (
     <div
       className={`mx-auto w-full max-w-[430px] bg-white shadow-[0_0_0_1px_rgba(17,17,17,0.06)] transition-colors sm:my-6 sm:rounded-3xl ${
-        isMapPage
+        usesFixedViewport
           ? "h-[calc(100dvh-48px)] overflow-hidden sm:h-[calc(100dvh-48px)]"
           : "min-h-screen sm:min-h-[calc(100vh-48px)] sm:overflow-hidden"
       }`}
     >
       <main
         className={
-          isMapPage
+          usesFixedViewport
             ? "h-full overflow-hidden"
             : "min-h-screen pb-[calc(72px+env(safe-area-inset-bottom))]"
         }
