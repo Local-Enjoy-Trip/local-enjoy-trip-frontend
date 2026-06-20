@@ -8,6 +8,7 @@ import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { MapPage } from "../pages/MapPage";
 import { MyPage } from "../pages/MyPage";
+import { NoteLocationPage } from "../pages/NoteLocationPage";
 
 export const router = createBrowserRouter([
   {
@@ -17,6 +18,7 @@ export const router = createBrowserRouter([
       { path: "/login", element: <LoginPage /> },
       { path: "/map", element: <MapPage /> },
       { path: "/note/new", element: <CreateNotePage /> },
+      { path: "/note/location", element: <NoteLocationPage /> },
       { path: "/course", element: <CoursePage /> },
       { path: "/course/new", element: <CreateCoursePage /> },
       { path: "/course/:courseId", element: <CourseDetailPage /> },

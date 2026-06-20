@@ -14,7 +14,7 @@ export function HomePage() {
     queryFn: getHomeBriefing,
   });
   const [selectedLocation, setSelectedLocation] =
-    useState<HomeLocation>("장안1동");
+    useState<HomeLocation>("장안동");
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
   if (isLoading || !data) {

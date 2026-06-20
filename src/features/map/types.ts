@@ -21,6 +21,7 @@ export type KakaoBounds = {
 
 export type KakaoMapInstance = {
   getBounds: () => KakaoBounds;
+  getCenter: () => KakaoLatLng;
   getLevel: () => number;
   getProjection: () => KakaoMapProjection;
   panTo: (latlng: KakaoLatLng) => void;
@@ -36,6 +37,29 @@ export type KakaoCustomOverlay = {
 
 export type KakaoPolyline = {
   setMap: (map: KakaoMapInstance | null) => void;
+};
+
+export type KakaoAddressResult = {
+  address?: {
+    address_name: string;
+  };
+  road_address?: {
+    address_name: string;
+  } | null;
+};
+
+export type KakaoPlaceResult = {
+  address_name?: string;
+  place_name: string;
+  road_address_name?: string;
+  x: string;
+  y: string;
+};
+
+export type KakaoServicesStatus = {
+  OK: string;
+  ZERO_RESULT: string;
+  ERROR: string;
 };
 
 export type KakaoMaps = {
@@ -58,6 +82,28 @@ export type KakaoMaps = {
     strokeStyle?: "solid" | "shortdash" | "shortdot" | "dash" | "dot" | "longdash" | "dashdot" | "longdashdot";
     strokeWeight?: number;
   }) => KakaoPolyline;
+  services?: {
+    Geocoder: new () => {
+      coord2Address: (
+        lng: number,
+        lat: number,
+        callback: (
+          result: KakaoAddressResult[],
+          status: string
+        ) => void
+      ) => void;
+    };
+    Places: new () => {
+      keywordSearch: (
+        keyword: string,
+        callback: (
+          result: KakaoPlaceResult[],
+          status: string
+        ) => void
+      ) => void;
+    };
+    Status: KakaoServicesStatus;
+  };
   event: {
     addListener: (
       target: KakaoMapInstance,

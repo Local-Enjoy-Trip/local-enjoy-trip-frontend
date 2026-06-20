@@ -1,24 +1,79 @@
 import {
   Check,
   ImagePlus,
+  MapPin,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
-import { LocationSelector } from "@/features/home/components/LocationSelector";
-import type { HomeLocation } from "@/features/home/types/homeTypes";
+import { useLocation, useNavigate } from "react-router-dom";
+import { homeLocationOptions } from "@/features/home/types/homeTypes";
+import type { NoteLocationSelection } from "@/pages/NoteLocationPage";
 import type { Visibility } from "@/shared/types/domain";
 
 const MAX_BODY_LENGTH = 80;
+const defaultNoteLocation = homeLocationOptions[0];
+const noteDraftStorageKey = "spot-note-draft";
+
+type NoteDraft = {
+  body: string;
+  imagePreview: string | null;
+  location: NoteLocationSelection;
+  visibility: Visibility;
+};
+
+type CreateNoteRouteState = {
+  noteLocation?: NoteLocationSelection;
+};
+
+function getDefaultLocation(): NoteLocationSelection {
+  return {
+    address: defaultNoteLocation.weatherArea,
+    coordinates: defaultNoteLocation.coordinates,
+    name: defaultNoteLocation.label,
+  };
+}
+
+function readDraft(): NoteDraft {
+  const fallbackDraft: NoteDraft = {
+    body: "",
+    imagePreview: null,
+    location: getDefaultLocation(),
+    visibility: "friends",
+  };
+
+  try {
+    const savedDraft = window.sessionStorage.getItem(noteDraftStorageKey);
+
+    if (!savedDraft) {
+      return fallbackDraft;
+    }
+
+    return {
+      ...fallbackDraft,
+      ...JSON.parse(savedDraft),
+    };
+  } catch {
+    return fallbackDraft;
+  }
+}
 
 export function CreateNotePage() {
+  const navigate = useNavigate();
+  const routeLocation = useLocation();
+  const routeState = routeLocation.state as CreateNoteRouteState | null;
+  const initialDraft = readDraft();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedLocation, setSelectedLocation] =
-    useState<HomeLocation>("장안1동");
-  const [isLocationOpen, setIsLocationOpen] = useState(false);
-  const [body, setBody] = useState("");
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [visibility, setVisibility] = useState<Visibility>("friends");
+  const [noteLocation] = useState<NoteLocationSelection>(
+    routeState?.noteLocation ?? initialDraft.location
+  );
+  const [body, setBody] = useState(initialDraft.body);
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    initialDraft.imagePreview
+  );
+  const [visibility, setVisibility] = useState<Visibility>(
+    initialDraft.visibility
+  );
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -42,7 +97,34 @@ export function CreateNotePage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const payload = {
+      body: body.trim(),
+      visibility,
+      coordinates: noteLocation.coordinates,
+      imageAttached: Boolean(imagePreview),
+    };
+
+    console.log("create note payload", payload);
+    window.sessionStorage.removeItem(noteDraftStorageKey);
     window.alert("백엔드 연결 후 쪽지가 등록됩니다.");
+  }
+
+  function openLocationPage() {
+    window.sessionStorage.setItem(
+      noteDraftStorageKey,
+      JSON.stringify({
+        body,
+        imagePreview,
+        location: noteLocation,
+        visibility,
+      } satisfies NoteDraft)
+    );
+
+    navigate("/note/location", {
+      state: {
+        noteLocation,
+      },
+    });
   }
 
   return (
@@ -55,16 +137,28 @@ export function CreateNotePage() {
           여행지에서 발견한 순간을 한 장과 한 줄로 남겨보세요.
         </p>
 
-        <LocationSelector
-          selectedLocation={selectedLocation}
-          isOpen={isLocationOpen}
-          hint="쪽지를 남길 지역을 변경할 수 있어요"
-          onToggle={() => setIsLocationOpen((isOpen) => !isOpen)}
-          onSelect={(location) => {
-            setSelectedLocation(location);
-            setIsLocationOpen(false);
-          }}
-        />
+        <button
+          className="mt-5 flex w-full items-center justify-between gap-4 rounded-[22px] border border-[#ececec] bg-[#fafafa] px-4 py-3.5 text-left shadow-[0_8px_20px_rgba(17,17,17,0.04)]"
+          type="button"
+          onClick={openLocationPage}
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="grid h-11 w-11 flex-none place-items-center rounded-full bg-[#111] text-white">
+              <MapPin size={22} fill="currentColor" strokeWidth={2.1} />
+            </span>
+            <span className="min-w-0">
+              <strong className="block text-sm font-black text-[#222]">
+                {noteLocation.name}
+              </strong>
+              <small className="mt-1 block truncate text-xs font-bold text-[#888]">
+                {noteLocation.address}
+              </small>
+            </span>
+          </span>
+          <span className="flex-none rounded-full bg-[#fff0eb] px-3 py-1.5 text-xs font-black text-[#FF4300]">
+            변경
+          </span>
+        </button>
       </header>
 
       <form className="mt-7 grid gap-7" onSubmit={handleSubmit}>
