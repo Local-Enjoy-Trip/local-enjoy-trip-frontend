@@ -234,9 +234,10 @@ export function AppShell() {
   const createMenuRef = useRef<HTMLDivElement>(null);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const isMapPage = location.pathname === "/map";
+  const isLoginPage = location.pathname === "/login";
   const isCourseDetailPage =
     location.pathname.startsWith("/course/") && location.pathname !== "/course/new";
-  const usesFixedViewport = isMapPage || isCourseDetailPage;
+  const usesFixedViewport = isMapPage || isCourseDetailPage || isLoginPage;
 
   useEffect(() => {
     setIsCreateMenuOpen(false);
@@ -285,6 +286,7 @@ export function AppShell() {
       >
         <Outlet />
       </main>
+      {isLoginPage ? null : (
       <nav
         className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[430px] grid-cols-5 border-t border-black/10 bg-white/90 px-2 pt-2 pb-[calc(10px+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(17,17,17,0.04)] backdrop-blur-xl sm:border-x"
         aria-label="주요 메뉴"
@@ -446,6 +448,7 @@ export function AppShell() {
           );
         })}
       </nav>
+      )}
     </div>
   );
 }

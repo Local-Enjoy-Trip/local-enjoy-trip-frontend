@@ -5,6 +5,7 @@ import { CreateCoursePage } from "../pages/CreateCoursePage";
 import { CourseDetailPage } from "../pages/CourseDetailPage";
 import { CoursePage } from "../pages/CoursePage";
 import { HomePage } from "../pages/HomePage";
+import { LoginPage } from "../pages/LoginPage";
 import { MapPage } from "../pages/MapPage";
 import { MyPage } from "../pages/MyPage";
 
@@ -13,6 +14,7 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { path: "/", element: <HomePage /> },
+      { path: "/login", element: <LoginPage /> },
       { path: "/map", element: <MapPage /> },
       { path: "/note/new", element: <CreateNotePage /> },
       { path: "/course", element: <CoursePage /> },
