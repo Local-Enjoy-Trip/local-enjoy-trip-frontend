@@ -95,7 +95,7 @@ export function HomePage() {
       />
       <SpotNoteCarousel />
       <ExperienceSection
-        title="SPOT 인기 큐레이션"
+        title="이곳저곳 인기 큐레이션"
         experiences={data.experiences.slice(2)}
       />
       <AiCourseRecommendation />

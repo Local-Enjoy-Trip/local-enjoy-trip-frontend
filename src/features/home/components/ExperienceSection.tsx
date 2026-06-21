@@ -16,7 +16,7 @@ export function ExperienceSection({
   return (
     <section className="mt-8">
       <SectionHeader title={title} actionTo="/map" />
-      <div className="flex snap-x scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex snap-x scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
         {experiences.map((experience) => (
           <ExperienceCard
             experience={experience}

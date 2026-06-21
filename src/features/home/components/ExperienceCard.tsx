@@ -17,7 +17,7 @@ export function ExperienceCard({
         className="w-[calc(100vw-52px)] max-w-[200px] flex-none snap-start"
         to={`/map?experience=${experience.id}`}
       >
-        <article className="relative aspect-4/5 w-full overflow-hidden rounded-[1.25rem] shadow-[0_8px_18px_rgba(17,17,17,0.10)]">
+        <article className="relative aspect-4/5 w-full overflow-hidden rounded-[1.25rem] ">
           <img
             className="block h-full w-full object-cover"
             src={experience.imageUrl}

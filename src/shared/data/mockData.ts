@@ -10,7 +10,7 @@ export const places: Place[] = [
     coordinates: { lat: 37.5567, lng: 126.9057 },
     imageUrl:
       "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=900&q=80",
-    saved: true
+    saved: true,
   },
   {
     id: "place-hangang",
@@ -21,7 +21,7 @@ export const places: Place[] = [
     coordinates: { lat: 37.5548, lng: 126.8959 },
     imageUrl:
       "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
-    saved: false
+    saved: false,
   },
   {
     id: "place-seoul-forest",
@@ -32,8 +32,8 @@ export const places: Place[] = [
     coordinates: { lat: 37.5444, lng: 127.0374 },
     imageUrl:
       "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=900&q=80",
-    saved: false
-  }
+    saved: false,
+  },
 ];
 
 export const notes: LocalNote[] = [
@@ -47,7 +47,7 @@ export const notes: LocalNote[] = [
     visibility: "public",
     placeName: "망원시장 골목",
     coordinates: { lat: 37.5562, lng: 126.9049 },
-    saved: true
+    saved: true,
   },
   {
     id: "note-2",
@@ -59,7 +59,7 @@ export const notes: LocalNote[] = [
     visibility: "friends",
     placeName: "성수 카페 거리",
     coordinates: { lat: 37.5449, lng: 127.0442 },
-    saved: false
+    saved: false,
   },
   {
     id: "note-3",
@@ -71,7 +71,7 @@ export const notes: LocalNote[] = [
     visibility: "private",
     placeName: "망원한강공원 입구",
     coordinates: { lat: 37.5545, lng: 126.897 },
-    saved: false
+    saved: false,
   },
   {
     id: "note-4",
@@ -83,7 +83,7 @@ export const notes: LocalNote[] = [
     visibility: "friends",
     placeName: "성수 베이커리 골목",
     coordinates: { lat: 37.5462, lng: 127.0428 },
-    saved: true
+    saved: true,
   },
   {
     id: "note-5",
@@ -95,22 +95,23 @@ export const notes: LocalNote[] = [
     visibility: "friends",
     placeName: "서울숲 은행나무길",
     coordinates: { lat: 37.5451, lng: 127.0393 },
-    saved: false
-  }
+    saved: false,
+  },
 ];
 
 export const experiences: Experience[] = [
   {
     id: "exp-market-walk",
-    title: "겨울 시장 간식 산책",
+    title: "낭만포차 골목집",
     area: "망원",
-    description: "따뜻한 간식을 하나 들고 골목을 지나 한강 쪽으로 걷는 짧은 코스",
-    weatherFit: "흐림 · 바람 약함",
+    description:
+      "따뜻한 간식을 하나 들고 골목을 지나 한강 쪽으로 걷는 짧은 코스",
+    weatherFit: "저녁 · 바람 약함",
     imageUrl:
       "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=900&q=80",
     badgeLabel: "오늘 추천",
-    detailLabel: "시장 · 골목 · 한강",
-    placeIds: ["place-mangwon-market", "place-hangang"]
+    detailLabel: "라이브 · 맥주",
+    placeIds: ["place-mangwon-market", "place-hangang"],
   },
   {
     id: "exp-rainy-window",
@@ -122,7 +123,7 @@ export const experiences: Experience[] = [
       "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=900&q=80",
     badgeLabel: "실내 코스",
     detailLabel: "카페 · 전시 · 편집샵",
-    placeIds: ["place-seoul-forest"]
+    placeIds: ["place-seoul-forest"],
   },
   {
     id: "exp-sunset-river",
@@ -134,20 +135,21 @@ export const experiences: Experience[] = [
       "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
     badgeLabel: "산책",
     detailLabel: "노을 · 강변 · 걷기",
-    placeIds: ["place-hangang"]
+    placeIds: ["place-hangang"],
   },
   {
     id: "exp-forest-date",
     title: "서울숲 초여름 피크닉",
     area: "성수",
-    description: "나무 그늘 아래 쉬고 근처 카페까지 이어지는 가벼운 데이트 코스",
+    description:
+      "나무 그늘 아래 쉬고 근처 카페까지 이어지는 가벼운 데이트 코스",
     weatherFit: "초여름 · 구름 조금",
     imageUrl:
       "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=900&q=80",
     badgeLabel: "반나절 코스",
     detailLabel: "숲길 · 카페 · 피크닉",
-    placeIds: ["place-seoul-forest"]
-  }
+    placeIds: ["place-seoul-forest"],
+  },
 ];
 
 export const courses: Course[] = [
@@ -156,6 +158,6 @@ export const courses: Course[] = [
     title: "망원시장 간식에서 한강까지",
     area: "망원",
     stopCount: 4,
-    visibility: "private"
-  }
+    visibility: "private",
+  },
 ];
