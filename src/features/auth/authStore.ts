@@ -1,152 +1,206 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ApiError,
+  apiGet,
+  apiPost,
+  AUTH_TOKEN_STORAGE_KEY,
+} from "@/shared/api/http";
 
 export type AuthProvider = "google" | "email";
 
+type UserResponse = {
+  createdAt: string;
+  email: string;
+  name: string;
+  nickname?: string | null;
+  profileImageUrl?: string | null;
+  representativeLatitude?: number | null;
+  representativeLongitude?: number | null;
+  representativeRegionName?: string | null;
+  userId: string;
+};
+
 export type AuthUser = {
-  id: string;
   area: string;
   avatarColor: string;
   email: string;
+  id: string;
   name: string;
+  profileImageUrl?: string;
   provider: AuthProvider;
   travelStyle: string;
 };
 
-const AUTH_STORAGE_KEY = "local-enjoy-trip-auth-user";
-let memoryUser: AuthUser | null = null;
-
-const mockUsers: Record<AuthProvider, AuthUser> = {
-  email: {
-    id: "user-email",
-    area: "망원 · 성수",
-    avatarColor: "#1F3D35",
-    email: "local@spot.dev",
-    name: "동네핀 사용자",
-    provider: "email",
-    travelStyle: "로컬 산책",
-  },
-  google: {
-    id: "user-google",
-    area: "서울 동네 탐색",
-    avatarColor: "#4B8DFF",
-    email: "google.user@spot.dev",
-    name: "구글 여행자",
-    provider: "google",
-    travelStyle: "카페 · 전시",
-  },
+type LoginRequest = {
+  password: string;
+  userId: string;
 };
 
-function readStoredUser() {
-  if (typeof window === "undefined") return null;
+type LoginResponse = {
+  accessToken: string;
+  expiresIn: number;
+  tokenType: string;
+  user: UserResponse;
+};
 
+export type SignupRequest = {
+  email: string;
+  name: string;
+  nickname?: string;
+  password: string;
+  userId: string;
+};
+
+type MeResponse = {
+  user: UserResponse;
+};
+
+const AUTH_USER_ID_STORAGE_KEY = "local-enjoy-trip-auth-user-id";
+const AUTH_EXPIRES_AT_STORAGE_KEY = "local-enjoy-trip-auth-expires-at";
+const AUTH_PROVIDER_STORAGE_KEY = "local-enjoy-trip-auth-provider";
+
+export const authUserQueryKey = ["auth", "me"] as const;
+
+function toAuthUser(user: UserResponse, provider: AuthProvider = "email"): AuthUser {
+  return {
+    area: user.representativeRegionName ?? "관심 동네를 설정해주세요",
+    avatarColor: "#1F3D35",
+    email: user.email,
+    id: user.userId,
+    name: user.nickname?.trim() || user.name,
+    profileImageUrl: user.profileImageUrl ?? undefined,
+    provider,
+    travelStyle: "취향을 설정해주세요",
+  };
+}
+
+function storeSession(
+  accessToken: string,
+  expiresIn: number,
+  provider: AuthProvider,
+  userId?: string,
+) {
+  const expiresAt = Date.now() + expiresIn * 1000;
+
+  window.sessionStorage.setItem(AUTH_TOKEN_STORAGE_KEY, accessToken);
+  window.sessionStorage.setItem(AUTH_EXPIRES_AT_STORAGE_KEY, String(expiresAt));
+  window.sessionStorage.setItem(AUTH_PROVIDER_STORAGE_KEY, provider);
+  if (userId) window.sessionStorage.setItem(AUTH_USER_ID_STORAGE_KEY, userId);
+}
+
+export function clearAuthSession() {
   try {
-    if (!window.localStorage) return memoryUser;
+    window.sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    window.sessionStorage.removeItem(AUTH_USER_ID_STORAGE_KEY);
+    window.sessionStorage.removeItem(AUTH_EXPIRES_AT_STORAGE_KEY);
+    window.sessionStorage.removeItem(AUTH_PROVIDER_STORAGE_KEY);
+  } catch {
+    // The in-memory query cache is cleared by the caller.
+  }
+}
 
-    const rawUser = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!rawUser) return null;
+export function hasAuthSession() {
+  try {
+    const token = window.sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    const expiresAt = Number(
+      window.sessionStorage.getItem(AUTH_EXPIRES_AT_STORAGE_KEY),
+    );
 
-    const user = JSON.parse(rawUser) as AuthUser;
-    if (user.provider !== "google" && user.provider !== "email") {
-      window.localStorage.removeItem(AUTH_STORAGE_KEY);
-      return null;
+    if (!token || !expiresAt || expiresAt <= Date.now()) {
+      clearAuthSession();
+      return false;
     }
 
-    return user;
+    return true;
   } catch {
-    return memoryUser;
+    return false;
   }
 }
 
-function notifyAuthChange() {
-  window.dispatchEvent(new Event("local-enjoy-trip-auth-change"));
+export async function loginWithEmail(request: LoginRequest) {
+  const response = await apiPost<LoginResponse>("/api/members/login", request);
+  storeSession(
+    response.accessToken,
+    response.expiresIn,
+    "email",
+    response.user.userId,
+  );
+  return toAuthUser(response.user);
 }
 
-export function loginWithProvider(provider: AuthProvider) {
-  const user = mockUsers[provider];
+export async function signupWithEmail(request: SignupRequest) {
+  return apiPost<string>("/api/members", request);
+}
 
-  memoryUser = user;
+export async function completeGoogleSignup(request: {
+  name: string;
+  oauthSignupTicket: string;
+}) {
+  const response = await apiPost<LoginResponse>("/api/members/oauth", request);
+  storeSession(
+    response.accessToken,
+    response.expiresIn,
+    "google",
+    response.user.userId,
+  );
+  return toAuthUser(response.user, "google");
+}
+
+export function storeGoogleLogin(accessToken: string, expiresIn: number) {
+  storeSession(accessToken, expiresIn, "google");
+}
+
+export async function getCurrentUser() {
+  try {
+    const response = await apiGet<MeResponse>("/api/members/me");
+    const provider =
+      window.sessionStorage.getItem(AUTH_PROVIDER_STORAGE_KEY) === "google"
+        ? "google"
+        : "email";
+    window.sessionStorage.setItem(AUTH_USER_ID_STORAGE_KEY, response.user.userId);
+    return toAuthUser(response.user, provider);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) clearAuthSession();
+    throw error;
+  }
+}
+
+export async function logout() {
+  const userId = window.sessionStorage.getItem(AUTH_USER_ID_STORAGE_KEY);
 
   try {
-    window.localStorage?.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-  } catch {
-    // Some embedded browser contexts disable localStorage; keep this session in memory.
+    if (userId) await apiPost<string>("/api/members/logout", { userId });
+  } finally {
+    clearAuthSession();
   }
+}
 
-  notifyAuthChange();
-  return user;
+export function getAuthErrorMessage(error: unknown) {
+  if (error instanceof ApiError) return error.message;
+  return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.";
 }
 
 export function startGoogleLogin(returnTo?: string) {
-  const googleAuthUrl = import.meta.env.VITE_GOOGLE_AUTH_URL as string | undefined;
+  if (returnTo) window.sessionStorage.setItem("oauth-return-to", returnTo);
 
-  if (!googleAuthUrl) return false;
-
-  const authUrl = new URL(googleAuthUrl, window.location.origin);
-
-  if (returnTo) {
-    authUrl.searchParams.set("returnTo", returnTo);
-  }
-
-  window.location.assign(authUrl.toString());
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? window.location.origin;
+  window.location.assign(
+    new URL("/oauth2/authorization/google", apiBaseUrl).toString(),
+  );
   return true;
 }
 
-type EmailRegistration = {
-  email: string;
-  name: string;
-};
-
-export function registerWithEmail({ email, name }: EmailRegistration) {
-  const user: AuthUser = {
-    id: `user-${Date.now()}`,
-    area: "관심 동네를 설정해주세요",
-    avatarColor: "#FF4300",
-    email,
-    name,
-    provider: "email",
-    travelStyle: "취향을 설정해주세요",
-  };
-
-  memoryUser = user;
-
-  try {
-    window.localStorage?.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-  } catch {
-    // Some embedded browser contexts disable localStorage; keep this session in memory.
-  }
-
-  notifyAuthChange();
-  return user;
-}
-
-export function logout() {
-  memoryUser = null;
-
-  try {
-    window.localStorage?.removeItem(AUTH_STORAGE_KEY);
-  } catch {
-    // Memory fallback is already cleared.
-  }
-
-  notifyAuthChange();
+export function readOAuthReturnTo() {
+  const returnTo = window.sessionStorage.getItem("oauth-return-to") ?? "/my";
+  window.sessionStorage.removeItem("oauth-return-to");
+  return returnTo;
 }
 
 export function useAuthUser() {
-  const [user, setUser] = useState<AuthUser | null>(() => readStoredUser());
-
-  useEffect(() => {
-    function syncUser() {
-      setUser(readStoredUser());
-    }
-
-    window.addEventListener("storage", syncUser);
-    window.addEventListener("local-enjoy-trip-auth-change", syncUser);
-
-    return () => {
-      window.removeEventListener("storage", syncUser);
-      window.removeEventListener("local-enjoy-trip-auth-change", syncUser);
-    };
-  }, []);
-
-  return user;
+  return useQuery({
+    enabled: hasAuthSession(),
+    queryFn: getCurrentUser,
+    queryKey: authUserQueryKey,
+    retry: false,
+  });
 }

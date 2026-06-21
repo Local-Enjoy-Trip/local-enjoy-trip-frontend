@@ -1,4 +1,4 @@
-import { Bell, MessageCircle } from "lucide-react";
+import { Bell } from "lucide-react";
 import { IconButton } from "@/shared/ui/IconButton";
 import { SpotLogo } from "@/shared/ui/SpotLogo";
 import { LocationSelector } from "@/features/home/components/LocationSelector";
@@ -16,14 +16,9 @@ export function HomeHeader({
     <div className="px-5 pt-[calc(18px+env(safe-area-inset-top))]">
       <header className="flex items-center justify-between">
         <SpotLogo />
-        <div className="flex gap-2">
-          <IconButton label="알림" hasNotification>
-            <Bell size={20} strokeWidth={2.4} />
-          </IconButton>
-          <IconButton label="쪽지 알림">
-            <MessageCircle size={20} strokeWidth={2.4} />
-          </IconButton>
-        </div>
+        <IconButton label="알림">
+          <Bell size={22} strokeWidth={2.4} />
+        </IconButton>
       </header>
 
       <div className="mt-8">

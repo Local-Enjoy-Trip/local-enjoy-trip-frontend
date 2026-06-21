@@ -1,4 +1,14 @@
+@import url("https://hangeul.pstatic.net/hangeul_static/css/nanum-square-neo.css");
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "NanumSquareNeo", ui-sans-serif, system-ui, sans-serif;
+  --font-nanum-light: "NanumSquareNeoLight", ui-sans-serif, system-ui, sans-serif;
+  --font-nanum: "NanumSquareNeo", ui-sans-serif, system-ui, sans-serif;
+  --font-nanum-bold: "NanumSquareNeoBold", ui-sans-serif, system-ui, sans-serif;
+  --font-nanum-extrabold: "NanumSquareNeoExtraBold", ui-sans-serif, system-ui, sans-serif;
+  --font-nanum-heavy: "NanumSquareNeoHeavy", ui-sans-serif, system-ui, sans-serif;
+}
 
 :root {
   color: #111111;
@@ -16,8 +26,7 @@
   --spot-app-nav: rgba(255, 255, 255, 0.95);
   --spot-weather-card: linear-gradient(135deg, #fffaf7, #ffffff 48%, #f7f4ff);
   --spot-weather-muted: #777777;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "NanumSquareNeo", ui-sans-serif, system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -57,6 +66,32 @@ a {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+@layer utilities {
+  .font-thin,
+  .font-extralight,
+  .font-light {
+    font-family: "NanumSquareNeoLight", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .font-normal,
+  .font-medium {
+    font-family: "NanumSquareNeo", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .font-semibold,
+  .font-bold {
+    font-family: "NanumSquareNeoBold", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .font-extrabold {
+    font-family: "NanumSquareNeoExtraBold", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .font-black {
+    font-family: "NanumSquareNeoHeavy", ui-sans-serif, system-ui, sans-serif;
+  }
 }
 
 .mock-map-grid {

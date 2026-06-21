@@ -11,8 +11,13 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { logout, useAuthUser } from "@/features/auth/authStore";
+import {
+  authUserQueryKey,
+  logout,
+  useAuthUser,
+} from "@/features/auth/authStore";
 import { courses, notes, places } from "@/shared/data/mockData";
 
 const menuItems = [
@@ -96,15 +101,26 @@ function LoginPrompt() {
 
 export function MyPage() {
   const navigate = useNavigate();
-  const user = useAuthUser();
+  const queryClient = useQueryClient();
+  const { data: user, isLoading } = useAuthUser();
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSettled: () => {
+      queryClient.removeQueries({ queryKey: authUserQueryKey });
+      navigate("/my", { replace: true });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="grid min-h-screen place-items-center p-6 font-black text-[#6f6a60]">
+        내 정보를 불러오는 중...
+      </div>
+    );
+  }
 
   if (!user) {
     return <LoginPrompt />;
-  }
-
-  function handleLogout() {
-    logout();
-    navigate("/my", { replace: true });
   }
 
   return (
@@ -219,16 +235,19 @@ export function MyPage() {
 
           <button
             className="flex w-full items-center gap-3 rounded-xl bg-white p-4 text-left text-[#D5483D] shadow-[0_8px_20px_rgba(31,38,35,0.04)]"
-            onClick={handleLogout}
+            disabled={logoutMutation.isPending}
+            onClick={() => logoutMutation.mutate()}
             type="button"
           >
             <span className="grid size-9 flex-none place-items-center rounded-full bg-[#FFF0EE]">
               <LogOut size={19} />
             </span>
             <span className="min-w-0 flex-1">
-              <strong className="block text-sm font-black">로그아웃</strong>
+              <strong className="block text-sm font-black">
+                {logoutMutation.isPending ? "로그아웃 중..." : "로그아웃"}
+              </strong>
               <small className="mt-1 block text-xs font-bold text-[#B36A64]">
-                이 기기에서 mock session을 지웁니다.
+                현재 로그인 세션을 안전하게 종료합니다.
               </small>
             </span>
           </button>

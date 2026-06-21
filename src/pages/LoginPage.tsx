@@ -87,7 +87,7 @@ export function LoginPage() {
             <span className="grid size-9 place-items-center rounded-full bg-white/10">
               <Mail size={19} />
             </span>
-            <span className="flex-1 text-center text-[0.98rem]">이메일로 계속하기</span>
+            <span className="flex-1 text-center text-[0.98rem]">아이디로 계속하기</span>
             <ChevronRight className="text-white/70" size={19} />
           </button>
         </div>

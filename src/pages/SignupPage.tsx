@@ -1,7 +1,12 @@
 import { ArrowLeft, Check, Eye, EyeOff } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { registerWithEmail } from "@/features/auth/authStore";
+import {
+  authUserQueryKey,
+  getAuthErrorMessage,
+  signupWithEmail,
+} from "@/features/auth/authStore";
 
 type SignupRouteState = {
   returnTo?: string;
@@ -12,6 +17,9 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function SignupPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [userId, setUserId] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
@@ -21,24 +29,42 @@ export function SignupPage() {
   const routeState = location.state as SignupRouteState | null;
 
   const hasEmailError = email.length > 0 && !emailPattern.test(email);
+  const hasNameError = name.length > 0 && name.trim().length < 2;
   const hasNicknameError = nickname.length > 0 && nickname.trim().length < 2;
   const hasPasswordError = password.length > 0 && password.length < 8;
   const hasPasswordConfirmError =
     passwordConfirm.length > 0 && password !== passwordConfirm;
   const canSubmit =
+    userId.trim().length > 0 &&
+    name.trim().length >= 2 &&
     emailPattern.test(email) &&
-    nickname.trim().length >= 2 &&
+    (nickname.length === 0 || nickname.trim().length >= 2) &&
     password.length >= 8 &&
     password === passwordConfirm &&
     agreedToTerms;
+  const signupMutation = useMutation({
+    mutationFn: signupWithEmail,
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: authUserQueryKey });
+      navigate("/login/email", {
+        replace: true,
+        state: { ...routeState, signupSuccess: true },
+      });
+    },
+  });
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!canSubmit) return;
 
-    registerWithEmail({ email: email.trim(), name: nickname.trim() });
-    navigate(routeState?.returnTo ?? "/my", { replace: true });
+    signupMutation.mutate({
+      email: email.trim(),
+      name: name.trim(),
+      nickname: nickname.trim() || undefined,
+      password,
+      userId: userId.trim(),
+    });
   }
 
   return (
@@ -56,7 +82,36 @@ export function SignupPage() {
       </header>
 
       <form className="mt-8" noValidate onSubmit={handleSubmit}>
-        <FieldLabel htmlFor="signup-email">이메일 주소</FieldLabel>
+        <FieldLabel htmlFor="signup-user-id">아이디</FieldLabel>
+        <input
+          autoComplete="username"
+          className="mt-2.5 h-13 w-full rounded-2xl border border-[#DDDAD4] bg-white px-4 text-base font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
+          id="signup-user-id"
+          maxLength={30}
+          onChange={(event) => setUserId(event.target.value)}
+          placeholder="로그인에 사용할 아이디"
+          value={userId}
+        />
+
+        <FieldLabel className="mt-4" htmlFor="signup-name">
+          이름
+        </FieldLabel>
+        <input
+          autoComplete="name"
+          aria-describedby={hasNameError ? "signup-name-error" : undefined}
+          aria-invalid={hasNameError}
+          className="mt-2.5 h-13 w-full rounded-2xl border border-[#DDDAD4] bg-white px-4 text-base font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
+          id="signup-name"
+          maxLength={30}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="이름을 입력해주세요."
+          value={name}
+        />
+        <FieldError id="signup-name-error" visible={hasNameError}>
+          이름은 2자 이상 입력해주세요.
+        </FieldError>
+
+        <FieldLabel className="mt-4" htmlFor="signup-email">이메일 주소</FieldLabel>
         <input
           autoComplete="email"
           aria-describedby={hasEmailError ? "signup-email-error" : undefined}
@@ -74,7 +129,7 @@ export function SignupPage() {
         </FieldError>
 
         <FieldLabel className="mt-4" htmlFor="signup-nickname">
-          닉네임
+          닉네임 (선택)
         </FieldLabel>
         <input
           autoComplete="nickname"
@@ -84,7 +139,7 @@ export function SignupPage() {
           id="signup-nickname"
           maxLength={20}
           onChange={(event) => setNickname(event.target.value)}
-          placeholder="2~20자로 입력해주세요."
+          placeholder="비워두면 이름으로 표시됩니다."
           value={nickname}
         />
         <FieldError id="signup-nickname-error" visible={hasNicknameError}>
@@ -155,12 +210,18 @@ export function SignupPage() {
           </span>
         </label>
 
+        <p aria-live="polite" className="mt-4 min-h-5 text-sm font-bold text-[#D63B0B]">
+          {signupMutation.isError
+            ? getAuthErrorMessage(signupMutation.error)
+            : ""}
+        </p>
+
         <button
           className="mt-6 h-14 w-full rounded-2xl border-0 bg-[#FF4300] text-base font-black text-white transition disabled:cursor-not-allowed disabled:bg-[#F0D1C6]"
-          disabled={!canSubmit}
+          disabled={!canSubmit || signupMutation.isPending}
           type="submit"
         >
-          가입하기
+          {signupMutation.isPending ? "가입 중..." : "가입하기"}
         </button>
       </form>
 

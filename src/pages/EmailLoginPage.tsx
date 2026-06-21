@@ -1,28 +1,41 @@
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { loginWithProvider } from "@/features/auth/authStore";
+import {
+  authUserQueryKey,
+  getAuthErrorMessage,
+  loginWithEmail,
+} from "@/features/auth/authStore";
 
 type EmailLoginRouteState = {
   returnTo?: string;
+  signupSuccess?: boolean;
 };
 
 export function EmailLoginPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const queryClient = useQueryClient();
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const routeState = location.state as EmailLoginRouteState | null;
-  const canSubmit = email.trim().length > 0 && password.length > 0;
+  const canSubmit = userId.trim().length > 0 && password.length > 0;
+  const loginMutation = useMutation({
+    mutationFn: loginWithEmail,
+    onSuccess: (user) => {
+      queryClient.setQueryData(authUserQueryKey, user);
+      navigate(routeState?.returnTo ?? "/my", { replace: true });
+    },
+  });
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!canSubmit) return;
 
-    loginWithProvider("email");
-    navigate(routeState?.returnTo ?? "/my", { replace: true });
+    loginMutation.mutate({ password, userId: userId.trim() });
   }
 
   return (
@@ -36,22 +49,28 @@ export function EmailLoginPage() {
         >
           <ArrowLeft size={25} />
         </button>
-        <h1 className="m-0 text-center text-xl font-black">이메일로 로그인</h1>
+        <h1 className="m-0 text-center text-xl font-black">아이디로 로그인</h1>
       </header>
 
       <form className="mt-12" onSubmit={handleSubmit}>
-        <label className="block text-sm font-black text-[#555]" htmlFor="login-email">
-          이메일 주소
+        {routeState?.signupSuccess ? (
+          <p
+            aria-live="polite"
+            className="mb-6 rounded-2xl bg-[#EEF7F2] px-4 py-3 text-sm font-bold text-[#1F6B4F]"
+          >
+            회원가입이 완료됐어요. 새 아이디로 로그인해주세요.
+          </p>
+        ) : null}
+        <label className="block text-sm font-black text-[#555]" htmlFor="login-user-id">
+          아이디
         </label>
         <input
-          autoComplete="email"
+          autoComplete="username"
           className="mt-3 h-14 w-full rounded-2xl border border-[#DDDAD4] bg-white px-4 text-base font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
-          id="login-email"
-          inputMode="email"
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="ID@example.com"
-          type="email"
-          value={email}
+          id="login-user-id"
+          onChange={(event) => setUserId(event.target.value)}
+          placeholder="아이디를 입력해주세요."
+          value={userId}
         />
 
         <label className="mt-7 block text-sm font-black text-[#555]" htmlFor="login-password">
@@ -78,12 +97,18 @@ export function EmailLoginPage() {
           </button>
         </div>
 
+        <p aria-live="polite" className="mt-4 min-h-5 text-sm font-bold text-[#D63B0B]">
+          {loginMutation.isError
+            ? getAuthErrorMessage(loginMutation.error)
+            : ""}
+        </p>
+
         <button
           className="mt-10 h-14 w-full rounded-2xl border-0 bg-[#FF4300] text-base font-black text-white transition disabled:cursor-not-allowed disabled:bg-[#F0D1C6]"
-          disabled={!canSubmit}
+          disabled={!canSubmit || loginMutation.isPending}
           type="submit"
         >
-          로그인하기
+          {loginMutation.isPending ? "로그인 중..." : "로그인하기"}
         </button>
       </form>
 
