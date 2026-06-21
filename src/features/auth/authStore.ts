@@ -76,6 +76,49 @@ export function loginWithProvider(provider: AuthProvider) {
   return user;
 }
 
+export function startGoogleLogin(returnTo?: string) {
+  const googleAuthUrl = import.meta.env.VITE_GOOGLE_AUTH_URL as string | undefined;
+
+  if (!googleAuthUrl) return false;
+
+  const authUrl = new URL(googleAuthUrl, window.location.origin);
+
+  if (returnTo) {
+    authUrl.searchParams.set("returnTo", returnTo);
+  }
+
+  window.location.assign(authUrl.toString());
+  return true;
+}
+
+type EmailRegistration = {
+  email: string;
+  name: string;
+};
+
+export function registerWithEmail({ email, name }: EmailRegistration) {
+  const user: AuthUser = {
+    id: `user-${Date.now()}`,
+    area: "관심 동네를 설정해주세요",
+    avatarColor: "#FF4300",
+    email,
+    name,
+    provider: "email",
+    travelStyle: "취향을 설정해주세요",
+  };
+
+  memoryUser = user;
+
+  try {
+    window.localStorage?.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+  } catch {
+    // Some embedded browser contexts disable localStorage; keep this session in memory.
+  }
+
+  notifyAuthChange();
+  return user;
+}
+
 export function logout() {
   memoryUser = null;
 

@@ -151,6 +151,7 @@ export function NoteLocationPage() {
   const preservedNameRef = useRef<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const [isMapCenterInSeoul, setIsMapCenterInSeoul] = useState(true);
   const [status, setStatus] = useState<
     "loading" | "ready" | "missing-key" | "error"
   >("loading");
@@ -226,6 +227,8 @@ export function NoteLocationPage() {
         if (geocodeRequestRef.current !== requestId) return;
 
         if (geocodeStatus !== kakaoMaps.services?.Status.OK) {
+          setIsMapCenterInSeoul(false);
+          setSearchMessage("서울 지역의 동네만 선택할 수 있어요.");
           return;
         }
 
@@ -234,10 +237,20 @@ export function NoteLocationPage() {
         );
 
         if (!administrativeNeighborhood) {
+          setIsMapCenterInSeoul(false);
+          setSearchMessage("서울 지역의 동네만 선택할 수 있어요.");
+          return;
+        }
+
+        if (!administrativeNeighborhood.address_name.startsWith("서울")) {
+          setIsMapCenterInSeoul(false);
+          setSearchMessage("서울 지역의 동네만 선택할 수 있어요.");
           return;
         }
 
         const neighborhood = administrativeNeighborhood.region_3depth_name;
+        setIsMapCenterInSeoul(true);
+        setSearchMessage(null);
         setSelection((current) => ({
           ...current,
           address: administrativeNeighborhood.address_name,
@@ -307,6 +320,7 @@ export function NoteLocationPage() {
 
     if (mapRef.current && window.kakao) {
       if (isHomeLocation) {
+        setIsMapCenterInSeoul(nextSelection.address.startsWith("서울"));
         mapRef.current.setLevel(6);
       }
       mapRef.current.setCenter(
@@ -667,6 +681,11 @@ export function NoteLocationPage() {
   }
 
   function confirmLocation() {
+    if (isHomeLocation && !isMapCenterInSeoul) {
+      setSearchMessage("서울 지역의 동네만 선택할 수 있어요.");
+      return;
+    }
+
     navigate(isHomeLocation ? "/" : "/note/new", {
       replace: true,
       state: {

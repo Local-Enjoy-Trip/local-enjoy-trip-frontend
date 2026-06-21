@@ -235,7 +235,7 @@ export function AppShell() {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const isMapPage = location.pathname === "/map";
   const isNoteLocationPage = location.pathname === "/note/location";
-  const isLoginPage = location.pathname === "/login";
+  const isLoginPage = location.pathname.startsWith("/login");
   const isCourseDetailPage =
     location.pathname.startsWith("/course/") && location.pathname !== "/course/new";
   const usesFixedViewport =
