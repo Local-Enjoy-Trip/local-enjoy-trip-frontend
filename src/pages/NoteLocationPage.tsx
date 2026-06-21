@@ -6,6 +6,13 @@ import { FallbackMapLayer } from "@/features/map/components/FallbackMapLayer";
 import { LocationConsentDialog } from "@/features/map/components/LocationConsentDialog";
 import { MapSearchBar } from "@/features/map/components/MapSearchBar";
 import { loadKakaoMap } from "@/features/map/lib/kakaoMap";
+import {
+  getAdministrativeDongCenter,
+  getAdministrativeDongName,
+  getAdministrativeDongPaths,
+  loadSeoulAdministrativeDongs,
+  type SeoulAdministrativeDong,
+} from "@/features/map/lib/seoulAdministrativeDongs";
 import { useMapViewportBackground } from "@/features/map/hooks/useMapViewportBackground";
 import {
   readLocationConsent,
@@ -15,8 +22,10 @@ import {
 import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
 import noteLocationPinUrl from "@/assets/note-location-pin.png";
 import type {
+  KakaoCustomOverlay,
   KakaoMapInstance,
   KakaoPlaceResult,
+  KakaoPolygon,
   MapPoint,
 } from "@/features/map/types";
 import type { Coordinates } from "@/shared/types/domain";
@@ -25,10 +34,19 @@ export type NoteLocationSelection = {
   address: string;
   coordinates: Coordinates;
   name: string;
+  neighborhood?: string;
 };
 
 type NoteLocationRouteState = {
+  locationPurpose?: "home" | "note";
   noteLocation?: NoteLocationSelection;
+};
+
+type AdministrativeDongOverlay = {
+  dong: SeoulAdministrativeDong;
+  label: KakaoCustomOverlay;
+  labelElement: HTMLButtonElement;
+  polygons: KakaoPolygon[];
 };
 
 const defaultLocationOption = homeLocationOptions[0];
@@ -37,8 +55,6 @@ const defaultNoteLocation: NoteLocationSelection = {
   coordinates: defaultLocationOption.coordinates,
   name: defaultLocationOption.label,
 };
-
-const recentLocationsStorageKey = "spot-note-recent-locations";
 
 function getPlaceAddress(place: KakaoPlaceResult) {
   return place.road_address_name || place.address_name || place.place_name;
@@ -54,6 +70,13 @@ function getAddressName(address: string) {
   }
 
   return lastPart ?? "선택한 위치";
+}
+
+function getNeighborhoodName(address: string) {
+  return address
+    .trim()
+    .split(/\s+/)
+    .find((part) => /(?:읍|면|동)$/.test(part));
 }
 
 function getDistanceInMeters(a: Coordinates, b: Coordinates) {
@@ -93,46 +116,6 @@ function createFallbackPoint(selection: NoteLocationSelection): MapPoint {
   };
 }
 
-function isNoteLocationSelection(value: unknown): value is NoteLocationSelection {
-  if (!value || typeof value !== "object") return false;
-
-  const candidate = value as Partial<NoteLocationSelection>;
-
-  return (
-    typeof candidate.address === "string" &&
-    typeof candidate.name === "string" &&
-    typeof candidate.coordinates?.lat === "number" &&
-    typeof candidate.coordinates.lng === "number"
-  );
-}
-
-function readRecentLocations() {
-  try {
-    const savedLocations = window.localStorage.getItem(recentLocationsStorageKey);
-
-    if (!savedLocations) {
-      return [];
-    }
-
-    const parsedLocations = JSON.parse(savedLocations);
-
-    if (!Array.isArray(parsedLocations)) {
-      return [];
-    }
-
-    return parsedLocations.filter(isNoteLocationSelection).slice(0, 3);
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentLocations(locations: NoteLocationSelection[]) {
-  window.localStorage.setItem(
-    recentLocationsStorageKey,
-    JSON.stringify(locations.slice(0, 3))
-  );
-}
-
 export function NoteLocationPage() {
   useMapViewportBackground();
 
@@ -145,6 +128,7 @@ export function NoteLocationPage() {
   } = currentLocation;
   const routeLocation = useLocation();
   const state = routeLocation.state as NoteLocationRouteState | null;
+  const isHomeLocation = state?.locationPurpose === "home";
   const isReturningWithSelection = Boolean(state?.noteLocation);
   const fallbackSelection = useMemo(
     () => state?.noteLocation ?? defaultNoteLocation,
@@ -161,21 +145,22 @@ export function NoteLocationPage() {
   );
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
+  const administrativeDongOverlaysRef = useRef<AdministrativeDongOverlay[]>([]);
   const geocodeRequestRef = useRef(0);
   const hasInitializedMapRef = useRef(false);
   const preservedNameRef = useRef<string | null>(null);
   const [query, setQuery] = useState("");
+  const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<
     "loading" | "ready" | "missing-key" | "error"
   >("loading");
+  const [boundaryStatus, setBoundaryStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
   const [locationConsent, setLocationConsent] =
     useState<LocationConsent>(readLocationConsent);
   const [selection, setSelection] =
     useState<NoteLocationSelection>(initialSelection);
-  const [recentLocations, setRecentLocations] = useState<NoteLocationSelection[]>(
-    readRecentLocations
-  );
-
   const fallbackPoint = useMemo(() => createFallbackPoint(selection), [selection]);
   const canShowFallbackMap =
     locationConsent === "declined" ||
@@ -223,7 +208,52 @@ export function NoteLocationPage() {
     });
   }, []);
 
+  const resolveNeighborhood = useCallback((coordinates: Coordinates) => {
+    const kakaoMaps = window.kakao?.maps;
+
+    if (!kakaoMaps?.services?.Geocoder) {
+      return;
+    }
+
+    const requestId = geocodeRequestRef.current + 1;
+    geocodeRequestRef.current = requestId;
+    const geocoder = new kakaoMaps.services.Geocoder();
+
+    geocoder.coord2RegionCode(
+      coordinates.lng,
+      coordinates.lat,
+      (result, geocodeStatus) => {
+        if (geocodeRequestRef.current !== requestId) return;
+
+        if (geocodeStatus !== kakaoMaps.services?.Status.OK) {
+          return;
+        }
+
+        const administrativeNeighborhood = result.find(
+          (region) => region.region_type === "H"
+        );
+
+        if (!administrativeNeighborhood) {
+          return;
+        }
+
+        const neighborhood = administrativeNeighborhood.region_3depth_name;
+        setSelection((current) => ({
+          ...current,
+          address: administrativeNeighborhood.address_name,
+          name: neighborhood,
+          neighborhood,
+        }));
+      }
+    );
+  }, []);
+
   const resolveAddress = useCallback((coordinates: Coordinates, fallbackName?: string) => {
+    if (isHomeLocation) {
+      resolveNeighborhood(coordinates);
+      return;
+    }
+
     const kakaoMaps = window.kakao?.maps;
 
     if (!kakaoMaps?.services?.Geocoder) {
@@ -247,6 +277,9 @@ export function NoteLocationPage() {
         const address =
           result[0].road_address?.address_name ??
           result[0].address?.address_name;
+        const neighborhood = result[0].address?.address_name
+          ? getNeighborhoodName(result[0].address.address_name)
+          : undefined;
 
         if (!address) {
           return;
@@ -260,11 +293,12 @@ export function NoteLocationPage() {
           ...current,
           address,
           name: fallbackResolvedName,
+          neighborhood,
         }));
         resolvePlaceName(address, coordinates, requestId, fallbackResolvedName);
       }
     );
-  }, [resolvePlaceName]);
+  }, [isHomeLocation, resolveNeighborhood, resolvePlaceName]);
 
   const moveMapTo = useCallback((nextSelection: NoteLocationSelection) => {
     geocodeRequestRef.current += 1;
@@ -272,6 +306,9 @@ export function NoteLocationPage() {
     setSelection(nextSelection);
 
     if (mapRef.current && window.kakao) {
+      if (isHomeLocation) {
+        mapRef.current.setLevel(6);
+      }
       mapRef.current.setCenter(
         new window.kakao.maps.LatLng(
           nextSelection.coordinates.lat,
@@ -279,7 +316,141 @@ export function NoteLocationPage() {
         )
       );
     }
-  }, []);
+  }, [isHomeLocation]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const kakaoMaps = window.kakao?.maps;
+
+    if (!isHomeLocation || status !== "ready" || !map || !kakaoMaps) {
+      return;
+    }
+
+    let cancelled = false;
+    const renderedOverlays: AdministrativeDongOverlay[] = [];
+    setBoundaryStatus("loading");
+
+    loadSeoulAdministrativeDongs()
+      .then((dongs) => {
+        if (cancelled) return;
+
+        dongs.forEach((dong) => {
+          const center = getAdministrativeDongCenter(dong);
+          const dongName = getAdministrativeDongName(dong);
+          const nextSelection: NoteLocationSelection = {
+            address: dong.properties.adm_nm,
+            coordinates: center,
+            name: dongName,
+            neighborhood: dongName,
+          };
+          const selectDong = () => moveMapTo(nextSelection);
+          const polygons = getAdministrativeDongPaths(dong, kakaoMaps).map(
+            (path) => {
+              const polygon = new kakaoMaps.Polygon({
+                map,
+                path,
+                strokeWeight: 1,
+                strokeColor: "#ff8355",
+                strokeOpacity: 0.58,
+                strokeStyle: "solid",
+                fillColor: "#ffb399",
+                fillOpacity: 0.08,
+              });
+
+              kakaoMaps.event.addListener(polygon, "click", selectDong);
+              return polygon;
+            }
+          );
+          const labelElement = document.createElement("button");
+          labelElement.type = "button";
+          labelElement.textContent = dongName;
+          labelElement.setAttribute("aria-label", `${dongName} 동네 선택`);
+          labelElement.style.cssText = [
+            "min-width:max-content",
+            "border:1px solid rgba(255,67,0,.32)",
+            "border-radius:999px",
+            "background:rgba(255,255,255,.9)",
+            "padding:5px 9px",
+            "color:#6f554b",
+            "font:800 11px/1 system-ui,sans-serif",
+            "box-shadow:0 4px 12px rgba(17,17,17,.13)",
+            "cursor:pointer",
+          ].join(";");
+          labelElement.addEventListener("click", (event) => {
+            event.stopPropagation();
+            selectDong();
+          });
+
+          const label = new kakaoMaps.CustomOverlay({
+            map,
+            position: new kakaoMaps.LatLng(center.lat, center.lng),
+            content: labelElement,
+            yAnchor: 0.5,
+            zIndex: 2,
+          });
+
+          renderedOverlays.push({ dong, label, labelElement, polygons });
+        });
+
+        administrativeDongOverlaysRef.current = renderedOverlays;
+        setBoundaryStatus("ready");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBoundaryStatus("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      renderedOverlays.forEach(({ label, polygons }) => {
+        label.setMap(null);
+        polygons.forEach((polygon) => polygon.setMap(null));
+      });
+      administrativeDongOverlaysRef.current = [];
+    };
+  }, [isHomeLocation, moveMapTo, status]);
+
+  useEffect(() => {
+    administrativeDongOverlaysRef.current.forEach(
+      ({ dong, label, labelElement, polygons }) => {
+        const dongName = getAdministrativeDongName(dong);
+        const isSelected =
+          dong.properties.adm_nm === selection.address ||
+          (dongName === selection.neighborhood &&
+            selection.address.includes(dong.properties.sggnm));
+
+        polygons.forEach((polygon) =>
+          polygon.setOptions(
+            isSelected
+              ? {
+                  strokeWeight: 3,
+                  strokeColor: "#ff4300",
+                  strokeOpacity: 0.95,
+                  fillColor: "#ff4300",
+                  fillOpacity: 0.28,
+                }
+              : {
+                  strokeWeight: 1,
+                  strokeColor: "#ff8355",
+                  strokeOpacity: 0.58,
+                  fillColor: "#ffb399",
+                  fillOpacity: 0.08,
+                }
+          )
+        );
+        labelElement.setAttribute("aria-pressed", String(isSelected));
+        labelElement.style.background = isSelected ? "#ff4300" : "rgba(255,255,255,.9)";
+        labelElement.style.borderColor = isSelected
+          ? "#ff4300"
+          : "rgba(255,67,0,.32)";
+        labelElement.style.color = isSelected ? "#ffffff" : "#6f554b";
+        labelElement.style.fontSize = isSelected ? "12px" : "11px";
+        labelElement.style.padding = isSelected ? "7px 11px" : "5px 9px";
+        label.setZIndex(isSelected ? 5 : 2);
+      }
+    );
+  }, [boundaryStatus, selection.address, selection.neighborhood]);
 
   useEffect(() => {
     if (locationConsent === "granted") {
@@ -357,7 +528,7 @@ export function NoteLocationPage() {
       );
       const map = new kakaoMaps.Map(mapContainerRef.current, {
         center,
-        level: 3,
+        level: isHomeLocation ? 6 : 3,
       });
       hasInitializedMapRef.current = true;
       mapRef.current = map;
@@ -400,6 +571,7 @@ export function NoteLocationPage() {
     fallbackSelection,
     initialSelection,
     isReturningWithSelection,
+    isHomeLocation,
     locationConsent,
     resolveAddress,
   ]);
@@ -434,6 +606,8 @@ export function NoteLocationPage() {
       return;
     }
 
+    setSearchMessage(null);
+
     const matchedOption = homeLocationOptions.find((option) =>
       option.weatherArea.includes(trimmedQuery) ||
       option.label.includes(trimmedQuery)
@@ -444,6 +618,7 @@ export function NoteLocationPage() {
         address: matchedOption.weatherArea,
         coordinates: matchedOption.coordinates,
         name: matchedOption.label,
+        neighborhood: matchedOption.label,
       };
       moveMapTo(nextSelection);
       return;
@@ -459,10 +634,21 @@ export function NoteLocationPage() {
     geocodeRequestRef.current += 1;
     places.keywordSearch(trimmedQuery, (result, searchStatus) => {
       if (searchStatus !== kakaoMaps.services?.Status.OK || !result[0]) {
+        setSearchMessage("검색 결과를 찾지 못했어요.");
         return;
       }
 
-      const firstPlace = result[0];
+      const firstPlace = result.find((place) =>
+        (place.address_name ?? place.road_address_name ?? "").startsWith(
+          "서울"
+        )
+      );
+
+      if (!firstPlace) {
+        setSearchMessage("서울 지역의 동네만 선택할 수 있어요.");
+        return;
+      }
+
       const coordinates = {
         lat: Number(firstPlace.y),
         lng: Number(firstPlace.x),
@@ -473,28 +659,18 @@ export function NoteLocationPage() {
         address,
         coordinates,
         name: firstPlace.place_name,
+        neighborhood: firstPlace.address_name
+          ? getNeighborhoodName(firstPlace.address_name)
+          : undefined,
       });
     });
   }
 
   function confirmLocation() {
-    const nextRecentLocations = [
-      selection,
-      ...recentLocations.filter(
-        (location) =>
-          location.address !== selection.address &&
-          (location.coordinates.lat !== selection.coordinates.lat ||
-            location.coordinates.lng !== selection.coordinates.lng)
-      ),
-    ].slice(0, 3);
-
-    saveRecentLocations(nextRecentLocations);
-    setRecentLocations(nextRecentLocations);
-
-    navigate("/note/new", {
+    navigate(isHomeLocation ? "/" : "/note/new", {
       replace: true,
       state: {
-        noteLocation: selection,
+        [isHomeLocation ? "homeLocation" : "noteLocation"]: selection,
       },
     });
   }
@@ -533,23 +709,41 @@ export function NoteLocationPage() {
             <button
               className="grid h-12 w-12 flex-none place-items-center rounded-full bg-white text-[#24231f] shadow-[0_10px_24px_rgba(17,17,17,0.14)]"
               type="button"
-              onClick={() => navigate("/note/new")}
-              aria-label="쪽지 작성으로 돌아가기"
+              onClick={() => navigate(isHomeLocation ? "/" : "/note/new")}
+              aria-label={isHomeLocation ? "홈으로 돌아가기" : "쪽지 작성으로 돌아가기"}
             >
               <ArrowLeft size={22} strokeWidth={2.5} />
             </button>
-            <div className="min-w-0 flex-1">
+            <div className="relative min-w-0 flex-1">
               <MapSearchBar
                 query={query}
-                onQueryChange={setQuery}
+                onQueryChange={(nextQuery) => {
+                  setQuery(nextQuery);
+                  setSearchMessage(null);
+                }}
                 onSubmit={searchLocation}
                 placeholder="장소, 주소 검색"
               />
+              {searchMessage ? (
+                <p
+                  className="absolute inset-x-0 top-[56px] z-20 m-0 rounded-xl bg-white/95 px-3 py-2 text-xs font-bold text-[#e54218] shadow-[0_6px_16px_rgba(17,17,17,0.12)]"
+                  role="status"
+                >
+                  {searchMessage}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
 
-        {status === "ready" ? (
+        {status === "ready" && isHomeLocation && boundaryStatus !== "ready" ? (
+        <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <span className="inline-flex min-w-max items-center rounded-full border-2 border-[#FF4300] bg-white px-4 py-2 text-sm font-black text-[#FF4300] shadow-[0_10px_24px_rgba(17,17,17,0.2)]">
+            {selection.neighborhood ?? selection.name}
+          </span>
+          <span className="mx-auto block h-3 w-3 -translate-y-1.5 rotate-45 border-r-2 border-b-2 border-[#FF4300] bg-white" />
+        </div>
+        ) : status === "ready" ? (
         <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-full flex-col items-center">
           <img
             className="h-[76px] w-[76px] translate-y-3 object-contain drop-shadow-[0_12px_18px_rgba(238,45,59,0.26)]"
@@ -560,7 +754,7 @@ export function NoteLocationPage() {
         </div>
         ) : null}
 
-        <div className="pointer-events-auto absolute right-4 bottom-[calc(292px+env(safe-area-inset-bottom))]">
+        <div className="pointer-events-auto absolute right-4 bottom-[calc(224px+env(safe-area-inset-bottom))]">
           <button
             className="grid size-11 touch-manipulation select-none place-items-center rounded-full border border-black/5 bg-white text-[#1e2a26] shadow-[0_7px_18px_rgba(17,17,17,0.18)]"
             onClick={handleCurrentLocationRequest}
@@ -573,7 +767,7 @@ export function NoteLocationPage() {
 
         <div className="pointer-events-auto absolute inset-x-0 bottom-0 rounded-t-[28px] bg-white px-5 pt-5 pb-[calc(18px+env(safe-area-inset-bottom))] shadow-[0_-10px_28px_rgba(17,17,17,0.12)]">
           <h2 className="m-0 text-[1.16rem] leading-tight font-black text-[#242424]">
-            어디에 쪽지를 남길까요?
+            {isHomeLocation ? "어느 동네를 둘러볼까요?" : "어디에 쪽지를 남길까요?"}
           </h2>
           <div className="mt-4 flex gap-3">
             <span className="mt-2 h-2 w-2 flex-none rounded-full border-2 border-[#767676]" />
@@ -587,28 +781,12 @@ export function NoteLocationPage() {
             </div>
           </div>
           <div className="mt-5 h-px bg-[#eeeeee]" />
-          {recentLocations.length > 0 ? (
-            <div className="mt-4 flex gap-1.5 overflow-x-auto pb-0.5">
-              {recentLocations.map((location) => (
-                <button
-                  className="min-h-8 max-w-[120px] flex-none truncate rounded-full bg-[#f0f0f0] px-3 text-xs font-bold text-[#777]"
-                  key={`${location.name}-${location.address}`}
-                  type="button"
-                  onClick={() => {
-                    moveMapTo(location);
-                  }}
-                >
-                  {location.name}
-                </button>
-              ))}
-            </div>
-          ) : null}
           <button
             className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-[#FF4300] font-black text-white shadow-[0_10px_20px_rgba(255,67,0,0.2)]"
             type="button"
             onClick={confirmLocation}
           >
-            이 위치로 설정하기
+            {isHomeLocation ? "이 동네로 설정하기" : "이 위치로 설정하기"}
           </button>
         </div>
       </div>

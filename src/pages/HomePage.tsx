@@ -1,21 +1,67 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getHomeBriefing } from "@/shared/api/mockApi";
 import { AiCourseRecommendation } from "@/features/home/components/AiCourseRecommendation";
 import { AiWeatherBriefing } from "@/features/home/components/AiWeatherBriefing";
 import { ExperienceSection } from "@/features/home/components/ExperienceSection";
 import { HomeHeader } from "@/features/home/components/HomeHeader";
 import { SpotNoteCarousel } from "@/features/home/components/SpotNoteCarousel";
-import { type HomeLocation } from "@/features/home/types/homeTypes";
+import { homeLocationOptions } from "@/features/home/types/homeTypes";
+import type { NoteLocationSelection } from "@/pages/NoteLocationPage";
+
+type HomeRouteState = {
+  homeLocation?: NoteLocationSelection;
+};
+
+const homeLocationStorageKey = "spot-home-location";
+const defaultHomeLocation = homeLocationOptions[0];
+
+function getDefaultHomeLocation(): NoteLocationSelection {
+  return {
+    address: defaultHomeLocation.weatherArea,
+    coordinates: defaultHomeLocation.coordinates,
+    name: defaultHomeLocation.label,
+  };
+}
+
+function readHomeLocation() {
+  try {
+    const savedLocation = window.localStorage.getItem(homeLocationStorageKey);
+
+    if (!savedLocation) return getDefaultHomeLocation();
+
+    return JSON.parse(savedLocation) as NoteLocationSelection;
+  } catch {
+    return getDefaultHomeLocation();
+  }
+}
+
+function getNeighborhoodName(location: NoteLocationSelection) {
+  if (location.neighborhood) return location.neighborhood;
+
+  const addressParts = location.address.trim().split(/\s+/);
+  const neighborhood = [...addressParts]
+    .reverse()
+    .find((part) => /(?:읍|면|동)(?:\s|$)/.test(part));
+
+  return neighborhood ?? location.name;
+}
 
 export function HomePage() {
+  const navigate = useNavigate();
+  const routeLocation = useLocation();
+  const routeState = routeLocation.state as HomeRouteState | null;
   const { data, isLoading } = useQuery({
     queryKey: ["home-briefing"],
     queryFn: getHomeBriefing,
   });
-  const [selectedLocation, setSelectedLocation] =
-    useState<HomeLocation>("장안동");
-  const [isLocationOpen, setIsLocationOpen] = useState(false);
+  const [selectedLocation] = useState<NoteLocationSelection>(() => {
+    const nextLocation = routeState?.homeLocation ?? readHomeLocation();
+    window.localStorage.setItem(homeLocationStorageKey, JSON.stringify(nextLocation));
+    return nextLocation;
+  });
+  const neighborhoodName = getNeighborhoodName(selectedLocation);
 
   if (isLoading || !data) {
     return (
@@ -28,15 +74,17 @@ export function HomePage() {
   return (
     <section className="overflow-x-hidden bg-white pb-8 text-[#111111]">
       <HomeHeader
-        selectedLocation={selectedLocation}
-        isLocationOpen={isLocationOpen}
-        onToggleLocation={() => setIsLocationOpen((value) => !value)}
-        onSelectLocation={(location) => {
-          setSelectedLocation(location);
-          setIsLocationOpen(false);
-        }}
+        selectedLocation={neighborhoodName}
+        onChangeLocation={() =>
+          navigate("/note/location", {
+            state: {
+              noteLocation: selectedLocation,
+              locationPurpose: "home",
+            },
+          })
+        }
       />
-      <AiWeatherBriefing location={selectedLocation} />
+      <AiWeatherBriefing location={neighborhoodName} />
       <ExperienceSection
         title="여기는 어때요?"
         experiences={data.experiences.slice(0, 2)}

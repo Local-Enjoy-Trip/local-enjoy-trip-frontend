@@ -2,10 +2,10 @@ import { CloudSun, Sparkles } from "lucide-react";
 import { useMemo } from "react";
 import { ShineBorder } from "@/shared/ui/ShineBorder";
 import { aiBriefings } from "@/features/home/data/homeContent";
-import type { HomeLocation } from "@/features/home/types/homeTypes";
+import { homeLocations } from "@/features/home/types/homeTypes";
 
 type AiWeatherBriefingProps = {
-  location: HomeLocation;
+  location: string;
 };
 
 const weatherThemes = {
@@ -44,7 +44,13 @@ const weatherThemes = {
 type WeatherKey = keyof typeof weatherThemes;
 
 export function AiWeatherBriefing({ location }: AiWeatherBriefingProps) {
-  const briefings = useMemo(() => aiBriefings[location], [location]);
+  const briefings = useMemo(() => {
+    const knownLocation = homeLocations.find((candidate) =>
+      location.includes(candidate)
+    );
+
+    return aiBriefings[knownLocation ?? homeLocations[0]];
+  }, [location]);
   // TODO: Replace this with the weather API's condition code.
   const weatherKey: WeatherKey = "clear";
   const weather = weatherThemes[weatherKey];

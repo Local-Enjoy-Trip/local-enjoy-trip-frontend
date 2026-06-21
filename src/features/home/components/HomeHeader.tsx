@@ -2,20 +2,15 @@ import { Bell, MessageCircle } from "lucide-react";
 import { IconButton } from "@/shared/ui/IconButton";
 import { SpotLogo } from "@/shared/ui/SpotLogo";
 import { LocationSelector } from "@/features/home/components/LocationSelector";
-import type { HomeLocation } from "@/features/home/types/homeTypes";
 
 type HomeHeaderProps = {
-  selectedLocation: HomeLocation;
-  isLocationOpen: boolean;
-  onToggleLocation: () => void;
-  onSelectLocation: (location: HomeLocation) => void;
+  selectedLocation: string;
+  onChangeLocation: () => void;
 };
 
 export function HomeHeader({
   selectedLocation,
-  isLocationOpen,
-  onToggleLocation,
-  onSelectLocation,
+  onChangeLocation,
 }: HomeHeaderProps) {
   return (
     <div className="px-5 pt-[calc(18px+env(safe-area-inset-top))]">
@@ -41,9 +36,7 @@ export function HomeHeader({
 
       <LocationSelector
         selectedLocation={selectedLocation}
-        isOpen={isLocationOpen}
-        onToggle={onToggleLocation}
-        onSelect={onSelectLocation}
+        onChange={onChangeLocation}
       />
     </div>
   );

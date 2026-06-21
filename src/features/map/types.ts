@@ -35,6 +35,17 @@ export type KakaoCustomOverlay = {
   setZIndex: (zIndex: number) => void;
 };
 
+export type KakaoPolygon = {
+  setMap: (map: KakaoMapInstance | null) => void;
+  setOptions: (options: {
+    fillColor?: string;
+    fillOpacity?: number;
+    strokeColor?: string;
+    strokeOpacity?: number;
+    strokeWeight?: number;
+  }) => void;
+};
+
 export type KakaoPolyline = {
   setMap: (map: KakaoMapInstance | null) => void;
 };
@@ -46,6 +57,12 @@ export type KakaoAddressResult = {
   road_address?: {
     address_name: string;
   } | null;
+};
+
+export type KakaoRegionResult = {
+  address_name: string;
+  region_3depth_name: string;
+  region_type: "B" | "H";
 };
 
 export type KakaoPlaceResult = {
@@ -65,6 +82,7 @@ export type KakaoServicesStatus = {
 export type KakaoMaps = {
   CustomOverlay: new (options: {
     content: HTMLElement;
+    map?: KakaoMapInstance;
     position: KakaoLatLng;
     yAnchor?: number;
     zIndex?: number;
@@ -75,6 +93,16 @@ export type KakaoMaps = {
     options: { center: KakaoLatLng; level: number }
   ) => KakaoMapInstance;
   Point: new (x: number, y: number) => KakaoPoint;
+  Polygon: new (options: {
+    fillColor?: string;
+    fillOpacity?: number;
+    map?: KakaoMapInstance;
+    path: KakaoLatLng[] | KakaoLatLng[][];
+    strokeColor?: string;
+    strokeOpacity?: number;
+    strokeStyle?: "solid" | "shortdash" | "shortdot" | "dash" | "dot";
+    strokeWeight?: number;
+  }) => KakaoPolygon;
   Polyline: new (options: {
     path: KakaoLatLng[];
     strokeColor?: string;
@@ -92,6 +120,14 @@ export type KakaoMaps = {
           status: string
         ) => void
       ) => void;
+      coord2RegionCode: (
+        lng: number,
+        lat: number,
+        callback: (
+          result: KakaoRegionResult[],
+          status: string
+        ) => void
+      ) => void;
     };
     Places: new () => {
       keywordSearch: (
@@ -106,13 +142,13 @@ export type KakaoMaps = {
   };
   event: {
     addListener: (
-      target: KakaoMapInstance,
-      type: "idle" | "zoom_changed",
+      target: KakaoMapInstance | KakaoPolygon,
+      type: "click" | "idle" | "zoom_changed",
       handler: () => void
     ) => void;
     removeListener: (
-      target: KakaoMapInstance,
-      type: "idle" | "zoom_changed",
+      target: KakaoMapInstance | KakaoPolygon,
+      type: "click" | "idle" | "zoom_changed",
       handler: () => void
     ) => void;
   };
