@@ -58,4 +58,5 @@ export type HomeNote = {
   body: string;
   place: string;
   image?: string;
+  profileImage?: string;
 };

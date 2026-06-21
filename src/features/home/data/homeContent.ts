@@ -36,25 +36,33 @@ export const aiBriefings: Record<HomeLocation, string[]> = {
 export const similarSpotNotes: HomeNote[] = [
   {
     id: "note-card-1",
-    name: "지민",
-    location: "장안1동 · 12분 전",
-    body: "시장 골목 끝에서 커피 향이 제일 진해요. 오늘처럼 맑은 날은 창가 쪽 자리가 좋아요.",
-    place: "망원 골목 카페",
+    name: "도리",
+    location: "장안 1동 · 12분 전",
+    body: "너무 덥지도 않고 산책로가 잘 조성되어 있어서 커피 한 잔 들고 기분 좋은 산책 했어요.",
+    place: "중랑천 벚꽃길",
+    image:
+      "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=700&q=80",
+    profileImage:
+      "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=150&h=150&q=80",
   },
   {
     id: "note-card-2",
-    name: "현우",
-    location: "을지로 · 어제",
-    body: "해 지기 전에 들르면 조명이 켜지는 골목을 같이 볼 수 있어요.",
-    place: "을지로 조명 거리",
-    image:
-      "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=700&q=80",
+    name: "치키카바라",
+    location: "답십리 · 3일 전",
+    body: "카페 정화에서 라떼 한 잔 마시며\n‘Fall in Love with Me’ 꼭 들어주세요\n\n매주 주말 나의 모닝 힐링 방앗간\n(✿´꒳``✿)",
+    place: "카페 정화",
+    profileImage:
+      "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?auto=format&fit=crop&w=150&h=150&q=80",
   },
   {
     id: "note-card-3",
-    name: "서윤",
-    location: "성수 · 28분 전",
-    body: "숲길 안쪽 벤치는 점심 지나면 조용해져요. 책 들고 가기 좋은 자리예요.",
-    place: "서울숲 안쪽 벤치",
+    name: "소소",
+    location: "성수동 · 1시간 전",
+    body: "성수동 골목 구석구석 숨겨진 소품샵 투어하기 딱 좋은 날씨예요. 가벼운 마음으로 걸어보세요!",
+    place: "성수동 소품샵 거리",
+    image:
+      "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=700&q=80",
+    profileImage:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
   },
 ];
