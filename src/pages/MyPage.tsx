@@ -41,7 +41,7 @@ function LoginPrompt() {
   const navigate = useNavigate();
 
   return (
-    <section className="min-h-screen bg-[#F8F7F3] px-5 pt-[calc(28px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#111]">
+    <section className="min-h-screen bg-white px-5 pt-[calc(28px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#111]">
       <header>
         <p className="m-0 text-xs font-black tracking-[0.12em] text-[#8B857C]">
           MY
@@ -108,7 +108,7 @@ export function MyPage() {
   }
 
   return (
-    <section className="min-h-screen bg-[#F8F7F3] px-5 pt-[calc(24px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#111]">
+    <section className="min-h-screen bg-white px-5 pt-[calc(24px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#111]">
       <header className="flex items-start justify-between gap-4">
         <div>
           <p className="m-0 text-xs font-black tracking-[0.12em] text-[#8B857C]">

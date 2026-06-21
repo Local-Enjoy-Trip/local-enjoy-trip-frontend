@@ -153,7 +153,7 @@ export function MapVisibleDrawer({
       style={drawerStyle}
     >
       <div
-        className={`absolute -top-16 right-4 transition-opacity duration-200 ${
+        className={`absolute -top-[72px] right-4 transition-opacity duration-200 ${
           drawerSnap === "full"
             ? "pointer-events-none opacity-0"
             : "pointer-events-auto opacity-100"

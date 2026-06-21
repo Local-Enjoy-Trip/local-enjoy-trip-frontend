@@ -2,8 +2,8 @@
 
 :root {
   color: #111111;
-  background: #111111;
-  --spot-app-bg: #faf8f5;
+  background: #ffffff;
+  --spot-app-bg: #ffffff;
   --spot-app-surface: #ffffff;
   --spot-app-surface-strong: #ffffff;
   --spot-app-text: #111111;
@@ -22,22 +22,6 @@
   text-rendering: optimizeLegibility;
 }
 
-:root[data-theme="dark"] {
-  --spot-app-bg: #111111;
-  --spot-app-surface: #1b1b1b;
-  --spot-app-surface-strong: #232323;
-  --spot-app-text: #f8f6f2;
-  --spot-app-text-soft: #e9e4dc;
-  --spot-app-muted: #a4a09a;
-  --spot-app-border: #2d2a27;
-  --spot-app-shadow: rgba(0, 0, 0, 0.2);
-  --spot-app-shadow-strong: rgba(0, 0, 0, 0.34);
-  --spot-app-soft-accent: rgba(255, 67, 0, 0.16);
-  --spot-app-nav: rgba(27, 27, 27, 0.94);
-  --spot-weather-card: linear-gradient(135deg, #191714, #1f1f22 52%, #261c2d);
-  --spot-weather-muted: #b9b2aa;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -46,8 +30,17 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #203f42;
+  background: #ffffff;
   transition: background-color 180ms ease;
+}
+
+@media (max-width: 639px) {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    background: #ffffff;
+  }
 }
 
 button,

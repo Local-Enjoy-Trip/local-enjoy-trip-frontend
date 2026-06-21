@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type AuthProvider = "kakao" | "google" | "email";
+export type AuthProvider = "google" | "email";
 
 export type AuthUser = {
   id: string;
@@ -34,15 +34,6 @@ const mockUsers: Record<AuthProvider, AuthUser> = {
     provider: "google",
     travelStyle: "카페 · 전시",
   },
-  kakao: {
-    id: "user-kakao",
-    area: "망원 · 한강",
-    avatarColor: "#FFB800",
-    email: "kakao.user@spot.dev",
-    name: "카카오 여행자",
-    provider: "kakao",
-    travelStyle: "맛집 중심",
-  },
 };
 
 function readStoredUser() {
@@ -52,7 +43,15 @@ function readStoredUser() {
     if (!window.localStorage) return memoryUser;
 
     const rawUser = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    return rawUser ? (JSON.parse(rawUser) as AuthUser) : null;
+    if (!rawUser) return null;
+
+    const user = JSON.parse(rawUser) as AuthUser;
+    if (user.provider !== "google" && user.provider !== "email") {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+
+    return user;
   } catch {
     return memoryUser;
   }

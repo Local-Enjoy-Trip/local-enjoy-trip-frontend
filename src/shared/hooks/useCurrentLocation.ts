@@ -15,6 +15,15 @@ export function useCurrentLocation() {
   });
 
   const requestLocation = useCallback(() => {
+    if (!window.isSecureContext) {
+      setState({
+        status: "error",
+        coordinates: null,
+        error: "휴대폰에서 현재 위치를 사용하려면 HTTPS 연결이 필요해요."
+      });
+      return;
+    }
+
     if (!navigator.geolocation) {
       setState({
         status: "error",

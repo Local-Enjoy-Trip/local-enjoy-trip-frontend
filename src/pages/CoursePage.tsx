@@ -187,7 +187,7 @@ export function CoursePage() {
   }
 
   return (
-    <section className="min-h-screen overflow-x-hidden bg-[#F8F7F3] px-5 pt-[calc(24px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#111]">
+    <section className="min-h-screen overflow-x-hidden bg-white px-5 pt-[calc(24px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#111]">
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="m-0 text-[2rem] leading-tight font-black">

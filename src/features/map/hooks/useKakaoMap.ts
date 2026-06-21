@@ -12,6 +12,7 @@ export function useKakaoMap(
   currentLocation: Coordinates | null,
   mapBottomInset: number,
   selectedPointBottomInset: number,
+  enabled = true,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
@@ -48,8 +49,13 @@ export function useKakaoMap(
   );
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     let cancelled = false;
     let resizeObserver: ResizeObserver | null = null;
+    setStatus("loading");
 
     loadKakaoMap().then((nextStatus) => {
       if (cancelled) return;
@@ -87,7 +93,9 @@ export function useKakaoMap(
         syncMap();
 
         const relayout = () => {
+          const preservedCenter = map.getCenter();
           map.relayout();
+          map.setCenter(preservedCenter);
           syncMap();
         };
 
@@ -106,17 +114,20 @@ export function useKakaoMap(
       cancelled = true;
       resizeObserver?.disconnect();
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     if (status !== "ready" || !mapRef.current) return;
 
     const relayout = () => {
-      mapRef.current?.relayout();
-      if (mapRef.current) {
-        setBounds(mapRef.current.getBounds());
-        setLevel(mapRef.current.getLevel());
-      }
+      const map = mapRef.current;
+      if (!map) return;
+
+      const preservedCenter = map.getCenter();
+      map.relayout();
+      map.setCenter(preservedCenter);
+      setBounds(map.getBounds());
+      setLevel(map.getLevel());
     };
 
     window.requestAnimationFrame(relayout);

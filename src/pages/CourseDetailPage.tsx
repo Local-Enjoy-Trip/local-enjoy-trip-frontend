@@ -693,7 +693,7 @@ export function CourseDetailPage() {
   }, []);
 
   return (
-    <section className="flex h-dvh flex-col overflow-hidden bg-[#F8F7F3] text-[#111]">
+    <section className="flex h-dvh flex-col overflow-hidden bg-white text-[#111]">
       <motion.div
         animate={{ height: headerHeight }}
         className="relative flex-none overflow-hidden bg-white"

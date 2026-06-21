@@ -273,17 +273,17 @@ export function AppShell() {
 
   return (
     <div
-      className={`mx-auto w-full max-w-[430px] bg-white shadow-[0_0_0_1px_rgba(17,17,17,0.06)] transition-colors sm:my-6 sm:rounded-3xl ${
+      className={`relative mx-auto w-full max-w-[430px] bg-white shadow-[0_0_0_1px_rgba(17,17,17,0.06)] transition-colors sm:my-6 sm:rounded-3xl ${
         usesFixedViewport
-          ? "h-[calc(100dvh-48px)] overflow-hidden sm:h-[calc(100dvh-48px)]"
-          : "min-h-screen sm:min-h-[calc(100vh-48px)] sm:overflow-hidden"
+          ? "h-dvh overflow-hidden sm:h-[calc(100dvh-48px)]"
+          : "min-h-dvh sm:min-h-[calc(100vh-48px)] sm:overflow-hidden"
       }`}
     >
       <main
         className={
           usesFixedViewport
             ? "h-full overflow-hidden"
-            : "min-h-screen pb-[calc(72px+env(safe-area-inset-bottom))]"
+            : "min-h-dvh pb-[calc(72px+env(safe-area-inset-bottom))]"
         }
       >
         <Outlet />
@@ -347,7 +347,7 @@ export function AppShell() {
           ref={createMenuRef}
         >
           <div
-            className={`absolute bottom-[calc(100%+20px)] left-1/2 w-[214px] -translate-x-1/2 origin-bottom overflow-hidden rounded-xl border border-black/5 bg-[#f7f7f7]/95 p-1.5 text-black shadow-[0_14px_36px_rgba(17,17,17,0.18)] backdrop-blur-xl transition-all duration-200 ${
+            className={`absolute bottom-[calc(100%+20px)] left-1/2 w-[214px] -translate-x-1/2 origin-bottom overflow-hidden rounded-2xl border border-[#dedede] bg-white p-1.5 text-black shadow-[0_18px_44px_rgba(17,17,17,0.28)] transition-all duration-200 ${
               isCreateMenuOpen
                 ? "visible translate-y-0 scale-100 opacity-100"
                 : "invisible translate-y-3 scale-95 opacity-0"
@@ -360,7 +360,7 @@ export function AppShell() {
 
               return (
                 <button
-                  className={`flex min-h-[54px] w-full items-center justify-between rounded-lg border-0 bg-transparent px-3.5 text-left text-black transition-colors hover:bg-black/5 focus-visible:bg-black/5 focus-visible:outline-none ${
+                  className={`flex min-h-[56px] w-full items-center justify-between rounded-xl border-0 bg-white px-3.5 text-left text-black transition-colors hover:bg-[#f4f4f4] focus-visible:bg-[#f4f4f4] focus-visible:outline-none ${
                     index > 0 ? "border-t border-solid border-black/10" : ""
                   }`}
                   key={item.to}

@@ -1,9 +1,7 @@
 import {
   ArrowLeft,
   ChevronRight,
-  LockKeyhole,
   Mail,
-  MessageCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -16,26 +14,19 @@ const loginOptions: Array<{
   label: string;
   provider: AuthProvider;
   tone: string;
-  icon: typeof MessageCircle;
+  icon: "google" | "email";
 }> = [
   {
-    description: "친구 공유와 일정 알림까지 바로 연결",
-    icon: MessageCircle,
-    label: "카카오로 계속하기",
-    provider: "kakao",
-    tone: "bg-[#FEE500] text-[#191600]",
-  },
-  {
     description: "저장한 장소와 코스를 여러 기기에서 관리",
-    icon: LockKeyhole,
+    icon: "google",
     label: "Google로 계속하기",
     provider: "google",
     tone: "bg-white text-[#1F1F1F] border border-[#E5E2DA]",
   },
   {
-    description: "테스트용 계정으로 빠르게 둘러보기",
-    icon: Mail,
-    label: "이메일로 시작하기",
+    description: "이메일 계정으로 로그인하거나 가입",
+    icon: "email",
+    label: "이메일로 계속하기",
     provider: "email",
     tone: "bg-[#1F3D35] text-white",
   },
@@ -50,7 +41,7 @@ export function LoginPage() {
   }
 
   return (
-    <section className="flex min-h-dvh flex-col bg-[#F6F5F1] px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-[calc(28px+env(safe-area-inset-bottom))] text-[#111]">
+    <section className="flex min-h-dvh flex-col bg-white px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-[calc(28px+env(safe-area-inset-bottom))] text-[#111]">
       <header className="flex h-11 items-center">
         <button
           aria-label="뒤로 가기"
@@ -79,8 +70,6 @@ export function LoginPage() {
 
           <div className="mt-8 grid gap-3">
             {loginOptions.map((option) => {
-              const Icon = option.icon;
-
               return (
                 <button
                   className={`flex min-h-[62px] w-full items-center gap-3 rounded-2xl px-4 text-left shadow-[0_8px_18px_rgba(31,38,35,0.05)] ${option.tone}`}
@@ -89,7 +78,11 @@ export function LoginPage() {
                   type="button"
                 >
                   <span className="grid size-9 flex-none place-items-center rounded-full bg-black/8">
-                    <Icon size={19} strokeWidth={2.4} />
+                    {option.icon === "google" ? (
+                      <span className="text-lg font-black leading-none">G</span>
+                    ) : (
+                      <Mail size={19} strokeWidth={2.4} />
+                    )}
                   </span>
                   <span className="min-w-0 flex-1">
                     <strong className="block text-[0.98rem] font-black">

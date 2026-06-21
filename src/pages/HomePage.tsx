@@ -26,7 +26,7 @@ export function HomePage() {
   }
 
   return (
-    <section className="overflow-x-hidden bg-[#faf8f5] pb-8 text-[#111111]">
+    <section className="overflow-x-hidden bg-white pb-8 text-[#111111]">
       <HomeHeader
         selectedLocation={selectedLocation}
         isLocationOpen={isLocationOpen}

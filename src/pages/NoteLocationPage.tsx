@@ -3,8 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { homeLocationOptions } from "@/features/home/types/homeTypes";
 import { FallbackMapLayer } from "@/features/map/components/FallbackMapLayer";
+import { LocationConsentDialog } from "@/features/map/components/LocationConsentDialog";
 import { MapSearchBar } from "@/features/map/components/MapSearchBar";
 import { loadKakaoMap } from "@/features/map/lib/kakaoMap";
+import { useMapViewportBackground } from "@/features/map/hooks/useMapViewportBackground";
+import {
+  readLocationConsent,
+  saveLocationConsent,
+  type LocationConsent,
+} from "@/features/map/lib/locationConsent";
 import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
 import noteLocationPinUrl from "@/assets/note-location-pin.png";
 import type {
@@ -127,6 +134,8 @@ function saveRecentLocations(locations: NoteLocationSelection[]) {
 }
 
 export function NoteLocationPage() {
+  useMapViewportBackground();
+
   const navigate = useNavigate();
   const currentLocation = useCurrentLocation();
   const {
@@ -137,6 +146,10 @@ export function NoteLocationPage() {
   const routeLocation = useLocation();
   const state = routeLocation.state as NoteLocationRouteState | null;
   const isReturningWithSelection = Boolean(state?.noteLocation);
+  const fallbackSelection = useMemo(
+    () => state?.noteLocation ?? defaultNoteLocation,
+    [state?.noteLocation]
+  );
   const initialSelection = useMemo(
     () =>
       state?.noteLocation ?? {
@@ -155,6 +168,8 @@ export function NoteLocationPage() {
   const [status, setStatus] = useState<
     "loading" | "ready" | "missing-key" | "error"
   >("loading");
+  const [locationConsent, setLocationConsent] =
+    useState<LocationConsent>(readLocationConsent);
   const [selection, setSelection] =
     useState<NoteLocationSelection>(initialSelection);
   const [recentLocations, setRecentLocations] = useState<NoteLocationSelection[]>(
@@ -163,7 +178,9 @@ export function NoteLocationPage() {
 
   const fallbackPoint = useMemo(() => createFallbackPoint(selection), [selection]);
   const canShowFallbackMap =
-    isReturningWithSelection || currentLocationStatus === "success";
+    locationConsent === "declined" ||
+    isReturningWithSelection ||
+    currentLocationStatus === "success";
 
   const resolvePlaceName = useCallback((
     address: string,
@@ -265,11 +282,14 @@ export function NoteLocationPage() {
   }, []);
 
   useEffect(() => {
-    requestLocation();
-  }, [requestLocation]);
+    if (locationConsent === "granted") {
+      requestLocation();
+    }
+  }, [locationConsent, requestLocation]);
 
   useEffect(() => {
     if (
+      locationConsent !== "granted" ||
       !hasInitializedMapRef.current ||
       currentLocationStatus !== "success" ||
       !currentCoordinates
@@ -283,19 +303,27 @@ export function NoteLocationPage() {
       name: "현재 위치",
     });
     resolveAddress(currentCoordinates, "현재 위치");
-  }, [currentCoordinates, currentLocationStatus, moveMapTo, resolveAddress]);
+  }, [
+    currentCoordinates,
+    currentLocationStatus,
+    locationConsent,
+    moveMapTo,
+    resolveAddress,
+  ]);
 
   useEffect(() => {
     if (hasInitializedMapRef.current) {
       return;
     }
 
-    if (currentLocationStatus === "idle" || currentLocationStatus === "loading") {
+    if (locationConsent === "pending") {
       return;
     }
 
-    if (currentLocationStatus === "error" && !isReturningWithSelection) {
-      setStatus("error");
+    if (
+      locationConsent === "granted" &&
+      (currentLocationStatus === "idle" || currentLocationStatus === "loading")
+    ) {
       return;
     }
 
@@ -322,7 +350,7 @@ export function NoteLocationPage() {
               coordinates: currentCoordinates,
               name: "현재 위치",
             }
-          : initialSelection;
+          : fallbackSelection;
       const center = new kakaoMaps.LatLng(
         startSelection.coordinates.lat,
         startSelection.coordinates.lng
@@ -369,10 +397,35 @@ export function NoteLocationPage() {
   }, [
     currentCoordinates,
     currentLocationStatus,
+    fallbackSelection,
     initialSelection,
     isReturningWithSelection,
+    locationConsent,
     resolveAddress,
   ]);
+
+  function allowCurrentLocation() {
+    saveLocationConsent("granted");
+    setLocationConsent("granted");
+  }
+
+  function continueWithoutLocation() {
+    saveLocationConsent("declined");
+    setSelection(fallbackSelection);
+    setLocationConsent("declined");
+  }
+
+  function handleCurrentLocationRequest() {
+    if (
+      locationConsent !== "granted" ||
+      currentLocationStatus === "error"
+    ) {
+      setLocationConsent("pending");
+      return;
+    }
+
+    requestLocation();
+  }
 
   function searchLocation() {
     const trimmedQuery = query.trim();
@@ -451,7 +504,7 @@ export function NoteLocationPage() {
       className="relative h-full min-h-0 overflow-hidden overscroll-none bg-[#eef3ef]"
       data-map-status={status}
     >
-      <div className="absolute inset-0">
+      <div className="absolute inset-x-0 top-[calc(-1*env(safe-area-inset-top))] bottom-0">
         <div
           className="h-full w-full"
           ref={mapContainerRef}
@@ -510,7 +563,7 @@ export function NoteLocationPage() {
         <div className="pointer-events-auto absolute right-4 bottom-[calc(292px+env(safe-area-inset-bottom))]">
           <button
             className="grid size-11 touch-manipulation select-none place-items-center rounded-full border border-black/5 bg-white text-[#1e2a26] shadow-[0_7px_18px_rgba(17,17,17,0.18)]"
-            onClick={currentLocation.requestLocation}
+            onClick={handleCurrentLocationRequest}
             type="button"
             aria-label="현재 위치"
           >
@@ -559,6 +612,13 @@ export function NoteLocationPage() {
           </button>
         </div>
       </div>
+
+      {locationConsent === "pending" ? (
+        <LocationConsentDialog
+          onAllow={allowCurrentLocation}
+          onSkip={continueWithoutLocation}
+        />
+      ) : null}
     </section>
   );
 }
