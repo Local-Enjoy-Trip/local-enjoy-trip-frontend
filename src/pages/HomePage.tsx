@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getHomeBriefing } from "@/shared/api/mockApi";
+import { useAuthUser } from "@/features/auth/authStore";
 import { AiCourseRecommendation } from "@/features/home/components/AiCourseRecommendation";
 import { AiWeatherBriefing } from "@/features/home/components/AiWeatherBriefing";
 import { ExperienceSection } from "@/features/home/components/ExperienceSection";
@@ -50,6 +51,7 @@ function getNeighborhoodName(location: NoteLocationSelection) {
 
 export function HomePage() {
   const navigate = useNavigate();
+  const { data: user } = useAuthUser();
   const routeLocation = useLocation();
   const routeState = routeLocation.state as HomeRouteState | null;
   const { data, isLoading } = useQuery({
@@ -74,6 +76,7 @@ export function HomePage() {
   return (
     <section className="overflow-x-hidden bg-white pb-8 text-[#111111]">
       <HomeHeader
+        nickname={user?.name ?? "사용자"}
         selectedLocation={neighborhoodName}
         onChangeLocation={() =>
           navigate("/note/location", {
@@ -88,6 +91,7 @@ export function HomePage() {
       <ExperienceSection
         title="여기는 어때요?"
         experiences={data.experiences.slice(0, 2)}
+        variant="portrait"
       />
       <SpotNoteCarousel />
       <ExperienceSection

@@ -29,7 +29,7 @@ export function getFriends(notes: LocalNote[]) {
   return Array.from(
     new Map(
       notes
-        .filter((note) => note.visibility === "friends")
+        .filter((note) => note.relationshipToViewer === "friend")
         .map((note) => [note.authorName, note])
     ).values()
   );
@@ -54,7 +54,7 @@ export function filterMapPoints({
     if (filter === "friend") {
       return (
         point.kind === "spot" &&
-        point.source.visibility === "friends" &&
+        point.source.relationshipToViewer === "friend" &&
         (!selectedFriend || point.authorName === selectedFriend)
       );
     }

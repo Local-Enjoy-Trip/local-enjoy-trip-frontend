@@ -12,5 +12,6 @@ export const categoryLabels: Record<NoteCategory, string> = {
   book: "책",
   movie: "영화",
   tip: "꿀팁",
-  move: "이동 팁"
+  move: "이동 팁",
+  uncategorized: "기타"
 };

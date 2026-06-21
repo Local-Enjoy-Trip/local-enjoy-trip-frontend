@@ -4,9 +4,43 @@ import type { Experience } from "@/shared/types/domain";
 
 type ExperienceCardProps = {
   experience: Experience;
+  variant?: "default" | "portrait";
 };
 
-export function ExperienceCard({ experience }: ExperienceCardProps) {
+export function ExperienceCard({
+  experience,
+  variant = "default",
+}: ExperienceCardProps) {
+  if (variant === "portrait") {
+    return (
+      <Link
+        className="w-[calc(100vw-52px)] max-w-[200px] flex-none snap-start"
+        to={`/map?experience=${experience.id}`}
+      >
+        <article className="relative aspect-4/5 w-full overflow-hidden rounded-[1.25rem] shadow-[0_8px_18px_rgba(17,17,17,0.10)]">
+          <img
+            className="block h-full w-full object-cover"
+            src={experience.imageUrl}
+            alt=""
+            loading="lazy"
+          />
+          <div className="absolute inset-x-0 bottom-0 h-[52%] bg-linear-to-t from-black/95 via-black/55 to-transparent" />
+          <div className="absolute top-3 left-3 rounded-full bg-white px-1.5 py-0.5 text-[0.625rem] font-extrabold whitespace-nowrap text-neutral-800">
+            곳곳 추천
+          </div>
+          <div className="absolute inset-x-0 bottom-0 px-5 pb-6 text-white">
+            <p className="m-0 line-clamp-2 text-base font-bold tracking-[-0.02em]">
+              {experience.title}
+            </p>
+            <p className="mt-2 mb-0 line-clamp-1 text-xs font-normal text-neutral-200">
+              {experience.detailLabel} · {experience.weatherFit}
+            </p>
+          </div>
+        </article>
+      </Link>
+    );
+  }
+
   return (
     <Link
       className="w-[calc(100vw-80px)] max-w-[250px] flex-none snap-start"

@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Coordinates } from "@/shared/types/domain";
-import { getPlaceMarkerColor, initialMapLevel, mapCenter } from "../constants";
+import { getPlaceMarkerColor, initialMapLevel } from "../constants";
 import { loadKakaoMap } from "../lib/kakaoMap";
 import { clusterPoints } from "../lib/mapPoints";
-import type { KakaoBounds, KakaoCustomOverlay, KakaoMapInstance, MapPoint } from "../types";
+import type {
+  KakaoBounds,
+  KakaoCustomOverlay,
+  KakaoMapInstance,
+  MapPoint,
+  MapViewport,
+} from "../types";
 
 export function useKakaoMap(
   points: MapPoint[],
   onSelectPoint: (id: string) => void,
   selectedPointId: string | null,
+  initialCenter: Coordinates,
   currentLocation: Coordinates | null,
   mapBottomInset: number,
   selectedPointBottomInset: number,
@@ -16,12 +23,18 @@ export function useKakaoMap(
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
+  const initialCenterRef = useRef(initialCenter);
   const overlaysRef = useRef<KakaoCustomOverlay[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "missing-key" | "error">(
     "loading"
   );
   const [bounds, setBounds] = useState<KakaoBounds | null>(null);
   const [level, setLevel] = useState(initialMapLevel);
+  const [viewport, setViewport] = useState<MapViewport | null>(null);
+
+  if (!mapRef.current) {
+    initialCenterRef.current = initialCenter;
+  }
 
   const focusMapOn = useCallback(
     (coordinates: Coordinates, bottomInset: number, nextLevel?: number) => {
@@ -74,7 +87,10 @@ export function useKakaoMap(
       const mapContainer = containerRef.current;
 
       try {
-        const center = new kakaoMaps.LatLng(mapCenter.lat, mapCenter.lng);
+        const center = new kakaoMaps.LatLng(
+          initialCenterRef.current.lat,
+          initialCenterRef.current.lng,
+        );
         const map = new kakaoMaps.Map(mapContainer, {
           center,
           level: initialMapLevel
@@ -83,8 +99,20 @@ export function useKakaoMap(
         mapRef.current = map;
 
         const syncMap = () => {
-          setBounds(map.getBounds());
+          const nextBounds = map.getBounds();
+          const center = map.getCenter();
+          const northEast = nextBounds.getNorthEast();
+          const southWest = nextBounds.getSouthWest();
+
+          setBounds(nextBounds);
           setLevel(map.getLevel());
+          setViewport({
+            center: { lat: center.getLat(), lng: center.getLng() },
+            radiusMeters: Math.max(
+              getDistanceMeters(center, northEast),
+              getDistanceMeters(center, southWest),
+            ),
+          });
         };
 
         kakaoMaps.event.addListener(map, "idle", syncMap);
@@ -229,7 +257,35 @@ export function useKakaoMap(
     [focusMapOn, mapBottomInset]
   );
 
-  return { bounds, containerRef, level, moveTo, recenterTo, status };
+  return {
+    bounds,
+    containerRef,
+    level,
+    moveTo,
+    recenterTo,
+    status,
+    viewport,
+  };
+}
+
+function getDistanceMeters(
+  from: { getLat: () => number; getLng: () => number },
+  to: { getLat: () => number; getLng: () => number },
+) {
+  const earthRadiusMeters = 6_371_000;
+  const lat1 = toRadians(from.getLat());
+  const lat2 = toRadians(to.getLat());
+  const deltaLat = lat2 - lat1;
+  const deltaLng = toRadians(to.getLng() - from.getLng());
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+
+  return 2 * earthRadiusMeters * Math.asin(Math.sqrt(haversine));
+}
+
+function toRadians(degrees: number) {
+  return (degrees * Math.PI) / 180;
 }
 
 function getOverlayClassName(point: MapPoint, selected: boolean) {

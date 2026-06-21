@@ -8,7 +8,10 @@ export type NoteCategory =
   | "book"
   | "movie"
   | "tip"
-  | "move";
+  | "move"
+  | "uncategorized";
+
+export type ViewerRelationship = "self" | "friend" | "none";
 
 export type Coordinates = {
   lat: number;
@@ -36,6 +39,7 @@ export type LocalNote = {
   placeName: string;
   coordinates: Coordinates;
   saved: boolean;
+  relationshipToViewer?: ViewerRelationship;
 };
 
 export type Experience = {

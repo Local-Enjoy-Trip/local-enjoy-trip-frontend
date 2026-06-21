@@ -4,11 +4,13 @@ import { SpotLogo } from "@/shared/ui/SpotLogo";
 import { LocationSelector } from "@/features/home/components/LocationSelector";
 
 type HomeHeaderProps = {
+  nickname: string;
   selectedLocation: string;
   onChangeLocation: () => void;
 };
 
 export function HomeHeader({
+  nickname,
   selectedLocation,
   onChangeLocation,
 }: HomeHeaderProps) {
@@ -21,9 +23,9 @@ export function HomeHeader({
         </IconButton>
       </header>
 
-      <div className="mt-8">
-        <h1 className="m-0 text-[2.15rem] leading-[1.08] font-bold tracking-tight text-[var(--spot-app-text)]">
-          박기현님,
+      <div className="mt-12">
+        <h1 className="text-3xl leading-10 font-normal text-neutral-800">
+          <span className="font-extrabold">{nickname}</span>님,
           <br />
           오늘은 어디로 떠나볼까요?
         </h1>

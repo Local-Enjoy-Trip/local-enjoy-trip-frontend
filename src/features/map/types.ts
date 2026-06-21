@@ -17,6 +17,8 @@ export type KakaoMapProjection = {
 
 export type KakaoBounds = {
   contain: (latlng: KakaoLatLng) => boolean;
+  getNorthEast: () => KakaoLatLng;
+  getSouthWest: () => KakaoLatLng;
 };
 
 export type KakaoMapInstance = {
@@ -174,6 +176,11 @@ export type MapPoint =
       saved: boolean;
       source: LocalNote;
     };
+
+export type MapViewport = {
+  center: Coordinates;
+  radiusMeters: number;
+};
 
 export type MarkerCluster = {
   id: string;

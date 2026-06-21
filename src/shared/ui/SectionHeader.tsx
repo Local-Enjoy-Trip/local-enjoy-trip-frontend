@@ -9,10 +9,12 @@ type SectionHeaderProps = {
 export function SectionHeader({ title, actionTo }: SectionHeaderProps) {
   return (
     <div className="mb-4 flex items-end justify-between gap-4 px-5">
-      <h2 className="m-0 text-[1.45rem] leading-tight font-black text-[var(--spot-app-text)]">{title}</h2>
+      <h2 className="m-0 text-[1.25rem] leading-tight font-extrabold text-(--spot-app-text)">
+        {title}
+      </h2>
       {actionTo ? (
         <Link
-          className="grid h-8 w-8 flex-none place-items-center text-[var(--spot-app-text)]"
+          className="grid h-8 w-8 flex-none place-items-center text-(--spot-app-text)"
           to={actionTo}
           aria-label={`${title} 더 보기`}
         >
