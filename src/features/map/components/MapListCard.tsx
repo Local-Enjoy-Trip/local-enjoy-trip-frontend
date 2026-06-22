@@ -1,5 +1,5 @@
-import { categoryLabels, visibilityLabels } from "@/shared/lib/labels";
 import { Heart, Plus, UserRound } from "lucide-react";
+import { NoteCard } from "@/features/notes/components/NoteCard";
 import type { MapPoint } from "../types";
 
 const neighborhoodDistricts: Record<string, string> = {
@@ -32,11 +32,13 @@ export function MapListCard({
   onAddToCourse,
   onSelect,
   point,
+  selected = false,
 }: {
   featured?: boolean;
   onAddToCourse?: (point: MapPoint) => void;
   onSelect?: () => void;
   point: MapPoint;
+  selected?: boolean;
 }) {
   const isPlace = point.kind === "place";
   const addressLabel = (isPlace ? point.source.area : point.source.placeName) || "주소 정보 없음";
@@ -44,77 +46,23 @@ export function MapListCard({
 
   if (!isPlace) {
     return (
-      <article
-        className={`relative flex-none overflow-hidden rounded-[20px] border border-[#ebe7df] bg-white shadow-[0_8px_20px_rgba(17,17,17,0.09)] ${
-          featured ? "mb-2 w-full" : "w-[min(82vw,320px)]"
-        }`}
-      >
-        <button
-          aria-label={`${point.authorName}의 쪽지 상세 보기`}
-          className="block w-full border-0 bg-transparent p-0 text-left"
-          onClick={onSelect}
-          type="button"
-        >
-          <span className="flex items-center gap-2.5 px-4 pt-4 pb-3">
-            <span className="grid size-9 flex-none place-items-center overflow-hidden rounded-full bg-[#eeeae4] text-[#6d665d]">
-              {point.authorAvatarUrl ? (
-                <img className="h-full w-full object-cover" alt="" src={point.authorAvatarUrl} />
-              ) : (
-                <UserRound size={19} />
-              )}
-            </span>
-            <span className="min-w-0 flex-1">
-              <strong className="block truncate text-sm font-black text-[#1f1f1f]">
-                {point.authorName}
-              </strong>
-              <span className="mt-0.5 block truncate text-[11px] font-bold text-[#817a71]">
-                {point.source.placeName || locationLabel} · {formatRelativeTime(point.source.createdAt)}
-              </span>
-            </span>
-            <span className="rounded-full bg-[#fff1ec] px-2 py-1 text-[10px] font-black text-[#d63800]">
-              {categoryLabels[point.source.category]}
-            </span>
-          </span>
-
-          {point.source.imageUrl ? (
-            <img
-              alt=""
-              className="h-36 w-full object-cover"
-              src={point.source.imageUrl}
-            />
-          ) : null}
-
-          <span className="block px-4 pt-3 pb-14 text-sm leading-relaxed font-semibold text-[#49443e]">
-            {point.source.body}
-          </span>
-        </button>
-
-        <div className="absolute right-3 bottom-3 flex items-center gap-1">
-          <span className="mr-1 text-[10px] font-bold text-[#938b81]">
-            {visibilityLabels[point.source.visibility]}
-          </span>
-          <button
-            aria-label={point.saved ? "찜 해제" : "찜"}
-            className="grid size-8 place-items-center rounded-full border-0 bg-[#f7f4ef] text-[#6d665d]"
-            type="button"
-          >
-            <Heart
-              size={20}
-              fill={point.saved ? "#FD4003" : "none"}
-              className={point.saved ? "text-[#FD4003]" : "text-[#6d665d]"}
-              strokeWidth={2.2}
-            />
-          </button>
-          <button
-            aria-label="추가할 코스 선택"
-            className="grid size-8 place-items-center rounded-full border-0 bg-[#f7f4ef] text-[#6d665d]"
-            onClick={() => onAddToCourse?.(point)}
-            type="button"
-          >
-            <Plus size={21} strokeWidth={2.2} />
-          </button>
-        </div>
-      </article>
+      <NoteCard
+        className={featured ? "mb-2" : ""}
+        note={{
+          authorName: point.authorName,
+          body: point.source.body,
+          createdAt: point.source.createdAt,
+          id: point.id,
+          imageAlt: point.source.placeName,
+          imageUrl: point.source.imageUrl,
+          locationLabel: point.source.placeName || locationLabel,
+          profileImageUrl: point.authorAvatarUrl,
+          saved: point.saved,
+        }}
+        onSelect={onSelect}
+        selected={selected}
+        wide={featured}
+      />
     );
   }
 
@@ -130,6 +78,8 @@ export function MapListCard({
         <img
           alt=""
           className="absolute inset-0 h-full w-full object-cover"
+          decoding="async"
+          loading="lazy"
           src={point.source.imageUrl}
         />
       ) : (
@@ -185,29 +135,4 @@ export function MapListCard({
       </div>
     </article>
   );
-}
-
-function formatRelativeTime(createdAt?: string) {
-  if (!createdAt) return "방금 전";
-
-  const timestamp = new Date(createdAt).getTime();
-  if (!Number.isFinite(timestamp)) return "방금 전";
-
-  const seconds = Math.round((timestamp - Date.now()) / 1_000);
-  const formatter = new Intl.RelativeTimeFormat("ko", { numeric: "auto" });
-  const ranges: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-    ["year", 31_536_000],
-    ["month", 2_592_000],
-    ["day", 86_400],
-    ["hour", 3_600],
-    ["minute", 60],
-  ];
-
-  for (const [unit, divisor] of ranges) {
-    if (Math.abs(seconds) >= divisor) {
-      return formatter.format(Math.round(seconds / divisor), unit);
-    }
-  }
-
-  return formatter.format(seconds, "second");
 }
