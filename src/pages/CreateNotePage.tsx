@@ -9,8 +9,21 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChangeEvent, FormEvent, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  createNote,
+  getSavedNotes,
+  saveNote,
+  savedNotesQueryKey,
+  updateNote,
+  uploadNoteImage,
+  type NoteCategory,
+  type NoteResponse,
+  type NoteVisibility,
+} from "@/features/notes/noteApi";
+import { resolveNoteImageUrl } from "@/features/notes/noteImage";
 import { homeLocationOptions } from "@/features/home/types/homeTypes";
 import type { NoteLocationSelection } from "@/pages/NoteLocationPage";
 import noteLocationPinUrl from "@/assets/note-location-pin.png";
@@ -26,6 +39,15 @@ const visibilityOptions = [
   { value: "private", label: "나만보기", shortLabel: "나만", Icon: LockKeyhole },
 ] as const;
 
+const categoryByTag: Record<string, NoteCategory> = {
+  꿀팁: "TIP",
+  맛집: "BEST",
+  책: "BOOK",
+  영화: "MOVIE",
+  음악: "MUSIC",
+  이동: "TRANSIT_TIP",
+};
+
 type NoteDraft = {
   body: string;
   imagePreview: string | null;
@@ -35,6 +57,7 @@ type NoteDraft = {
 };
 
 type CreateNoteRouteState = {
+  note?: NoteResponse;
   noteLocation?: NoteLocationSelection;
 };
 
@@ -73,11 +96,26 @@ function readDraft(): NoteDraft {
 
 export function CreateNotePage() {
   const navigate = useNavigate();
+  const { noteId } = useParams();
+  const queryClient = useQueryClient();
   const routeLocation = useLocation();
   const routeState = routeLocation.state as CreateNoteRouteState | null;
+  const routeNote = routeState?.note;
+  const parsedNoteId = noteId ? Number(noteId) : null;
+  const editNoteQuery = useQuery({
+    enabled: Boolean(parsedNoteId) && !routeNote,
+    queryFn: () => getSavedNotes(),
+    queryKey: savedNotesQueryKey,
+  });
+  const editNote =
+    routeNote ??
+    editNoteQuery.data?.find((note) => note.id === parsedNoteId) ??
+    null;
+  const isEditing = parsedNoteId !== null;
   const initialDraft = readDraft();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [noteLocation] = useState<NoteLocationSelection>(
+  const hydratedEditNoteIdRef = useRef<number | null>(null);
+  const [noteLocation, setNoteLocation] = useState<NoteLocationSelection>(
     routeState?.noteLocation ?? initialDraft.location
   );
   const [body, setBody] = useState(initialDraft.body);
@@ -96,6 +134,61 @@ export function CreateNotePage() {
   const selectedVisibility =
     visibilityOptions.find((option) => option.value === visibility) ??
     visibilityOptions[1];
+  useEffect(() => {
+    if (!editNote || hydratedEditNoteIdRef.current === editNote.id) return;
+
+    hydratedEditNoteIdRef.current = editNote.id;
+    setBody(editNote.content);
+    setImagePreview(resolveNoteImageUrl(editNote.imageObjectKey) ?? null);
+    setNoteLocation({
+      address: editNote.regionName || "위치 정보 없음",
+      coordinates: { lat: editNote.latitude, lng: editNote.longitude },
+      name: editNote.regionName || "선택한 위치",
+    });
+    setVisibility(editNote.visibility.toLowerCase() as Visibility);
+  }, [editNote]);
+
+  const noteMutation = useMutation({
+    mutationFn: async () => {
+      const trimmedTags = tagValues.map((tag) => tag.trim()).filter(Boolean);
+      const image = imagePreview?.startsWith("data:")
+        ? await uploadNoteImage(imagePreview)
+        : editNote?.imageObjectKey && imagePreview
+          ? {
+              contentType: getImageContentType(editNote.imageObjectKey),
+              objectKey: editNote.imageObjectKey,
+              publicUrl: imagePreview,
+            }
+          : undefined;
+      const request = {
+        category:
+          editNote?.category ?? categoryByTag[trimmedTags[0]] ?? "UNCATEGORIZED",
+        content: body.trim(),
+        image,
+        latitude: noteLocation.coordinates.lat,
+        longitude: noteLocation.coordinates.lng,
+        regionName: noteLocation.name,
+        // 지도 목록 응답은 content 없이 title만 제공하므로 본문 요약을 함께 저장합니다.
+        title: body.trim().slice(0, 100),
+        visibility: visibility.toUpperCase() as NoteVisibility,
+      };
+
+      if (isEditing && parsedNoteId !== null) {
+        return updateNote(parsedNoteId, request);
+      }
+
+      const note = await createNote(request);
+
+      // Swagger에는 작성 쪽지 목록 API가 없어, 마이페이지 조회용으로 함께 저장합니다.
+      await saveNote(note.id);
+      return note;
+    },
+    onSuccess: async () => {
+      window.sessionStorage.removeItem(noteDraftStorageKey);
+      await queryClient.invalidateQueries({ queryKey: savedNotesQueryKey });
+      navigate(isEditing ? "/my/notes" : "/my", { replace: true });
+    },
+  });
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -119,20 +212,11 @@ export function CreateNotePage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = {
-      body: body.trim(),
-      tags: tagValues.map((tag) => tag.trim()).filter(Boolean),
-      visibility,
-      coordinates: noteLocation.coordinates,
-      imageAttached: Boolean(imagePreview),
-    };
-
-    console.log("create note payload", payload);
-    window.sessionStorage.removeItem(noteDraftStorageKey);
-    window.alert("백엔드 연결 후 쪽지가 등록됩니다.");
+    if (body.trim()) noteMutation.mutate();
   }
 
   function openLocationPage() {
+    if (isEditing) return;
     window.sessionStorage.setItem(
       noteDraftStorageKey,
       JSON.stringify({
@@ -159,20 +243,48 @@ export function CreateNotePage() {
     );
   }
 
+  if (isEditing && editNoteQuery.isPending && !routeNote) {
+    return (
+      <div className="grid min-h-screen place-items-center p-6 font-black text-[#6f6a60]">
+        쪽지를 불러오는 중...
+      </div>
+    );
+  }
+
+  if (isEditing && !editNote) {
+    return (
+      <section className="grid min-h-screen place-items-center bg-white p-6 text-center">
+        <div>
+          <h1 className="m-0 text-xl font-black">쪽지를 찾지 못했어요</h1>
+          <button
+            className="mt-4 h-11 rounded-xl bg-[#1F3D35] px-4 text-sm font-black text-white"
+            onClick={() => navigate("/my/notes")}
+            type="button"
+          >
+            내 쪽지로 돌아가기
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="min-h-dvh bg-white px-5 pt-[calc(26px+env(safe-area-inset-top))] pb-8 text-[#151515]">
       <header>
         <h1 className="m-0 text-[1.78rem] leading-tight font-black tracking-[-0.035em]">
-          박기현님의 SPOT 쪽지
+          {isEditing ? "SPOT 쪽지 수정" : "박기현님의 SPOT 쪽지"}
         </h1>
         <p className="mt-2 mb-0 text-[0.94rem] leading-relaxed font-semibold text-[#777]">
-          방금 스친 장소의 온도와 기분을 짧게 남겨보세요.
+          {isEditing
+            ? "남겨둔 장소의 기록을 다시 다듬어보세요."
+            : "방금 스친 장소의 온도와 기분을 짧게 남겨보세요."}
         </p>
 
         <button
           className="mt-7 flex w-full items-center justify-between gap-4 rounded-[26px] border border-white/80 bg-white/72 px-4 py-4 text-left shadow-[0_16px_36px_rgba(39,32,25,0.07),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur transition-[border-color,transform,box-shadow] active:scale-[0.995]"
           type="button"
           onClick={openLocationPage}
+          disabled={isEditing}
         >
           <span className="flex min-w-0 items-center gap-3">
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-[#fff4ef]">
@@ -359,13 +471,36 @@ export function CreateNotePage() {
 
         <button
           className="inline-flex min-h-[58px] w-full items-center justify-center gap-2 rounded-[22px] border-0 bg-[#FF4300] font-black text-white shadow-[0_16px_30px_rgba(255,67,0,0.22)] transition-[opacity,transform,box-shadow] active:scale-[0.99] disabled:bg-[#efefef] disabled:text-[#aaa] disabled:shadow-none"
-          disabled={!body.trim()}
+          disabled={!body.trim() || noteMutation.isPending}
           type="submit"
         >
-          {body.trim() ? <Check size={19} strokeWidth={3} /> : null}
-          등록하기
+          {body.trim() && !noteMutation.isPending ? (
+            <Check size={19} strokeWidth={3} />
+          ) : null}
+          {noteMutation.isPending
+            ? isEditing
+              ? "수정 중..."
+              : "등록 중..."
+            : isEditing
+              ? "수정 완료"
+              : "등록하기"}
         </button>
+        {noteMutation.isError ? (
+          <p className="-mt-3 mb-0 text-center text-sm font-bold text-[#D5483D]">
+            {noteMutation.error instanceof Error
+              ? noteMutation.error.message
+              : `쪽지를 ${isEditing ? "수정" : "등록"}하지 못했습니다.`}
+          </p>
+        ) : null}
       </form>
     </section>
   );
+}
+
+function getImageContentType(objectKey: string) {
+  const extension = objectKey.split(".").pop()?.toLowerCase();
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  if (extension === "gif") return "image/gif";
+  return "image/jpeg";
 }

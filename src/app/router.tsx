@@ -10,6 +10,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { EmailLoginPage } from "../pages/EmailLoginPage";
 import { MapPage } from "../pages/MapPage";
 import { MyPage } from "../pages/MyPage";
+import { MyNotesPage } from "../pages/MyNotesPage";
 import { NoteLocationPage } from "../pages/NoteLocationPage";
 import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { SignupPage } from "../pages/SignupPage";
@@ -25,11 +26,13 @@ export const router = createBrowserRouter([
       { path: "/", element: <HomePage /> },
       { path: "/map", element: <MapPage /> },
       { path: "/note/new", element: <CreateNotePage /> },
+      { path: "/note/:noteId/edit", element: <CreateNotePage /> },
       { path: "/note/location", element: <NoteLocationPage /> },
       { path: "/course", element: <CoursePage /> },
       { path: "/course/new", element: <CreateCoursePage /> },
       { path: "/course/:courseId", element: <CourseDetailPage /> },
-      { path: "/my", element: <MyPage /> }
+      { path: "/my", element: <MyPage /> },
+      { path: "/my/notes", element: <MyNotesPage /> }
     ]
   },
   { path: "/login", element: <LoginPage /> },

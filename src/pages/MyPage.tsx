@@ -11,21 +11,18 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   authUserQueryKey,
   logout,
   useAuthUser,
 } from "@/features/auth/authStore";
+import { getSavedNotes, savedNotesQueryKey } from "@/features/notes/noteApi";
 import { courses, notes, places } from "@/shared/data/mockData";
 
 const menuItems = [
-  {
-    icon: UsersRound,
-    label: "친구 관리",
-    detail: "친구 추가와 공개 기록 보기",
-  },
+  { icon: UsersRound, label: "친구 관리", detail: "친구 추가와 공개 기록 보기" },
   {
     icon: ShieldCheck,
     label: "공개 범위 기본값",
@@ -48,28 +45,20 @@ function LoginPrompt() {
   return (
     <section className="min-h-screen bg-white px-5 pt-[calc(28px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#111]">
       <header>
-        <p className="m-0 text-xs font-black tracking-[0.12em] text-[#8B857C]">
-          MY
-        </p>
+        <p className="m-0 text-xs font-black tracking-[0.12em] text-[#8B857C]">MY</p>
         <h1 className="mt-2 mb-0 text-[2rem] leading-tight font-black">
           로그인하고
-          <br />
-          내 여행을 이어가요
+          <br />내 여행을 이어가요
         </h1>
       </header>
-
       <article className="mt-8 rounded-2xl bg-white p-5 shadow-[0_10px_28px_rgba(31,38,35,0.06)]">
         <div className="grid size-14 place-items-center rounded-2xl bg-[#1F3D35] text-white">
           <UserRound size={28} strokeWidth={2.4} />
         </div>
-        <h2 className="mt-5 mb-0 text-xl font-black">
-          저장한 장소와 코스를 한 곳에
-        </h2>
+        <h2 className="mt-5 mb-0 text-xl font-black">저장한 장소와 코스를 한 곳에</h2>
         <p className="mt-2 mb-0 text-sm leading-relaxed font-semibold text-[#746F67]">
-          찜한 장소, 만든 여행 코스, 친구 공개 범위를 계정에 연결해 관리할 수
-          있어요.
+          찜한 장소, 만든 여행 코스, 친구 공개 범위를 계정에 연결해 관리할 수 있어요.
         </p>
-
         <button
           className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F3D35] text-sm font-black text-white"
           onClick={() => navigate("/login")}
@@ -78,7 +67,6 @@ function LoginPrompt() {
           로그인하기
         </button>
       </article>
-
       <div className="mt-4 grid grid-cols-3 gap-2">
         {[
           { label: "찜한 장소", value: savedPlaceCount },
@@ -86,12 +74,8 @@ function LoginPrompt() {
           { label: "저장 쪽지", value: savedNoteCount },
         ].map((item) => (
           <div className="rounded-xl bg-white p-3" key={item.label}>
-            <p className="m-0 text-xs font-black text-[#8B857C]">
-              {item.label}
-            </p>
-            <strong className="mt-1 block text-xl font-black">
-              {item.value}
-            </strong>
+            <p className="m-0 text-xs font-black text-[#8B857C]">{item.label}</p>
+            <strong className="mt-1 block text-xl font-black">{item.value}</strong>
           </div>
         ))}
       </div>
@@ -103,6 +87,14 @@ export function MyPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: user, isLoading } = useAuthUser();
+  const savedNotesQuery = useQuery({
+    enabled: Boolean(user),
+    queryFn: () => getSavedNotes(),
+    queryKey: savedNotesQueryKey,
+  });
+  const myNoteCount = (savedNotesQuery.data ?? []).filter(
+    (note) => note.authorUserId === user?.id,
+  ).length;
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSettled: () => {
@@ -119,20 +111,14 @@ export function MyPage() {
     );
   }
 
-  if (!user) {
-    return <LoginPrompt />;
-  }
+  if (!user) return <LoginPrompt />;
 
   return (
     <section className="min-h-screen bg-white px-5 pt-[calc(24px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#111]">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <p className="m-0 text-xs font-black tracking-[0.12em] text-[#8B857C]">
-            MY
-          </p>
-          <h1 className="mt-1 mb-0 text-[2rem] leading-tight font-black">
-            마이
-          </h1>
+          <p className="m-0 text-xs font-black tracking-[0.12em] text-[#8B857C]">MY</p>
+          <h1 className="mt-1 mb-0 text-[2rem] leading-tight font-black">마이</h1>
         </div>
         <button
           aria-label="설정"
@@ -146,39 +132,35 @@ export function MyPage() {
       <article className="mt-6 rounded-2xl bg-white p-4 shadow-[0_10px_28px_rgba(31,38,35,0.06)]">
         <div className="flex items-center gap-3">
           <div
-            className="grid size-16 flex-none place-items-center rounded-2xl text-xl font-black text-white"
+            className="grid size-16 flex-none place-items-center overflow-hidden rounded-2xl text-xl font-black text-white"
             style={{ backgroundColor: user.avatarColor }}
           >
-            {user.name.slice(0, 1)}
+            {user.profileImageUrl ? (
+              <img alt="" className="h-full w-full object-cover" src={user.profileImageUrl} />
+            ) : (
+              user.name.slice(0, 1)
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="m-0 truncate text-xl font-black">{user.name}</h2>
-            <p className="mt-1 mb-0 truncate text-sm font-bold text-[#746F67]">
-              {user.email}
-            </p>
+            <p className="mt-1 mb-0 truncate text-sm font-bold text-[#746F67]">{user.email}</p>
             <p className="mt-1 mb-0 text-xs font-black text-[#8B857C]">
               {user.area} · {user.travelStyle}
             </p>
           </div>
         </div>
-
         <div className="mt-4 grid grid-cols-3 gap-2">
           {[
             { icon: Heart, label: "찜", value: savedPlaceCount },
             { icon: MapPinned, label: "코스", value: courses.length },
-            { icon: Bookmark, label: "쪽지", value: savedNoteCount },
+            { icon: Bookmark, label: "쪽지", value: myNoteCount },
           ].map((item) => {
             const Icon = item.icon;
-
             return (
               <div className="rounded-xl bg-[#F6F5F1] p-3" key={item.label}>
-                <Icon size={16} className="text-[#746F67]" />
-                <strong className="mt-2 block text-lg font-black">
-                  {item.value}
-                </strong>
-                <span className="text-xs font-black text-[#8B857C]">
-                  {item.label}
-                </span>
+                <Icon className="text-[#746F67]" size={16} />
+                <strong className="mt-2 block text-lg font-black">{item.value}</strong>
+                <span className="text-xs font-black text-[#8B857C]">{item.label}</span>
               </div>
             );
           })}
@@ -186,24 +168,40 @@ export function MyPage() {
       </article>
 
       <section className="mt-5">
+        <h2 className="m-0 text-base font-black">내 콘텐츠</h2>
+        <button
+          className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-white p-4 text-left shadow-[0_8px_20px_rgba(31,38,35,0.05)]"
+          onClick={() => navigate("/my/notes")}
+          type="button"
+        >
+          <span className="grid size-11 flex-none place-items-center rounded-xl bg-[#FFF0EA] text-[#FD4003]">
+            <Bookmark size={21} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <strong className="block text-sm font-black">내 쪽지 {myNoteCount}개</strong>
+            <small className="mt-1 block text-xs font-bold text-[#8B857C]">
+              작성한 쪽지를 확인하고 수정하거나 삭제해요.
+            </small>
+          </span>
+          <ChevronRight className="text-[#AAA49B]" size={20} />
+        </button>
+      </section>
+
+      <section className="mt-5">
         <h2 className="m-0 text-base font-black">여행 상태</h2>
-        <div className="mt-3 grid gap-2">
-          <button
-            className="flex w-full items-center justify-between rounded-xl bg-white p-4 text-left shadow-[0_8px_20px_rgba(31,38,35,0.04)]"
-            onClick={() => navigate("/course")}
-            type="button"
-          >
-            <span>
-              <strong className="block text-sm font-black">
-                비공개 코스 {privateCourseCount}개
-              </strong>
-              <small className="mt-1 block text-xs font-bold text-[#8B857C]">
-                친구에게 공유하기 전까지 나만 볼 수 있어요.
-              </small>
-            </span>
-            <ChevronRight size={20} />
-          </button>
-        </div>
+        <button
+          className="mt-3 flex w-full items-center justify-between rounded-xl bg-white p-4 text-left shadow-[0_8px_20px_rgba(31,38,35,0.04)]"
+          onClick={() => navigate("/course")}
+          type="button"
+        >
+          <span>
+            <strong className="block text-sm font-black">비공개 코스 {privateCourseCount}개</strong>
+            <small className="mt-1 block text-xs font-bold text-[#8B857C]">
+              친구에게 공유하기 전까지 나만 볼 수 있어요.
+            </small>
+          </span>
+          <ChevronRight size={20} />
+        </button>
       </section>
 
       <section className="mt-5">
@@ -221,18 +219,15 @@ export function MyPage() {
                   <Icon size={19} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <strong className="block text-sm font-black">
-                    {item.label}
-                  </strong>
+                  <strong className="block text-sm font-black">{item.label}</strong>
                   <small className="mt-1 block truncate text-xs font-bold text-[#8B857C]">
                     {item.detail}
                   </small>
                 </span>
-                <ChevronRight size={18} className="text-[#AAA49B]" />
+                <ChevronRight className="text-[#AAA49B]" size={18} />
               </button>
             );
           })}
-
           <button
             className="flex w-full items-center gap-3 rounded-xl bg-white p-4 text-left text-[#D5483D] shadow-[0_8px_20px_rgba(31,38,35,0.04)]"
             disabled={logoutMutation.isPending}
