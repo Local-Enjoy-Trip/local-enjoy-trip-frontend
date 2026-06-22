@@ -1,12 +1,12 @@
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import {
   authUserQueryKey,
   getAuthErrorMessage,
   loginWithEmail,
 } from "@/features/auth/authStore";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { type FormEvent, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type EmailLoginRouteState = {
   returnTo?: string;
@@ -52,7 +52,7 @@ export function EmailLoginPage() {
         <h1 className="m-0 text-center text-xl font-black">아이디로 로그인</h1>
       </header>
 
-      <form className="mt-12" onSubmit={handleSubmit}>
+      <form className="mt-9" onSubmit={handleSubmit}>
         {routeState?.signupSuccess ? (
           <p
             aria-live="polite"
@@ -66,20 +66,20 @@ export function EmailLoginPage() {
         </label>
         <input
           autoComplete="username"
-          className="mt-3 h-14 w-full rounded-2xl border border-[#DDDAD4] bg-white px-4 text-base font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
+          className="mt-3 h-11 w-full rounded-xl placeholder:text-xs border border-[#DDDAD4] bg-white px-3.5 text-sm font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
           id="login-user-id"
           onChange={(event) => setUserId(event.target.value)}
           placeholder="아이디를 입력해주세요."
           value={userId}
         />
 
-        <label className="mt-7 block text-sm font-black text-[#555]" htmlFor="login-password">
+        <label className="mt-5 block text-sm font-black text-[#555]" htmlFor="login-password">
           비밀번호
         </label>
         <div className="relative mt-3">
           <input
             autoComplete="current-password"
-            className="h-14 w-full rounded-2xl border border-[#DDDAD4] bg-white px-4 pr-12 text-base font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
+            className="h-11 w-full rounded-xl placeholder:text-xs border border-[#DDDAD4] bg-white px-3.5 pr-12 text-sm font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
             id="login-password"
             minLength={8}
             onChange={(event) => setPassword(event.target.value)}
@@ -97,14 +97,14 @@ export function EmailLoginPage() {
           </button>
         </div>
 
-        <p aria-live="polite" className="mt-4 min-h-5 text-sm font-bold text-[#D63B0B]">
+        <p aria-live="polite" className="mt-4 min-h-5 text-sm font-bold text-[#FD4003]">
           {loginMutation.isError
             ? getAuthErrorMessage(loginMutation.error)
             : ""}
         </p>
 
         <button
-          className="mt-10 h-14 w-full rounded-2xl border-0 bg-[#FF4300] text-base font-black text-white transition disabled:cursor-not-allowed disabled:bg-[#F0D1C6]"
+          className="mt-10 h-10 w-full rounded-xl border-0 bg-[#FD4003] text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-[#F5CFC4]"
           disabled={!canSubmit || loginMutation.isPending}
           type="submit"
         >
@@ -113,7 +113,7 @@ export function EmailLoginPage() {
       </form>
 
       <button
-        className="mx-auto mt-8 block border-0 bg-transparent text-sm font-black text-[#333] underline decoration-[#FF4300] decoration-2 underline-offset-4"
+        className="mx-auto mt-2 block border-0 bg-transparent text-xs! font-bold text-[#FD4003] underline underline-offset-2"
         onClick={() => navigate("/signup", { state: routeState })}
         type="button"
       >

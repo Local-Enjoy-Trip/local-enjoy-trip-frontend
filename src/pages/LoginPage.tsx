@@ -1,8 +1,8 @@
-import { ArrowLeft, ChevronRight, Mail } from "lucide-react";
-import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import { startGoogleLogin } from "@/features/auth/authStore";
 import { SpotLogo } from "@/shared/ui/SpotLogo";
+import { ChevronRight, Mail } from "lucide-react";
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type LoginRouteState = {
   returnTo?: string;
@@ -46,37 +46,32 @@ export function LoginPage() {
   }
 
   return (
-    <section className="flex min-h-dvh flex-col bg-white px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-[calc(28px+env(safe-area-inset-bottom))] text-[#111]">
-      <header className="flex h-11 items-center">
-        <button
-          aria-label="뒤로 가기"
-          className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]"
-          onClick={() => navigate(-1)}
-          type="button"
-        >
-          <ArrowLeft size={24} />
-        </button>
-      </header>
-
-      <div className="flex flex-1 flex-col justify-center pb-10">
-        <div className="flex justify-center">
-          <SpotLogo />
+    <section className="flex min-h-dvh flex-col bg-white px-3.5 pt-[calc(24px+env(safe-area-inset-top))] pb-[calc(40px+env(safe-area-inset-bottom))] text-[#111]">
+      <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col items-center justify-center pb-20">
+          <SpotLogo className="w-[82px]" />
+          <p className="mt-7 text-center text-[20px] leading-[1.45] font-semibold tracking-[-0.03em] text-[#333]">
+            나만 알고싶은 이<span className="text-[#FF4300]">곳</span>저<span className="text-[#FF4300]">곳</span>을
+            <br />
+            공유하고 발견하는 로컬지도
+          </p>
         </div>
-        <div className="mt-16 grid gap-3">
+
+        <div className="grid gap-2.5">
           <button
-            className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[#E5E2DA] bg-white px-4 text-left font-black shadow-[0_8px_18px_rgba(31,38,35,0.04)]"
+            className="flex h-11 w-full items-center gap-3 rounded-xl border border-[#E5E2DA] bg-white px-3 text-left font-medium shadow-[0_4px_12px_rgba(31,38,35,0.04)]"
             onClick={handleGoogleLogin}
             type="button"
           >
-            <span className="grid size-9 place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(17,17,17,0.07)]">
+            <span className="grid size-7 place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(17,17,17,0.07)]">
               <GoogleIcon />
             </span>
-            <span className="flex-1 text-center text-[0.98rem]">Google로 계속하기</span>
-            <ChevronRight className="text-[#888]" size={19} />
+            <span className="flex-1 text-center text-sm">Google로 계속하기</span>
+            <ChevronRight className="text-[#888]" size={16} />
           </button>
 
           <button
-            className="flex min-h-14 w-full items-center gap-3 rounded-2xl border-0 bg-[#111] px-4 text-left font-black text-white shadow-[0_8px_18px_rgba(17,17,17,0.12)]"
+            className="flex h-11 w-full items-center gap-3 rounded-xl border-0 bg-[#111] px-3 text-left font-medium text-white shadow-[0_6px_14px_rgba(17,17,17,0.14)]"
             onClick={() =>
               navigate("/login/email", {
                 state: { returnTo: routeState?.returnTo },
@@ -84,16 +79,16 @@ export function LoginPage() {
             }
             type="button"
           >
-            <span className="grid size-9 place-items-center rounded-full bg-white/10">
-              <Mail size={19} />
+            <span className="grid size-7 place-items-center rounded-full bg-white/10">
+              <Mail size={16} />
             </span>
-            <span className="flex-1 text-center text-[0.98rem]">아이디로 계속하기</span>
-            <ChevronRight className="text-white/70" size={19} />
+            <span className="flex-1 text-center text-sm">아이디로 계속하기</span>
+            <ChevronRight className="text-white/70" size={16} />
           </button>
         </div>
 
         <button
-          className="mx-auto mt-8 border-0 bg-transparent text-sm font-bold text-[#555] underline underline-offset-4"
+          className="mx-auto mt-2 border-0 bg-transparent text-[10px]! font-medium text-[#777] underline underline-offset-2"
           onClick={() => setMessage("계정 찾기 기능은 준비 중이에요.")}
           type="button"
         >
@@ -102,7 +97,7 @@ export function LoginPage() {
 
         <p
           aria-live="polite"
-          className="mt-4 min-h-5 text-center text-xs font-bold text-[#777]"
+          className="mt-1 min-h-4 text-center text-[10px] font-bold text-red-500"
         >
           {message}
         </p>
