@@ -108,57 +108,18 @@ function CourseNavIcon({ isActive }: { isActive: boolean }) {
   return (
     <span className="relative block h-6 w-6" aria-hidden="true">
       <svg
-        className={`absolute inset-0 h-full w-full transition-opacity duration-200 ease-out ${
-          isActive ? "opacity-0" : "opacity-100"
-        }`}
+        className="absolute inset-0 h-full w-full"
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
-          d="M7.5 10.5C9.43 10.5 11 8.93 11 7C11 5.07 9.43 3.5 7.5 3.5C5.57 3.5 4 5.07 4 7C4 9.75 7.5 13 7.5 13C7.5 13 11 9.75 11 7Z"
+          d="M7.25 3.25H16.75C18.13 3.25 19.25 4.37 19.25 5.75V19.1C19.25 20.43 17.69 21.14 16.69 20.27L12.98 17.04C12.42 16.55 11.58 16.55 11.02 17.04L7.31 20.27C6.31 21.14 4.75 20.43 4.75 19.1V5.75C4.75 4.37 5.87 3.25 7.25 3.25Z"
+          fill={isActive ? "currentColor" : "none"}
           stroke="currentColor"
-          strokeWidth="1.5"
+          strokeWidth={isActive ? 1.4 : 1.8}
           strokeLinecap="round"
           strokeLinejoin="round"
-        />
-        <path
-          d="M7.5 7H7.51"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M10 19H16.5C18.43 19 20 17.43 20 15.5C20 13.57 18.43 12 16.5 12H14"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M10 16L7 19L10 22"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <svg
-        className={`absolute inset-0 h-full w-full transition-opacity duration-200 ease-out ${
-          isActive ? "opacity-100" : "opacity-0"
-        }`}
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          fillRule="evenodd"
-          clipRule="evenodd"
-          d="M7.5 2.5C4.74 2.5 2.5 4.74 2.5 7.5C2.5 11.35 7.5 15.5 7.5 15.5C7.5 15.5 12.5 11.35 12.5 7.5C12.5 4.74 10.26 2.5 7.5 2.5ZM7.5 9.25C8.47 9.25 9.25 8.47 9.25 7.5C9.25 6.53 8.47 5.75 7.5 5.75C6.53 5.75 5.75 6.53 5.75 7.5C5.75 8.47 6.53 9.25 7.5 9.25Z"
-          fill="currentColor"
-        />
-        <path
-          d="M13.5 11H16.5C18.99 11 21 13.01 21 15.5C21 17.99 18.99 20 16.5 20H10.83L11.71 20.88C12.1 21.27 12.1 21.9 11.71 22.29C11.32 22.68 10.68 22.68 10.29 22.29L7.71 19.71C7.32 19.32 7.32 18.68 7.71 18.29L10.29 15.71C10.68 15.32 11.32 15.32 11.71 15.71C12.1 16.1 12.1 16.73 11.71 17.12L10.83 18H16.5C17.88 18 19 16.88 19 15.5C19 14.12 17.88 13 16.5 13H13.5V11Z"
-          fill="currentColor"
         />
       </svg>
     </span>
