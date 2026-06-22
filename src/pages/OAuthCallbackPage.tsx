@@ -48,6 +48,7 @@ export function OAuthCallbackPage() {
   );
   const handledLoginRef = useRef(false);
   const [name, setName] = useState(callback.suggestedName);
+  const [nickname, setNickname] = useState("");
   const [loginError, setLoginError] = useState("");
   const completeSignupMutation = useMutation({
     mutationFn: completeGoogleSignup,
@@ -82,10 +83,15 @@ export function OAuthCallbackPage() {
   function handleCompleteSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!callback.oauthSignupTicket || name.trim().length < 2) return;
+    if (
+      !callback.oauthSignupTicket ||
+      name.trim().length < 2 ||
+      nickname.trim().length < 2
+    ) return;
 
     completeSignupMutation.mutate({
       name: name.trim(),
+      nickname: nickname.trim(),
       oauthSignupTicket: callback.oauthSignupTicket,
     });
   }
@@ -106,7 +112,7 @@ export function OAuthCallbackPage() {
   }
 
   if (callback.oauthSignupTicket) {
-    const canSubmit = name.trim().length >= 2;
+    const canSubmit = name.trim().length >= 2 && nickname.trim().length >= 2;
 
     return (
       <main className="mx-auto min-h-dvh w-full max-w-[430px] bg-white px-5 pt-[calc(48px+env(safe-area-inset-top))] pb-8 text-[#111]">
@@ -119,7 +125,7 @@ export function OAuthCallbackPage() {
           확인해주세요
         </h1>
         <p className="mt-3 mb-0 text-sm leading-relaxed font-semibold text-[#746F67]">
-          {callback.email} 계정으로 동네핀에 가입합니다.
+          {callback.email} 계정으로 곳곳에 가입합니다.
         </p>
 
         <form className="mt-10" onSubmit={handleCompleteSignup}>
@@ -134,6 +140,21 @@ export function OAuthCallbackPage() {
             onChange={(event) => setName(event.target.value)}
             placeholder="서비스에서 사용할 이름"
             value={name}
+          />
+          <label
+            className="mt-5 block text-sm font-black text-[#555]"
+            htmlFor="oauth-nickname"
+          >
+            닉네임
+          </label>
+          <input
+            autoComplete="nickname"
+            className="mt-3 h-14 w-full rounded-2xl border border-[#DDDAD4] bg-white px-4 text-base font-semibold outline-none transition focus:border-[#4285F4] focus:ring-4 focus:ring-[#4285F4]/10"
+            id="oauth-nickname"
+            maxLength={20}
+            onChange={(event) => setNickname(event.target.value)}
+            placeholder="곳곳에서 사용할 닉네임"
+            value={nickname}
           />
           <p aria-live="polite" className="mt-4 min-h-5 text-sm font-bold text-[#D63B0B]">
             {completeSignupMutation.isError

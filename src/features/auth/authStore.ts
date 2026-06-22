@@ -46,7 +46,7 @@ type LoginResponse = {
 export type SignupRequest = {
   email: string;
   name: string;
-  nickname?: string;
+  nickname: string;
   password: string;
   userId: string;
 };
@@ -134,6 +134,7 @@ export async function signupWithEmail(request: SignupRequest) {
 
 export async function completeGoogleSignup(request: {
   name: string;
+  nickname: string;
   oauthSignupTicket: string;
 }) {
   const response = await apiPost<LoginResponse>("/api/members/oauth", request);

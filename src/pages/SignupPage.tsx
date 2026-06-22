@@ -38,7 +38,7 @@ export function SignupPage() {
     userId.trim().length > 0 &&
     name.trim().length >= 2 &&
     emailPattern.test(email) &&
-    (nickname.length === 0 || nickname.trim().length >= 2) &&
+    nickname.trim().length >= 2 &&
     password.length >= 8 &&
     password === passwordConfirm &&
     agreedToTerms;
@@ -61,7 +61,7 @@ export function SignupPage() {
     signupMutation.mutate({
       email: email.trim(),
       name: name.trim(),
-      nickname: nickname.trim() || undefined,
+      nickname: nickname.trim(),
       password,
       userId: userId.trim(),
     });
@@ -129,7 +129,7 @@ export function SignupPage() {
         </FieldError>
 
         <FieldLabel className="mt-4" htmlFor="signup-nickname">
-          닉네임 (선택)
+          닉네임
         </FieldLabel>
         <input
           autoComplete="nickname"
@@ -139,7 +139,7 @@ export function SignupPage() {
           id="signup-nickname"
           maxLength={20}
           onChange={(event) => setNickname(event.target.value)}
-          placeholder="비워두면 이름으로 표시됩니다."
+          placeholder="사용할 닉네임을 입력해주세요."
           value={nickname}
         />
         <FieldError id="signup-nickname-error" visible={hasNicknameError}>
