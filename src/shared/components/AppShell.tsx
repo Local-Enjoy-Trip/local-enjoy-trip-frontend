@@ -51,7 +51,7 @@ function MapNavIcon({ isActive }: { isActive: boolean }) {
     <span className="relative block h-6 w-6" aria-hidden="true">
       <svg
         className={`absolute inset-0 h-full w-full transition-[opacity,transform] duration-200 ease-out ${
-          isActive ? "scale-90 opacity-0" : "scale-100 opacity-100"
+          isActive ? "opacity-0" : "opacity-100"
         }`}
         viewBox="0 0 24 24"
         fill="none"
@@ -81,7 +81,7 @@ function MapNavIcon({ isActive }: { isActive: boolean }) {
       </svg>
       <svg
         className={`absolute inset-0 h-full w-full transition-[opacity,transform] duration-200 ease-out ${
-          isActive ? "scale-100 opacity-100" : "scale-90 opacity-0"
+          isActive ? "opacity-100" : "opacity-0"
         }`}
         viewBox="0 0 24 24"
         fill="none"
@@ -108,18 +108,33 @@ function CourseNavIcon({ isActive }: { isActive: boolean }) {
   return (
     <span className="relative block h-6 w-6" aria-hidden="true">
       <svg
-        className="absolute inset-0 h-full w-full"
+        className={`absolute inset-0 h-full w-full transition-[opacity,transform] duration-200 ease-out ${
+          isActive ? "opacity-0" : "opacity-100"
+        }`}
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
           d="M7.25 3.25H16.75C18.13 3.25 19.25 4.37 19.25 5.75V19.1C19.25 20.43 17.69 21.14 16.69 20.27L12.98 17.04C12.42 16.55 11.58 16.55 11.02 17.04L7.31 20.27C6.31 21.14 4.75 20.43 4.75 19.1V5.75C4.75 4.37 5.87 3.25 7.25 3.25Z"
-          fill={isActive ? "currentColor" : "none"}
+          fill="none"
           stroke="currentColor"
-          strokeWidth={isActive ? 1.4 : 1.8}
+          strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"
+        />
+      </svg>
+      <svg
+        className={`absolute inset-0 h-full w-full transition-[opacity,transform] duration-200 ease-out ${
+          isActive ? "opacity-100" : "opacity-0"
+        }`}
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M7.25 3.25H16.75C18.13 3.25 19.25 4.37 19.25 5.75V19.1C19.25 20.43 17.69 21.14 16.69 20.27L12.98 17.04C12.42 16.55 11.58 16.55 11.02 17.04L7.31 20.27C6.31 21.14 4.75 20.43 4.75 19.1V5.75C4.75 4.37 5.87 3.25 7.25 3.25Z"
+          fill="currentColor"
         />
       </svg>
     </span>
@@ -130,7 +145,7 @@ function MyNavIcon({ isActive }: { isActive: boolean }) {
   return (
     <span className="relative block h-6 w-6" aria-hidden="true">
       <svg
-        className={`absolute inset-0 h-full w-full transition-opacity duration-200 ease-out ${
+        className={`absolute inset-0 h-full w-full transition-[opacity,transform] duration-200 ease-out ${
           isActive ? "opacity-0" : "opacity-100"
         }`}
         viewBox="0 0 24 24"
@@ -152,7 +167,7 @@ function MyNavIcon({ isActive }: { isActive: boolean }) {
         />
       </svg>
       <svg
-        className={`absolute inset-0 h-full w-full transition-opacity duration-200 ease-out ${
+        className={`absolute inset-0 h-full w-full transition-[opacity,transform] duration-200 ease-out ${
           isActive ? "opacity-100" : "opacity-0"
         }`}
         viewBox="0 0 24 24"
@@ -400,7 +415,7 @@ export function AppShell() {
                   </span>
                   <span
                     className={`text-black transition-[font-weight] duration-200 ${
-                      isActive ? "font-extrabold" : "font-medium"
+                      isActive ? "font-semibold" : "font-medium"
                     }`}
                   >
                     {item.label}

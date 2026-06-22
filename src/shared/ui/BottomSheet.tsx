@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useId } from "react";
@@ -77,21 +76,13 @@ export function BottomSheet({
                 onClick={onClose}
                 type="button"
               />
-              <div className="flex items-center justify-between gap-3 border-b border-[#F0ECE6] pb-4">
+              <div className="pb-4">
                 <h2
                   className="m-0 min-w-0 text-xl leading-tight font-black text-[#171717]"
                   id={titleId}
                 >
                   {title}
                 </h2>
-                <button
-                  aria-label="닫기"
-                  className="grid size-9 flex-none place-items-center rounded-full border-0 bg-[#F4F3EF] text-[#333]"
-                  onClick={onClose}
-                  type="button"
-                >
-                  <X size={18} />
-                </button>
               </div>
             </div>
             <div className="max-h-[calc(86dvh-86px)] overflow-y-auto px-5 pt-5 pb-[calc(24px+env(safe-area-inset-bottom))]">

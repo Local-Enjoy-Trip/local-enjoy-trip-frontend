@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Clock3,
   MapPin,
-  Plus,
   Sparkles,
 } from "lucide-react";
 import { useState } from "react";
@@ -188,20 +187,10 @@ export function CoursePage() {
 
   return (
     <section className="min-h-screen overflow-x-hidden bg-white px-5 pt-[calc(24px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#111]">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-[2rem] leading-tight font-black">
-            내 여행
-          </h1>
-        </div>
-        <button
-          aria-label="코스 만들기"
-          className="grid size-11 flex-none place-items-center rounded-full bg-[#1F3D35] text-white shadow-[0_8px_18px_rgba(31,61,53,0.18)]"
-          onClick={openCreateSheet}
-          type="button"
-        >
-          <Plus size={22} strokeWidth={2.5} />
-        </button>
+      <header>
+        <h1 className="m-0 text-[2rem] leading-tight font-black">
+          내 여행
+        </h1>
       </header>
 
       <div className="mt-6 grid grid-cols-3 gap-2">
