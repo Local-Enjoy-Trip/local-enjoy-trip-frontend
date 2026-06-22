@@ -1,13 +1,13 @@
 import {
   CalendarDays,
-  Check,
   ChevronRight,
   Clock3,
   MapPin,
   Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { getSavedCourses } from "@/features/course/courseStorage";
 import { courses, places } from "@/shared/data/mockData";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
 
@@ -72,16 +72,6 @@ const tabs: Array<{ label: string; status: CourseStatus }> = [
   { label: "내 코스", status: "planning" },
   { label: "추천", status: "recommended" },
   { label: "저장됨", status: "saved" },
-];
-
-const regions = ["서울", "부산", "제주", "강릉", "전주", "경주"];
-const travelStyles = [
-  "맛집 중심",
-  "카페·감성",
-  "자연·산책",
-  "문화·전시",
-  "알찬 일정",
-  "여유로운 일정",
 ];
 
 function MiniRoute({ stops }: { stops: string[] }) {
@@ -160,13 +150,37 @@ export function CoursePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeStatus, setActiveStatus] = useState<CourseStatus>("planning");
-  const [sheetStep, setSheetStep] = useState<"choose" | "ai">("choose");
-  const [selectedRegion, setSelectedRegion] = useState("");
-  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [savedCourses, setSavedCourses] = useState(() => getSavedCourses());
   const isCreateOpen = searchParams.get("create") === "1";
-  const visibleCourses = courseSummaries.filter(
+  const allCourseSummaries = useMemo<CourseSummary[]>(() => {
+    const savedCourseSummaries = savedCourses.map((course) => ({
+      id: course.id,
+      title: course.title,
+      area: course.area,
+      dayLabel: "AI 추천",
+      imageUrl: course.stops[0]?.imageUrl ?? courseSummaries[0].imageUrl,
+      note: `${course.companion} · ${course.styles.join(" · ")} · ${course.pace}`,
+      status: "planning" as const,
+      stops: course.stops.map((stop) => stop.title),
+      transport: `도보 중심 · ${course.stops.length}곳`,
+      updatedAt: "방금 담음",
+    }));
+
+    return [...savedCourseSummaries, ...courseSummaries];
+  }, [savedCourses]);
+  const visibleCourses = allCourseSummaries.filter(
     (course) => course.status === activeStatus,
   );
+
+  useEffect(() => {
+    const refresh = () => setSavedCourses(getSavedCourses());
+    window.addEventListener("spot:courses-changed", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("spot:courses-changed", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
 
   function openCreateSheet() {
     setSearchParams({ create: "1" });
@@ -174,15 +188,6 @@ export function CoursePage() {
 
   function closeCreateSheet() {
     setSearchParams({});
-    setSheetStep("choose");
-  }
-
-  function toggleStyle(style: string) {
-    setSelectedStyles((current) =>
-      current.includes(style)
-        ? current.filter((item) => item !== style)
-        : [...current, style],
-    );
   }
 
   return (
@@ -197,7 +202,7 @@ export function CoursePage() {
         <div className="rounded-xl bg-white p-3">
           <p className="m-0 text-xs font-black text-[#8B857C]">내 코스</p>
           <strong className="mt-1 block text-xl font-black text-[#171717]">
-            {courseSummaries.filter((course) => course.status === "planning").length}
+            {allCourseSummaries.filter((course) => course.status === "planning").length}
           </strong>
         </div>
         <div className="rounded-xl bg-white p-3">
@@ -209,7 +214,7 @@ export function CoursePage() {
         <div className="rounded-xl bg-white p-3">
           <p className="m-0 text-xs font-black text-[#8B857C]">추천</p>
           <strong className="mt-1 block text-xl font-black text-[#171717]">
-            {courseSummaries.filter((course) => course.status === "recommended").length}
+            {allCourseSummaries.filter((course) => course.status === "recommended").length}
           </strong>
         </div>
       </div>
@@ -264,10 +269,9 @@ export function CoursePage() {
       <BottomSheet
         isOpen={isCreateOpen}
         onClose={closeCreateSheet}
-        title={sheetStep === "choose" ? "어떻게 시작할까요?" : "여행 취향을 알려주세요"}
+        title="어떻게 시작할까요?"
       >
-        {sheetStep === "choose" ? (
-          <div className="grid gap-3">
+        <div className="grid gap-3">
             <button
               className="flex items-center gap-3 rounded-xl border border-[#EEEAE2] bg-white p-4 text-left"
               onClick={() => navigate("/course/new")}
@@ -284,7 +288,7 @@ export function CoursePage() {
 
             <button
               className="flex items-center gap-3 rounded-xl border border-[#DDE5DD] bg-[#F6FAF6] p-4 text-left"
-              onClick={() => setSheetStep("ai")}
+              onClick={() => navigate("/course/new?mode=ai")}
               type="button"
             >
               <span className="grid size-11 place-items-center rounded-xl bg-[#1F3D35] text-white">
@@ -297,75 +301,7 @@ export function CoursePage() {
               </span>
               <ChevronRight size={19} className="text-[#1F3D35]" />
             </button>
-          </div>
-        ) : (
-          <>
-            <div>
-              <h3 className="mb-2.5 text-sm font-black">어디로 떠날까요?</h3>
-              <div className="flex flex-wrap gap-2">
-                {regions.map((region) => (
-                  <button
-                    className={`rounded-full border px-3.5 py-2 text-sm font-black ${
-                      selectedRegion === region
-                        ? "border-[#1F3D35] bg-[#EEF6F0] text-[#1F3D35]"
-                        : "border-[#E6E1D8] bg-white text-[#77716A]"
-                    }`}
-                    key={region}
-                    onClick={() => setSelectedRegion(region)}
-                    type="button"
-                  >
-                    {region}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <h3 className="mb-2.5 text-sm font-black">
-                어떤 여행을 좋아하나요?
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {travelStyles.map((style) => {
-                  const isSelected = selectedStyles.includes(style);
-
-                  return (
-                    <button
-                      className={`rounded-full border px-3.5 py-2 text-sm font-black ${
-                        isSelected
-                          ? "border-[#1F3D35] bg-[#1F3D35] text-white"
-                          : "border-[#E6E1D8] bg-white text-[#77716A]"
-                      }`}
-                      key={style}
-                      onClick={() => toggleStyle(style)}
-                      type="button"
-                    >
-                      {isSelected ? (
-                        <Check className="mr-1 inline" size={14} />
-                      ) : null}
-                      {style}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <button
-              className="mt-7 min-h-13 w-full rounded-xl border-0 bg-[#1F3D35] font-black text-white shadow-[0_10px_24px_rgba(31,61,53,0.18)] disabled:bg-[#eee] disabled:text-[#aaa] disabled:shadow-none"
-              disabled={!selectedRegion || selectedStyles.length === 0}
-              onClick={() => {
-                const params = new URLSearchParams({
-                  mode: "ai",
-                  region: selectedRegion,
-                  styles: selectedStyles.join(","),
-                });
-                navigate(`/course/new?${params.toString()}`);
-              }}
-              type="button"
-            >
-              AI 코스 추천받기
-            </button>
-          </>
-        )}
+        </div>
       </BottomSheet>
     </section>
   );

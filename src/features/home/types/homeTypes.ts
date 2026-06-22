@@ -52,6 +52,7 @@ export const homeLocationOptions = [
 ] as const satisfies readonly HomeLocationOption[];
 
 export type HomeNote = {
+  createdAt?: string;
   id: string;
   name: string;
   location: string;

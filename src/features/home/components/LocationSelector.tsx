@@ -14,7 +14,7 @@ export function LocationSelector({
   return (
     <div className="relative mt-5 flex flex-wrap items-center gap-5">
       <button
-        className="inline-flex items-center gap-1.5 rounded-full bg-(--spot-app-surface) px-4 py-2.5 text-lg font-black text-(--spot-app-text) shadow-[0_8px_20px_var(--spot-app-shadow)] transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-full bg-(--spot-app-surface) px-4 py-2.5 text-lg font-bold text-(--spot-app-text) shadow-[0_8px_20px_var(--spot-app-shadow)] transition-colors"
         type="button"
         onClick={onChange}
         aria-label="방문할 동네 변경"

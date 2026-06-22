@@ -12,6 +12,7 @@ export function SpotNoteCard({ note }: SpotNoteCardProps) {
       note={{
         authorName: note.name,
         body: note.body,
+        createdAt: note.createdAt,
         id: note.id,
         imageAlt: note.place,
         imageUrl: note.image,

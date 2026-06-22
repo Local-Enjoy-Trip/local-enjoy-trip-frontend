@@ -1,231 +1,320 @@
 import {
   ArrowLeft,
+  ArrowRight,
   CalendarDays,
-  GripVertical,
+  Check,
+  LoaderCircle,
   MapPin,
   Plus,
+  RefreshCw,
+  RotateCcw,
   Sparkles,
+  WandSparkles,
   X,
 } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  saveCourse,
+  type SavedCourse,
+  type SavedCourseStop,
+} from "@/features/course/courseStorage";
 
-type Stop = {
-  id: number;
-  name: string;
-};
+type DirectStop = { id: number; name: string };
 
-const aiStops: Stop[] = [
-  { id: 1, name: "성수 연무장길" },
-  { id: 2, name: "서울숲 산책로" },
-  { id: 3, name: "뚝섬 한강공원" },
+const neighborhoods = [
+  "망원동",
+  "성수동",
+  "연남동",
+  "서촌",
+  "을지로",
+  "익선동",
+  "해방촌",
+  "잠실",
+];
+const companions = ["혼자", "친구와", "연인과", "아이와", "부모님과", "반려동물과"];
+const travelStyles = [
+  "동네 맛집",
+  "감성 카페",
+  "로컬 산책",
+  "문화·전시",
+  "자연 속 휴식",
+  "사진 명소",
+  "시장·골목",
+  "쇼핑",
+];
+const paces = [
+  { value: "여유롭게", description: "3곳 안팎, 오래 머무는 일정" },
+  { value: "알맞게", description: "4곳 안팎, 걷고 쉬는 균형 일정" },
+  { value: "알차게", description: "5곳 안팎, 동네를 꽉 채운 일정" },
 ];
 
-export function CreateCoursePage() {
+const placePool: Record<string, Array<Omit<SavedCourseStop, "id">>> = {
+  망원동: [
+    { title: "망원시장", category: "시장·먹거리", description: "동네 간식으로 가볍게 하루를 시작해요.", imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=720&q=80", lat: 37.5567, lng: 126.9057 },
+    { title: "망리단길 골목", category: "로컬 산책", description: "작은 가게와 오래된 주택 사이를 천천히 걸어요.", imageUrl: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=720&q=80", lat: 37.5554, lng: 126.9072 },
+    { title: "망원한강공원", category: "공원·산책", description: "강바람을 맞으며 노을이 드는 시간을 즐겨요.", imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80", lat: 37.5548, lng: 126.8959 },
+    { title: "포은로 책방", category: "책방·문화", description: "동네 큐레이션이 담긴 작은 책방에서 쉬어가요.", imageUrl: "https://images.unsplash.com/photo-1526243741027-444d633d7365?auto=format&fit=crop&w=720&q=80", lat: 37.558, lng: 126.904 },
+    { title: "월드컵시장", category: "시장·로컬", description: "관광지보다 생활에 가까운 시장 풍경을 만나요.", imageUrl: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=720&q=80", lat: 37.5595, lng: 126.9048 },
+  ],
+  성수동: [
+    { title: "서울숲", category: "공원·산책", description: "나무 그늘이 이어지는 길부터 여유롭게 걸어요.", imageUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=720&q=80", lat: 37.5444, lng: 127.0374 },
+    { title: "연무장길", category: "편집숍·골목", description: "성수의 새 공간과 오래된 공장 골목을 함께 봐요.", imageUrl: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=720&q=80", lat: 37.5436, lng: 127.0542 },
+    { title: "성수 베이커리 골목", category: "카페·디저트", description: "갓 구운 빵 냄새를 따라 잠깐 쉬어가요.", imageUrl: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=720&q=80", lat: 37.5462, lng: 127.0428 },
+    { title: "뚝섬한강공원", category: "한강·휴식", description: "탁 트인 강변에서 일정을 느긋하게 마무리해요.", imageUrl: "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&w=720&q=80", lat: 37.5293, lng: 127.0682 },
+    { title: "성수 독립서점", category: "책방·문화", description: "취향이 담긴 책과 소품을 천천히 둘러봐요.", imageUrl: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=720&q=80", lat: 37.545, lng: 127.048 },
+  ],
+};
+
+const fallbackPlaces = placePool.망원동;
+
+function getAreaPlaces(area: string) {
+  if (placePool[area]) return placePool[area];
+
+  const labels = ["골목 시장", "동네 산책길", "작은 카페", "전망 쉼터", "로컬 책방"];
+  return fallbackPlaces.map((place, index) => ({
+    ...place,
+    title: `${area} ${labels[index]}`,
+  }));
+}
+
+function makeRecommendation(
+  area: string,
+  companion: string,
+  styles: string[],
+  pace: string,
+  version: number,
+): SavedCourse {
+  const pool = getAreaPlaces(area);
+  const stopCount = pace === "여유롭게" ? 3 : pace === "알차게" ? 5 : 4;
+  const rotated = [...pool.slice(version % pool.length), ...pool.slice(0, version % pool.length)];
+  const stops = rotated.slice(0, stopCount).map((stop, index) => ({ ...stop, id: index + 1 }));
+
+  return {
+    id: `ai-${Date.now()}-${version}`,
+    title: `${area} ${styles[0] ?? "하루"} 코스`,
+    area,
+    companion,
+    styles,
+    pace,
+    savedAt: new Date().toISOString(),
+    collaborators: [],
+    stops,
+  };
+}
+
+function ChoiceButton({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`relative min-h-16 rounded-2xl border px-3 text-[0.95rem] font-black transition-all ${
+        selected
+          ? "border-[#1F3D35] bg-[#1F3D35] text-white shadow-[0_8px_20px_rgba(31,61,53,0.16)]"
+          : "border-[#ECE8E1] bg-[#FAF9F7] text-[#69645E]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {selected ? <Check className="absolute top-2 right-2" size={14} /> : null}
+      {label}
+    </button>
+  );
+}
+
+function AiCourseCreator() {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(0);
+  const [area, setArea] = useState("");
+  const [companion, setCompanion] = useState("");
+  const [styles, setStyles] = useState<string[]>([]);
+  const [pace, setPace] = useState("");
+  const [phase, setPhase] = useState<"questions" | "loading" | "result">("questions");
+  const [version, setVersion] = useState(0);
+  const recommendation = useMemo(
+    () => makeRecommendation(area, companion, styles, pace, version),
+    [area, companion, pace, styles, version],
+  );
+
+  useEffect(() => {
+    if (phase !== "loading") return;
+    const timer = window.setTimeout(() => setPhase("result"), 1800);
+    return () => window.clearTimeout(timer);
+  }, [phase, version]);
+
+  const selections = [Boolean(area), Boolean(companion), styles.length > 0, Boolean(pace)];
+  const stepContent = [
+    { emoji: "📍", title: "떠나고 싶은 서울 동네는?", description: "하루 동안 천천히 둘러볼 동네를 골라주세요.", values: neighborhoods },
+    { emoji: "🫶", title: "누구와 떠나나요?", description: "일행에 잘 맞는 장소와 이동 속도를 추천해요.", values: companions },
+    { emoji: "✨", title: "어떤 하루를 보내고 싶나요?", description: "좋아하는 취향을 여러 개 골라도 좋아요.", values: travelStyles },
+  ];
+
+  function chooseValue(value: string) {
+    if (step === 0) setArea(value);
+    if (step === 1) setCompanion(value);
+    if (step === 2) {
+      setStyles((current) =>
+        current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
+      );
+    }
+  }
+
+  function goBack() {
+    if (step === 0) navigate(-1);
+    else setStep((current) => current - 1);
+  }
+
+  function reset() {
+    setArea("");
+    setCompanion("");
+    setStyles([]);
+    setPace("");
+    setVersion(0);
+    setStep(0);
+    setPhase("questions");
+  }
+
+  if (phase === "loading") {
+    return (
+      <section className="fixed inset-0 z-50 mx-auto grid w-full max-w-[430px] place-items-center bg-[#F8F6F1] px-8 text-center text-[#171717]">
+        <div>
+          <div className="relative mx-auto grid size-28 place-items-center rounded-full bg-white shadow-[0_18px_50px_rgba(31,61,53,0.12)]">
+            <LoaderCircle className="animate-spin text-[#1F3D35]" size={58} strokeWidth={1.7} />
+            <MapPin className="absolute text-[#FD4003]" size={26} fill="#FD4003" />
+          </div>
+          <h1 className="mt-8 mb-0 text-3xl font-black tracking-[-0.05em]">추천 코스를 만들고 있어요</h1>
+          <p className="mt-3 text-sm leading-relaxed font-bold text-[#817B73]">
+            {area}의 장소들을 살펴보고<br />{companion} 걷기 좋은 순서로 정리하는 중이에요.
+          </p>
+          <div className="mx-auto mt-8 h-1.5 w-48 overflow-hidden rounded-full bg-[#E7E2D9]">
+            <div className="h-full w-2/3 animate-pulse rounded-full bg-[#FD4003]" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (phase === "result") {
+    return (
+      <section className="fixed inset-0 z-50 mx-auto w-full max-w-[430px] overflow-y-auto bg-[#F7F5F0] pb-[calc(28px+env(safe-area-inset-bottom))] text-[#171717]">
+        <header className="flex items-center justify-between px-5 pt-[calc(18px+env(safe-area-inset-top))]">
+          <button aria-label="닫기" className="grid size-10 place-items-center rounded-full border-0 bg-white" onClick={() => navigate("/course")} type="button"><X size={22} /></button>
+          <span className="rounded-full bg-[#EAF2EC] px-3 py-1.5 text-xs font-black text-[#1F3D35]">AI 추천 완성</span>
+          <span className="size-10" />
+        </header>
+
+        <div className="px-5 pt-7 text-center">
+          <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-[#1F3D35] text-white shadow-[0_12px_28px_rgba(31,61,53,0.18)]"><Sparkles size={29} /></div>
+          <p className="mt-5 mb-1 text-sm font-black text-[#FD4003]">{companion} · {pace}</p>
+          <h1 className="m-0 text-[2rem] leading-tight font-black tracking-[-0.05em]">{recommendation.title}</h1>
+          <p className="mt-2 text-sm font-bold text-[#817B73]">지금의 취향으로 고른 {recommendation.stops.length}곳을 소개할게요.</p>
+        </div>
+
+        <div className="relative mx-5 mt-7 h-44 overflow-hidden rounded-[24px] bg-[#DCE9DF]">
+          <div className="absolute inset-0 opacity-70" style={{ backgroundImage: "linear-gradient(32deg, transparent 46%, white 47%, white 51%, transparent 52%), linear-gradient(145deg, transparent 42%, #B8D4C0 43%, #B8D4C0 48%, transparent 49%)", backgroundSize: "90px 90px, 130px 130px" }} />
+          <div className="absolute inset-x-8 top-1/2 border-t-2 border-dashed border-[#75877A]" />
+          {recommendation.stops.map((stop, index) => (
+            <span className="absolute grid size-9 place-items-center rounded-full border-4 border-white bg-[#FD4003] text-xs font-black text-white shadow-md" key={stop.id} style={{ left: `${12 + index * (72 / Math.max(recommendation.stops.length - 1, 1))}%`, top: `${index % 2 === 0 ? 36 : 57}%` }}>{index + 1}</span>
+          ))}
+          <span className="absolute bottom-3 left-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-black text-[#4E5D53]">{area} 하루 동선</span>
+        </div>
+
+        <div className="mx-5 mt-4 grid gap-3">
+          {recommendation.stops.map((stop, index) => (
+            <article className="flex gap-3 rounded-2xl bg-white p-3 shadow-[0_8px_24px_rgba(34,34,34,0.05)]" key={stop.id}>
+              <img alt="" className="size-20 flex-none rounded-xl object-cover" src={stop.imageUrl} />
+              <div className="min-w-0 flex-1 py-1">
+                <div className="flex items-center gap-2"><span className="grid size-6 flex-none place-items-center rounded-full bg-[#FD4003] text-[11px] font-black text-white">{index + 1}</span><strong className="truncate text-[0.98rem] font-black">{stop.title}</strong></div>
+                <p className="mt-1 mb-0 text-xs font-black text-[#8A847D]">{stop.category}</p>
+                <p className="mt-1 line-clamp-2 text-xs leading-relaxed font-semibold text-[#716C65]">{stop.description}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="mx-5 mt-8 rounded-[26px] bg-white p-5 text-center shadow-[0_10px_30px_rgba(31,38,35,0.06)]">
+          <div className="text-3xl">💚</div>
+          <h2 className="mt-2 mb-0 text-xl font-black">이 코스가 마음에 드나요?</h2>
+          <p className="mt-2 text-sm font-semibold text-[#817B73]">담아두면 내 코스에서 언제든 편집하고 친구와 함께 볼 수 있어요.</p>
+          <button className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white" onClick={() => { saveCourse(recommendation); navigate(`/course/${recommendation.id}`); }} type="button"><Plus size={20} />내 코스에 담기</button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A]" onClick={() => { setVersion((current) => current + 1); setPhase("loading"); }} type="button"><RefreshCw size={17} />새로운 추천</button>
+            <button className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A]" onClick={reset} type="button"><RotateCcw size={17} />처음부터</button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const current = stepContent[step];
+  return (
+    <section className="fixed inset-0 z-50 mx-auto flex w-full max-w-[430px] flex-col overflow-y-auto bg-white px-5 pt-[calc(18px+env(safe-area-inset-top))] pb-[calc(20px+env(safe-area-inset-bottom))] text-[#171717]">
+      <header className="flex items-center justify-between">
+        <button aria-label="이전" className="grid size-10 place-items-center rounded-full border-0 bg-[#F5F3EF]" onClick={goBack} type="button"><ArrowLeft size={22} /></button>
+        <div className="flex gap-1.5">{[0, 1, 2, 3].map((item) => <span className={`h-1.5 rounded-full transition-all ${item === step ? "w-8 bg-[#FD4003]" : item < step ? "w-4 bg-[#1F3D35]" : "w-4 bg-[#E7E3DC]"}`} key={item} />)}</div>
+        <span className="text-sm font-black text-[#FD4003]">{step + 1}/4</span>
+      </header>
+
+      <main className="flex-1 pt-14">
+        {step < 3 && current ? (
+          <>
+            <div className="text-center"><span className="text-5xl">{current.emoji}</span><h1 className="mt-5 mb-0 text-[1.8rem] leading-tight font-black tracking-[-0.05em]">{current.title}</h1><p className="mt-2 text-sm font-bold text-[#9A958E]">{current.description}</p></div>
+            <div className="mt-10 grid grid-cols-2 gap-3">{current.values.map((value) => <ChoiceButton key={value} label={value} selected={step === 0 ? area === value : step === 1 ? companion === value : styles.includes(value)} onClick={() => chooseValue(value)} />)}</div>
+          </>
+        ) : (
+          <>
+            <div className="text-center"><span className="text-5xl">🗺️</span><h1 className="mt-5 mb-0 text-[1.8rem] leading-tight font-black tracking-[-0.05em]">어떤 속도로 둘러볼까요?</h1><p className="mt-2 text-sm font-bold text-[#9A958E]">머무는 시간과 장소 수를 조절할게요.</p></div>
+            <div className="mt-10 grid gap-3">{paces.map((item) => <button className={`flex min-h-20 items-center rounded-2xl border px-5 text-left ${pace === item.value ? "border-[#1F3D35] bg-[#EEF4EF]" : "border-[#ECE8E1] bg-[#FAF9F7]"}`} key={item.value} onClick={() => setPace(item.value)} type="button"><span className="min-w-0 flex-1"><strong className="block font-black text-[#282622]">{item.value}</strong><span className="mt-1 block text-xs font-bold text-[#928C84]">{item.description}</span></span>{pace === item.value ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><Check size={15} /></span> : null}</button>)}</div>
+          </>
+        )}
+      </main>
+
+      <button className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C]" disabled={!selections[step]} onClick={() => step < 3 ? setStep(step + 1) : setPhase("loading")} type="button">{step === 3 ? <><WandSparkles size={20} />내 코스 추천받기</> : <>다음<ArrowRight size={19} /></>}</button>
+    </section>
+  );
+}
+
+function DirectCourseCreator() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const isAiMode = searchParams.get("mode") === "ai";
   const initialPlace = searchParams.get("place")?.trim() ?? "";
-  const recommendedRegion = searchParams.get("region") ?? "성수";
-  const recommendedStyles = searchParams.get("styles")?.split(",") ?? [];
-  const [title, setTitle] = useState(
-    isAiMode ? `${recommendedRegion} 맞춤 여행 코스` : "",
-  );
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [stops, setStops] = useState<Stop[]>(() =>
-    isAiMode
-      ? aiStops
-      : initialPlace
-        ? [{ id: Date.now(), name: initialPlace }]
-        : [],
-  );
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [stops, setStops] = useState<DirectStop[]>(initialPlace ? [{ id: Date.now(), name: initialPlace }] : []);
   const [newStop, setNewStop] = useState("");
 
   function addStop() {
-    const trimmedStop = newStop.trim();
-
-    if (!trimmedStop) {
-      return;
-    }
-
-    setStops((current) => [
-      ...current,
-      { id: Date.now(), name: trimmedStop },
-    ]);
+    if (!newStop.trim()) return;
+    setStops((current) => [...current, { id: Date.now(), name: newStop.trim() }]);
     setNewStop("");
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function submit(event: FormEvent) {
     event.preventDefault();
-    window.alert("백엔드 연결 후 코스가 저장됩니다.");
+    window.alert("백엔드 연결 후 직접 만든 코스가 저장됩니다.");
     navigate("/course");
   }
 
   return (
     <section className="min-h-screen bg-white px-5 pt-[calc(20px+env(safe-area-inset-top))] pb-8 text-[#111]">
-      <header className="flex items-center gap-3">
-        <button
-          className="grid h-10 w-10 flex-none place-items-center rounded-full border-0 bg-[#f5f5f5]"
-          type="button"
-          onClick={() => navigate(-1)}
-          aria-label="뒤로 가기"
-        >
-          <ArrowLeft size={21} />
-        </button>
-        <div>
-          <p className="mb-1 text-xs font-black text-[#FF4300]">
-            {isAiMode ? "AI 추천 코스" : "직접 만들기"}
-          </p>
-          <h1 className="m-0 text-[1.65rem] font-black tracking-[-0.04em]">
-            여행 일정 만들기
-          </h1>
-        </div>
-      </header>
-
-      {isAiMode ? (
-        <div className="mt-6 flex gap-3 rounded-2xl bg-[#fff5f1] p-4 text-[#222]">
-          <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-[#FF4300] text-white">
-            <Sparkles size={20} />
-          </span>
-          <div>
-            <strong className="text-sm font-black">
-              선택한 취향으로 일정을 만들었어요
-            </strong>
-            <p className="mt-1 mb-0 text-xs leading-relaxed font-medium text-[#777]">
-              {recommendedRegion}
-              {recommendedStyles.length > 0
-                ? ` · ${recommendedStyles.join(" · ")}`
-                : ""}
-              를 반영했어요. 장소를 추가하거나 순서를 바꿔 완성해보세요.
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      <form className="mt-7 grid gap-7" onSubmit={handleSubmit}>
-        <label className="grid gap-2.5 text-sm font-black">
-          코스 이름
-          <input
-            className="min-h-13 rounded-2xl border border-[#e5e5e5] px-4 font-semibold outline-none focus:border-[#FF4300] focus:shadow-[0_0_0_3px_rgba(255,67,0,0.08)]"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="여행 코스 이름을 입력하세요"
-          />
-        </label>
-
-        <fieldset className="m-0 border-0 p-0">
-          <legend className="mb-2.5 text-sm font-black">여행 날짜</legend>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <label className="relative">
-              <CalendarDays
-                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[#999]"
-                size={17}
-              />
-              <input
-                className="min-h-13 w-full rounded-2xl border border-[#e5e5e5] pl-9 text-sm font-semibold outline-none focus:border-[#FF4300]"
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-              />
-            </label>
-            <span className="text-[#aaa]">-</span>
-            <label className="relative">
-              <CalendarDays
-                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[#999]"
-                size={17}
-              />
-              <input
-                className="min-h-13 w-full rounded-2xl border border-[#e5e5e5] pl-9 text-sm font-semibold outline-none focus:border-[#FF4300]"
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-              />
-            </label>
-          </div>
-        </fieldset>
-
-        <div>
-          <div className="mb-3 flex items-end justify-between">
-            <div>
-              <h2 className="m-0 text-sm font-black">방문 장소</h2>
-              <p className="mt-1 mb-0 text-xs font-medium text-[#888]">
-                방문할 순서대로 장소를 추가하세요.
-              </p>
-            </div>
-            <span className="text-xs font-black text-[#FF4300]">
-              {stops.length}곳
-            </span>
-          </div>
-
-          <div className="grid gap-2">
-            {stops.map((stop, index) => (
-              <div
-                className="flex min-h-13 items-center gap-3 rounded-2xl border border-[#eee] bg-white px-3"
-                key={stop.id}
-              >
-                <GripVertical size={18} className="text-[#bbb]" />
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-[#fff0eb] text-xs font-black text-[#FF4300]">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-black">
-                  {stop.name}
-                </span>
-                <button
-                  className="grid h-8 w-8 place-items-center rounded-full border-0 bg-[#f7f7f7] text-[#999]"
-                  type="button"
-                  onClick={() =>
-                    setStops((current) =>
-                      current.filter((item) => item.id !== stop.id),
-                    )
-                  }
-                  aria-label={`${stop.name} 삭제`}
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 flex gap-2">
-            <label className="relative min-w-0 flex-1">
-              <MapPin
-                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[#FF4300]"
-                size={17}
-              />
-              <input
-                className="min-h-12 w-full rounded-2xl border border-[#e5e5e5] pr-3 pl-9 text-sm font-semibold outline-none focus:border-[#FF4300]"
-                value={newStop}
-                onChange={(event) => setNewStop(event.target.value)}
-                placeholder="장소 이름 입력"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addStop();
-                  }
-                }}
-              />
-            </label>
-            <button
-              className="grid h-12 w-12 flex-none place-items-center rounded-2xl border-0 bg-[#111] text-white disabled:bg-[#ddd]"
-              type="button"
-              onClick={addStop}
-              disabled={!newStop.trim()}
-              aria-label="장소 추가"
-            >
-              <Plus size={20} />
-            </button>
-          </div>
-        </div>
-
-        <button
-          className="min-h-14 rounded-2xl border-0 bg-[#FF4300] font-black text-white shadow-[0_12px_26px_rgba(255,67,0,0.2)] disabled:bg-[#eee] disabled:text-[#aaa] disabled:shadow-none"
-          type="submit"
-          disabled={!title.trim() || stops.length === 0}
-        >
-          코스 저장하기
-        </button>
+      <header className="flex items-center gap-3"><button aria-label="뒤로 가기" className="grid size-10 place-items-center rounded-full border-0 bg-[#F5F3EF]" onClick={() => navigate(-1)} type="button"><ArrowLeft size={21} /></button><div><p className="mb-1 text-xs font-black text-[#FD4003]">직접 만들기</p><h1 className="m-0 text-[1.65rem] font-black">여행 일정 만들기</h1></div></header>
+      <form className="mt-8 grid gap-6" onSubmit={submit}>
+        <label className="grid gap-2 text-sm font-black">코스 이름<input className="min-h-13 rounded-2xl border border-[#E5E1DA] px-4 font-semibold outline-none focus:border-[#1F3D35]" onChange={(event) => setTitle(event.target.value)} placeholder="여행 코스 이름" value={title} /></label>
+        <label className="grid gap-2 text-sm font-black">여행 날짜<span className="relative"><CalendarDays className="absolute top-1/2 left-3 -translate-y-1/2 text-[#999]" size={17} /><input className="min-h-13 w-full rounded-2xl border border-[#E5E1DA] pl-10 font-semibold" onChange={(event) => setDate(event.target.value)} type="date" value={date} /></span></label>
+        <div><div className="flex items-center justify-between"><strong className="text-sm">방문 장소</strong><span className="text-xs font-black text-[#FD4003]">{stops.length}곳</span></div><div className="mt-3 grid gap-2">{stops.map((stop, index) => <div className="flex min-h-13 items-center gap-3 rounded-2xl border border-[#EEEAE3] px-3" key={stop.id}><span className="grid size-7 place-items-center rounded-full bg-[#FFF0EA] text-xs font-black text-[#FD4003]">{index + 1}</span><span className="flex-1 text-sm font-black">{stop.name}</span><button aria-label={`${stop.name} 삭제`} className="grid size-8 place-items-center rounded-full border-0 bg-[#F5F3EF]" onClick={() => setStops((current) => current.filter((item) => item.id !== stop.id))} type="button"><X size={15} /></button></div>)}</div><div className="mt-3 flex gap-2"><input className="min-h-12 min-w-0 flex-1 rounded-2xl border border-[#E5E1DA] px-4 text-sm font-semibold" onChange={(event) => setNewStop(event.target.value)} placeholder="장소 이름 입력" value={newStop} /><button aria-label="장소 추가" className="grid size-12 place-items-center rounded-2xl border-0 bg-[#1F3D35] text-white" onClick={addStop} type="button"><Plus size={20} /></button></div></div>
+        <button className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#E8E5DF]" disabled={!title.trim() || stops.length === 0} type="submit">코스 저장하기</button>
       </form>
     </section>
   );
+}
+
+export function CreateCoursePage() {
+  const [searchParams] = useSearchParams();
+  return searchParams.get("mode") === "ai" ? <AiCourseCreator /> : <DirectCourseCreator />;
 }

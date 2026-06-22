@@ -1,16 +1,34 @@
-import { similarSpotNotes } from "@/features/home/data/homeContent";
+import type { HomeNote } from "@/features/home/types/homeTypes";
 import { SectionHeader } from "@/shared/ui/SectionHeader";
 import { SpotNoteCard } from "./SpotNoteCard";
 
-export function SpotNoteCarousel() {
+export function SpotNoteCarousel({
+  isError,
+  isLoading,
+  notes,
+}: {
+  isError: boolean;
+  isLoading: boolean;
+  notes: HomeNote[];
+}) {
   return (
     <section className="mt-8">
       <SectionHeader title="나와 비슷한 사람들이 추천한 곳" actionTo="/map" />
-      <div className="flex snap-x scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
-        {similarSpotNotes.map((note) => (
-          <SpotNoteCard note={note} key={note.id} />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="mx-5 h-[270px] animate-pulse rounded-[20px] bg-[#F0F0EE]" />
+      ) : notes.length > 0 ? (
+        <div className="flex snap-x scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
+          {notes.map((note) => (
+            <SpotNoteCard note={note} key={note.id} />
+          ))}
+        </div>
+      ) : (
+        <p className="mx-5 my-0 rounded-[20px] bg-[#F7F6F3] px-5 py-8 text-center text-sm font-bold text-[#77736C]">
+          {isError
+            ? "주변 쪽지를 불러오지 못했어요."
+            : "이 동네에는 아직 공개된 쪽지가 없어요."}
+        </p>
+      )}
     </section>
   );
 }
