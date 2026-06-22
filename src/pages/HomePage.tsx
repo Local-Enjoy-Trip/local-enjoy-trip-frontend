@@ -5,6 +5,7 @@ import { getHomeBriefing } from "@/shared/api/mockApi";
 import { useAuthUser } from "@/features/auth/authStore";
 import { AiCourseRecommendation } from "@/features/home/components/AiCourseRecommendation";
 import { AiWeatherBriefing } from "@/features/home/components/AiWeatherBriefing";
+import { CourseCurationSection } from "@/features/home/components/CourseCurationSection";
 import { ExperienceSection } from "@/features/home/components/ExperienceSection";
 import { HomeHeader } from "@/features/home/components/HomeHeader";
 import { SpotNoteCarousel } from "@/features/home/components/SpotNoteCarousel";
@@ -94,10 +95,7 @@ export function HomePage() {
         variant="portrait"
       />
       <SpotNoteCarousel />
-      <ExperienceSection
-        title="이곳저곳 인기 큐레이션"
-        experiences={data.experiences.slice(2)}
-      />
+      <CourseCurationSection />
       <AiCourseRecommendation />
     </section>
   );

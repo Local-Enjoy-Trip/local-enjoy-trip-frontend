@@ -1,3 +1,5 @@
+import { aiBriefings } from "@/features/home/data/homeContent";
+import { homeLocations } from "@/features/home/types/homeTypes";
 import {
   Cloud,
   CloudRain,
@@ -11,8 +13,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useMemo } from "react";
-import { aiBriefings } from "@/features/home/data/homeContent";
-import { homeLocations } from "@/features/home/types/homeTypes";
 
 export type WeatherCondition =
   | "clearDay"

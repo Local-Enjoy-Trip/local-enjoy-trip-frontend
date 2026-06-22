@@ -8,7 +8,7 @@ export function SpotNoteCard({ note }: SpotNoteCardProps) {
   const hasImage = Boolean(note.image);
 
   return (
-    <article className="relative flex w-[200px] h-[270px] flex-none snap-start flex-col overflow-hidden rounded-[20px] border border-[#f0ece8] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)]">
+    <article className="relative flex w-[200px] h-[270px] flex-none snap-start flex-col overflow-hidden rounded-[20px] border border-[#BDBDBD] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)]">
       {/* Header */}
       <header className="flex items-center gap-3 px-5 pt-5 pb-3.5">
         {note.profileImage ? (
