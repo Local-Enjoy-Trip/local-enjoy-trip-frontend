@@ -2,7 +2,8 @@ import type { Coordinates } from "@/shared/types/domain";
 import type { MapPoint } from "./types";
 
 export const mapCenter: Coordinates = { lat: 37.5665, lng: 126.978 };
-export const initialMapLevel = 9;
+export const initialMapLevel = 5;
+export const maxMapLevel = 5;
 
 const placeCategoryColors: Record<string, string> = {
   관광지: "#3B82F6",

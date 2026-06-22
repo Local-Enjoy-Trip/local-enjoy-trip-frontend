@@ -30,6 +30,7 @@ export type KakaoMapInstance = {
   relayout: () => void;
   setCenter: (latlng: KakaoLatLng) => void;
   setLevel: (level: number, options?: { anchor?: KakaoLatLng }) => void;
+  setMaxLevel: (level: number) => void;
 };
 
 export type KakaoCustomOverlay = {

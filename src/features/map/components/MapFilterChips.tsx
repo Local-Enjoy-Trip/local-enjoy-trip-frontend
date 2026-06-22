@@ -56,7 +56,7 @@ export function MapFilterChips({
   return (
     <>
       <div
-        className="mt-2.5 flex touch-pan-x select-none gap-2 overflow-x-auto px-4 py-2 [overscroll-behavior-inline:contain] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="mt-2 flex touch-pan-x select-none gap-1.5 overflow-x-auto px-4 py-1.5 [overscroll-behavior-inline:contain] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         role="tablist"
         aria-label="지도 필터"
       >
@@ -66,7 +66,7 @@ export function MapFilterChips({
 
           return (
             <button
-              className={`inline-flex h-9 flex-none items-center gap-1.5 rounded-full border px-3.5 text-[15px] font-extrabold tracking-normal transition ${
+              className={`inline-flex h-9 flex-none items-center gap-1 rounded-full border px-3 text-[13px] font-extrabold tracking-normal transition ${
                 active
                   ? "border-[#FD4003] bg-white text-[#202124] shadow-[0_4px_11px_rgba(253,64,3,0.18)]"
                   : "border-[#e6e8eb] bg-white text-[#33383f] shadow-[0_3px_9px_rgba(36,48,65,0.14)]"
@@ -80,7 +80,7 @@ export function MapFilterChips({
               {Icon ? (
                 <Icon
                   className="text-[#FD4003]"
-                  size={18}
+                  size={16}
                   strokeWidth={active ? 3 : 2.8}
                 />
               ) : null}
@@ -88,7 +88,7 @@ export function MapFilterChips({
               {item.value === "place" ? (
                 <ChevronDown
                   className={`text-[#FD4003] transition-transform ${active ? "rotate-180" : ""}`}
-                  size={15}
+                  size={13}
                   strokeWidth={3}
                 />
               ) : null}
@@ -98,9 +98,9 @@ export function MapFilterChips({
       </div>
 
       {filter === "place" ? (
-        <div className="mt-0.5 flex max-w-full touch-pan-x select-none gap-2 overflow-x-auto px-4 py-2 [overscroll-behavior-inline:contain] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex max-w-full touch-pan-x select-none gap-1.5 overflow-x-auto px-4 py-1.5 [overscroll-behavior-inline:contain] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
-            className={`inline-flex h-9 flex-none items-center rounded-full border bg-white px-3 text-[14px] font-extrabold shadow-[0_3px_9px_rgba(36,48,65,0.12)] ${
+            className={`inline-flex h-9 flex-none items-center rounded-full border bg-white px-2.5 text-xs font-extrabold shadow-[0_3px_9px_rgba(36,48,65,0.12)] ${
               selectedPlaceCategory === null
                 ? "border-[#FD4003] text-[#202124]"
                 : "border-[#e6e8eb] text-[#33383f]"
@@ -115,7 +115,7 @@ export function MapFilterChips({
 
             return (
               <button
-                className="inline-flex h-9 flex-none items-center gap-1.5 rounded-full border bg-white px-3 text-[14px] font-extrabold text-[#33383f] shadow-[0_3px_9px_rgba(36,48,65,0.12)]"
+                className="inline-flex h-9 flex-none items-center gap-1 rounded-full border bg-white px-2.5 text-xs font-extrabold text-[#33383f] shadow-[0_3px_9px_rgba(36,48,65,0.12)]"
                 key={category.label}
                 onClick={() => onSelectedPlaceCategoryChange(category.label)}
                 style={
@@ -129,7 +129,7 @@ export function MapFilterChips({
                 type="button"
               >
                 <span
-                  className="size-2 rounded-full"
+                  className="size-1.5 rounded-full"
                   style={{ backgroundColor: category.color }}
                 />
                 {category.label}

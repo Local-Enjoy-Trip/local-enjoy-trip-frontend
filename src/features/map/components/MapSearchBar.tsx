@@ -13,7 +13,7 @@ export function MapSearchBar({
 }) {
   return (
     <form
-      className="flex h-12 items-center gap-2 rounded-full bg-white px-4 shadow-[0_10px_24px_rgba(17,17,17,0.14)]"
+      className="flex h-11 items-center gap-1.5 rounded-full bg-white px-3 shadow-[0_8px_20px_rgba(17,17,17,0.13)]"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit?.();
@@ -24,10 +24,10 @@ export function MapSearchBar({
         type="submit"
         aria-label="검색"
       >
-        <Search size={21} strokeWidth={2.4} />
+        <Search size={19} strokeWidth={2.4} />
       </button>
       <input
-        className="min-w-0 flex-1 border-0 bg-transparent text-[0.95rem] font-bold text-[#24231f] outline-none placeholder:text-[#918a80]"
+        className="min-w-0 flex-1 border-0 bg-transparent text-sm font-bold text-[#24231f] outline-none placeholder:text-[#918a80]"
         onChange={(event) => onQueryChange(event.target.value)}
         placeholder={placeholder}
         type="search"

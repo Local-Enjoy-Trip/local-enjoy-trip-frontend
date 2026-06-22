@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { List, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
 import { FallbackMapLayer } from "@/features/map/components/FallbackMapLayer";
@@ -30,7 +31,12 @@ import {
 } from "@/features/map/mapApi";
 import type { MapPoint, MapViewport } from "@/features/map/types";
 
-const viewportDebounceMs = 400;
+const viewportDebounceMs = 500;
+
+type FrozenMapBounds = {
+  northEast: MapViewport["center"];
+  southWest: MapViewport["center"];
+};
 
 export function MapPage() {
   useMapViewportBackground();
@@ -49,11 +55,21 @@ export function MapPage() {
     location.status === "success" ? location.coordinates : null;
   const [requestedViewport, setRequestedViewport] =
     useState<MapViewport | null>(null);
+  const [pendingViewport, setPendingViewport] = useState<MapViewport | null>(null);
+  const [fullDrawerBounds, setFullDrawerBounds] =
+    useState<FrozenMapBounds | null>(null);
   const exploreCoordinates =
     requestedViewport?.center ?? currentLocation ?? mapCenter;
   const exploreRadius = requestedViewport?.radiusMeters ?? 5_000;
   const apiFilter = toApiFilter(filter);
-  const { data, error, isError, isLoading, refetch } = useQuery({
+  const {
+    data,
+    error,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryFn: () =>
       getMapExplore({
         coordinates: exploreCoordinates,
@@ -68,6 +84,7 @@ export function MapPage() {
       exploreCoordinates.lng,
       exploreRadius,
     ],
+    staleTime: 30_000,
   });
   const [query, setQuery] = useState("");
   const [drawerSnap, setDrawerSnap] = useState<DrawerSnap>("default");
@@ -120,7 +137,6 @@ export function MapPage() {
 
   const kakao = useKakaoMap(
     filteredPoints,
-    filter,
     selectMapPin,
     selectedPinId,
     data?.center.coordinates ?? mapCenter,
@@ -133,19 +149,38 @@ export function MapPage() {
 
   useEffect(() => {
     const viewport = kakao.viewport;
-    if (!viewport) return;
+    if (!viewport || drawerSnap === "full") return;
+
+    const nextViewport = normalizeViewport(viewport);
+    const radiusChanged = requestedViewport
+      ? Math.abs(nextViewport.radiusMeters - requestedViewport.radiusMeters) /
+        requestedViewport.radiusMeters > 0.12
+      : true;
+
+    if (!radiusChanged && requestedViewport) {
+      const movedMeters = getDistanceMeters(
+        requestedViewport.center,
+        nextViewport.center,
+      );
+      setPendingViewport(
+        movedMeters > requestedViewport.radiusMeters * 0.25
+          ? nextViewport
+          : null,
+      );
+      return;
+    }
 
     const timer = window.setTimeout(() => {
-      const nextViewport = normalizeViewport(viewport);
       setRequestedViewport((currentViewport) =>
         isSameViewport(currentViewport, nextViewport)
           ? currentViewport
           : nextViewport,
       );
+      setPendingViewport(null);
     }, viewportDebounceMs);
 
     return () => window.clearTimeout(timer);
-  }, [kakao.viewport]);
+  }, [drawerSnap, kakao.viewport, requestedViewport]);
 
   const visiblePoints = useMemo(
     () =>
@@ -154,6 +189,32 @@ export function MapPage() {
       ),
     [filteredPoints, kakao.bounds],
   );
+
+  useEffect(() => {
+    if (drawerSnap === "full") {
+      setFullDrawerBounds((current) => {
+        if (current || !kakao.bounds) return current;
+
+        const northEast = kakao.bounds.getNorthEast();
+        const southWest = kakao.bounds.getSouthWest();
+        return {
+          northEast: { lat: northEast.getLat(), lng: northEast.getLng() },
+          southWest: { lat: southWest.getLat(), lng: southWest.getLng() },
+        };
+      });
+      return;
+    }
+
+    setFullDrawerBounds(null);
+  }, [drawerSnap, kakao.bounds]);
+
+  const drawerPoints = useMemo(() => {
+    if (drawerSnap !== "full" || !fullDrawerBounds) return visiblePoints;
+
+    return filteredPoints.filter((point) =>
+      isInsideFrozenBounds(point.coordinates, fullDrawerBounds),
+    );
+  }, [drawerSnap, filteredPoints, fullDrawerBounds, visiblePoints]);
 
   const visibleSelectedPinId = useMemo(
     () =>
@@ -316,6 +377,40 @@ export function MapPage() {
           />
         </div>
 
+        {pendingViewport && drawerSnap !== "full" ? (
+          <button
+            className={`pointer-events-auto absolute left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-[#FD4003]/15 bg-white px-3 py-2 text-xs font-extrabold whitespace-nowrap text-[#FD4003] shadow-[0_7px_17px_rgba(17,17,17,0.16)] disabled:opacity-60 ${
+              filter === "place"
+                ? "top-[calc(178px+env(safe-area-inset-top))]"
+                : "top-[calc(126px+env(safe-area-inset-top))]"
+            }`}
+            disabled={isFetching}
+            onClick={() => {
+              setRequestedViewport(pendingViewport);
+              setPendingViewport(null);
+            }}
+            type="button"
+          >
+            <RotateCw
+              className={isFetching ? "animate-spin" : ""}
+              size={14}
+              strokeWidth={2.5}
+            />
+            {isFetching ? "검색 중..." : "현 지도에서 검색"}
+          </button>
+        ) : null}
+
+        {drawerSnap === "hidden" ? (
+          <button
+            className="pointer-events-auto absolute bottom-[calc(84px+env(safe-area-inset-bottom))] left-1/2 inline-flex h-9 -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#FD4003]/15 bg-white px-3.5 text-xs font-extrabold whitespace-nowrap text-[#FD4003] shadow-[0_7px_18px_rgba(17,17,17,0.18)]"
+            onClick={() => setDrawerSnap("default")}
+            type="button"
+          >
+            <List size={15} strokeWidth={2.5} />
+            목록보기
+          </button>
+        ) : null}
+
         {locationToast ? (
           <p
             className={`pointer-events-auto absolute right-4 left-4 m-0 rounded-xl bg-white/95 px-3 py-2.5 text-sm font-extrabold text-[#24463d] shadow-[0_10px_24px_rgba(17,17,17,0.12)] transition-[bottom,opacity] duration-200 ${
@@ -338,7 +433,7 @@ export function MapPage() {
           onSelectPoint={selectVisiblePoint}
           onSnapChange={setDrawerSnap}
           selectedPoint={selectedPoint}
-          visiblePoints={visiblePoints}
+          visiblePoints={drawerPoints}
         />
       </div>
 
@@ -369,9 +464,9 @@ function normalizeViewport(viewport: MapViewport): MapViewport {
       lat: Number(viewport.center.lat.toFixed(4)),
       lng: Number(viewport.center.lng.toFixed(4)),
     },
-    radiusMeters: Math.min(
-      5_000,
-      Math.max(500, Math.ceil((viewport.radiusMeters * 1.15) / 100) * 100),
+    radiusMeters: Math.max(
+      500,
+      Math.ceil((viewport.radiusMeters * 1.15) / 100) * 100,
     ),
   };
 }
@@ -384,5 +479,30 @@ function isSameViewport(
     currentViewport?.center.lat === nextViewport.center.lat &&
     currentViewport.center.lng === nextViewport.center.lng &&
     currentViewport.radiusMeters === nextViewport.radiusMeters
+  );
+}
+
+function getDistanceMeters(
+  from: MapViewport["center"],
+  to: MapViewport["center"],
+) {
+  const latitudeMeters = (to.lat - from.lat) * 111_320;
+  const longitudeMeters =
+    (to.lng - from.lng) *
+    111_320 *
+    Math.cos(((from.lat + to.lat) / 2) * (Math.PI / 180));
+
+  return Math.hypot(latitudeMeters, longitudeMeters);
+}
+
+function isInsideFrozenBounds(
+  coordinates: MapViewport["center"],
+  bounds: FrozenMapBounds,
+) {
+  return (
+    coordinates.lat >= bounds.southWest.lat &&
+    coordinates.lat <= bounds.northEast.lat &&
+    coordinates.lng >= bounds.southWest.lng &&
+    coordinates.lng <= bounds.northEast.lng
   );
 }

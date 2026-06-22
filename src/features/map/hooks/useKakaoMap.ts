@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Coordinates } from "@/shared/types/domain";
-import { categoryLabels } from "@/shared/lib/labels";
-import { getPlaceMarkerColor, initialMapLevel } from "../constants";
+import {
+  getPlaceMarkerColor,
+  initialMapLevel,
+  maxMapLevel,
+} from "../constants";
 import { loadKakaoMap } from "../lib/kakaoMap";
 import { clusterPoints } from "../lib/mapPoints";
-import type { MapFilter } from "../mapStore";
 import type {
   KakaoBounds,
   KakaoCustomOverlay,
@@ -15,8 +17,7 @@ import type {
 
 export function useKakaoMap(
   points: MapPoint[],
-  activeFilter: MapFilter,
-  onSelectPoint: (id: string) => void,
+  onSelectPoint: (id: string | null) => void,
   selectedPointId: string | null,
   initialCenter: Coordinates,
   currentLocation: Coordinates | null,
@@ -71,6 +72,8 @@ export function useKakaoMap(
 
     let cancelled = false;
     let resizeObserver: ResizeObserver | null = null;
+    let initializedMap: KakaoMapInstance | null = null;
+    let backgroundClickHandler: (() => void) | null = null;
     setStatus("loading");
 
     loadKakaoMap().then((nextStatus) => {
@@ -98,8 +101,12 @@ export function useKakaoMap(
           center,
           level: initialMapLevel
         });
+        map.setMaxLevel(maxMapLevel);
 
         mapRef.current = map;
+        initializedMap = map;
+        backgroundClickHandler = () => onSelectPoint(null);
+        kakaoMaps.event.addListener(map, "click", backgroundClickHandler);
 
         const syncMap = () => {
           const nextBounds = map.getBounds();
@@ -144,8 +151,15 @@ export function useKakaoMap(
     return () => {
       cancelled = true;
       resizeObserver?.disconnect();
+      if (initializedMap && backgroundClickHandler && window.kakao) {
+        window.kakao.maps.event.removeListener(
+          initializedMap,
+          "click",
+          backgroundClickHandler,
+        );
+      }
     };
-  }, [enabled]);
+  }, [enabled, onSelectPoint]);
 
   useEffect(() => {
     if (status !== "ready" || !mapRef.current) return;
@@ -172,7 +186,15 @@ export function useKakaoMap(
     const kakaoMaps = window.kakao?.maps;
     if (status !== "ready" || !mapRef.current || !kakaoMaps) return;
 
-    clusterPoints(points, level).forEach((cluster) => {
+    const pointsInBounds = bounds
+      ? points.filter((point) =>
+          bounds.contain(
+            new kakaoMaps.LatLng(point.coordinates.lat, point.coordinates.lng),
+          ),
+        )
+      : points;
+
+    clusterPoints(pointsInBounds, level).forEach((cluster) => {
       const content = document.createElement("button");
       content.type = "button";
       const isSinglePoint = cluster.points.length === 1;
@@ -181,7 +203,7 @@ export function useKakaoMap(
       content.className =
         !isSinglePoint
           ? getClusterClassName(cluster.points.length)
-          : getOverlayClassName(cluster.points[0], activeFilter, isSelected);
+          : getOverlayClassName(cluster.points[0], isSelected);
       if (cluster.points.length === 1 && cluster.points[0].kind === "place") {
         content.style.setProperty(
           "--marker-color",
@@ -191,8 +213,9 @@ export function useKakaoMap(
       content.innerHTML =
         cluster.points.length > 1
           ? `<span>${cluster.points.length}</span>`
-          : getOverlayContent(cluster.points[0], activeFilter);
-      content.addEventListener("click", () => {
+          : getOverlayContent(cluster.points[0]);
+      content.addEventListener("click", (event) => {
+        event.stopPropagation();
         if (cluster.points.length > 1 && mapRef.current && window.kakao) {
           const anchor = new kakaoMaps.LatLng(
             cluster.center.lat,
@@ -236,8 +259,8 @@ export function useKakaoMap(
       overlaysRef.current.push(overlay);
     }
   }, [
+    bounds,
     currentLocation,
-    activeFilter,
     focusMapOn,
     level,
     onSelectPoint,
@@ -294,14 +317,11 @@ function toRadians(degrees: number) {
 
 function getOverlayClassName(
   point: MapPoint,
-  activeFilter: MapFilter,
   selected: boolean,
 ) {
   const baseClassName = point.kind === "place"
     ? "place-star-marker"
-    : activeFilter === "friend"
-      ? "friend-profile-marker"
-      : "spot-avatar-marker";
+    : "spot-avatar-marker";
 
   return selected ? `${baseClassName} is-selected` : baseClassName;
 }
@@ -312,25 +332,14 @@ function getClusterClassName(count: number) {
     : "map-cluster-marker";
 }
 
-function getOverlayContent(point: MapPoint, activeFilter: MapFilter) {
+function getOverlayContent(point: MapPoint) {
   if (point.kind === "place") {
     return `<span>${escapeHtml(point.name)}</span>`;
   }
 
-  if (activeFilter === "friend") {
-    return point.authorAvatarUrl
-      ? `<img src="${escapeHtml(point.authorAvatarUrl)}" alt="" /><span>${escapeHtml(point.authorName)}</span>`
-      : `<strong>${escapeHtml(point.authorName.slice(0, 1))}</strong><span>${escapeHtml(point.authorName)}</span>`;
-  }
-
-  const imageUrl = point.source.imageUrl;
-  const categoryLabel = `#${categoryLabels[point.source.category].replace(/\s+/g, "")}`;
-
-  if (imageUrl) {
-    return `<img src="${escapeHtml(imageUrl)}" alt="" /><span>${escapeHtml(categoryLabel)}</span>`;
-  }
-
-  return `<strong>${escapeHtml(point.authorName.slice(0, 1))}</strong><span>${escapeHtml(categoryLabel)}</span>`;
+  return point.authorAvatarUrl
+    ? `<img src="${escapeHtml(point.authorAvatarUrl)}" alt="" loading="lazy" decoding="async" /><span>${escapeHtml(point.authorName)}</span>`
+    : `<strong>${escapeHtml(point.authorName.slice(0, 1))}</strong><span>${escapeHtml(point.authorName)}</span>`;
 }
 
 function escapeHtml(value: string) {
