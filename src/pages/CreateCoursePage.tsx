@@ -25,6 +25,7 @@ export function CreateCoursePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isAiMode = searchParams.get("mode") === "ai";
+  const initialPlace = searchParams.get("place")?.trim() ?? "";
   const recommendedRegion = searchParams.get("region") ?? "성수";
   const recommendedStyles = searchParams.get("styles")?.split(",") ?? [];
   const [title, setTitle] = useState(
@@ -32,7 +33,13 @@ export function CreateCoursePage() {
   );
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [stops, setStops] = useState<Stop[]>(isAiMode ? aiStops : []);
+  const [stops, setStops] = useState<Stop[]>(() =>
+    isAiMode
+      ? aiStops
+      : initialPlace
+        ? [{ id: Date.now(), name: initialPlace }]
+        : [],
+  );
   const [newStop, setNewStop] = useState("");
 
   function addStop() {

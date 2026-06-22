@@ -91,6 +91,14 @@ const contentTypeLabels: Record<string, string> = {
 const fallbackPlaceImage =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f1efe9'/%3E%3Cpath d='M95 224l73-83 50 51 34-39 58 71H95z' fill='%23c9c4ba'/%3E%3Ccircle cx='265' cy='94' r='27' fill='%23ddd8cf'/%3E%3C/svg%3E";
 
+function resolveNoteImageUrl(objectKey: string | null) {
+  if (!objectKey) return undefined;
+  if (/^(?:https?:|data:|blob:)/i.test(objectKey)) return objectKey;
+
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+  return new URL(objectKey.replace(/^\/+/, ""), `${apiBaseUrl}/`).toString();
+}
+
 export async function getMapExplore({
   coordinates,
   filter,
@@ -156,7 +164,9 @@ function toLocalNote(note: NoteMapPinResponse): LocalNote {
     body: note.title,
     category: toNoteCategory(note.category),
     coordinates: { lat: note.latitude, lng: note.longitude },
+    createdAt: note.createdAt,
     id: `note-${note.id}`,
+    imageUrl: resolveNoteImageUrl(note.imageObjectKey),
     placeName: note.regionName,
     relationshipToViewer: note.relationshipToViewer.toLowerCase() as ViewerRelationship,
     saved: false,

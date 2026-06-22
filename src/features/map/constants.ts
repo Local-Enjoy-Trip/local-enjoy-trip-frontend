@@ -5,6 +5,13 @@ export const mapCenter: Coordinates = { lat: 37.5665, lng: 126.978 };
 export const initialMapLevel = 9;
 
 const placeCategoryColors: Record<string, string> = {
+  관광지: "#3B82F6",
+  문화시설: "#8B5CF6",
+  축제: "#EC4899",
+  레포츠: "#22A06B",
+  숙박: "#6366F1",
+  쇼핑: "#F59E0B",
+  음식점: "#FD4003",
   간식: "#FF7A1A",
   걷기: "#16A174",
   노을: "#F44D63",

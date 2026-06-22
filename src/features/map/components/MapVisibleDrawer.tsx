@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { Check, ChevronLeft, ChevronRight, Crosshair, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { courses } from "@/shared/data/mockData";
 import type { MapPoint } from "../types";
 import { MapListCard } from "./MapListCard";
@@ -33,7 +34,6 @@ export function MapVisibleDrawer({
   onRequestLocation,
   onSelectPoint,
   onSnapChange,
-  selectedPointId,
   selectedPoint,
   visiblePoints,
 }: {
@@ -41,14 +41,15 @@ export function MapVisibleDrawer({
   onRequestLocation: () => void;
   onSelectPoint: (point: MapPoint) => void;
   onSnapChange: (snap: DrawerSnap) => void;
-  selectedPointId: string | null;
   selectedPoint: MapPoint | null;
   visiblePoints: MapPoint[];
 }) {
+  const navigate = useNavigate();
   const drawerRef = useRef<HTMLElement>(null);
   const dragStartRef = useRef({ offset: 0, time: 0, y: 0 });
   const dragMovedRef = useRef(false);
   const [courseTarget, setCourseTarget] = useState<MapPoint | null>(null);
+  const [courseNotice, setCourseNotice] = useState<string | null>(null);
   const [drawerHeight, setDrawerHeight] = useState(0);
   const [dragOffset, setDragOffset] = useState<number | null>(null);
 
@@ -68,6 +69,8 @@ export function MapVisibleDrawer({
     ? getSnapOffset(drawerSnap, drawerHeight, hasSelectedPoint)
     : 0;
   const currentOffset = dragOffset ?? restingOffset;
+  const visibleNotes = visiblePoints.filter((point) => point.kind === "spot");
+  const visiblePlaces = visiblePoints.filter((point) => point.kind === "place");
 
   function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
     if (!drawerHeight) return;
@@ -138,6 +141,25 @@ export function MapVisibleDrawer({
     onSnapChange(drawerSnap === "full" ? "default" : "full");
   }
 
+  function openCourseSelector(point: MapPoint) {
+    setCourseNotice(null);
+    setCourseTarget(point);
+  }
+
+  function addToExistingCourse(courseTitle: string) {
+    if (!courseTarget) return;
+
+    setCourseNotice(`${courseTarget.name}을(를) ${courseTitle}에 추가했어요.`);
+    setCourseTarget(null);
+  }
+
+  function createCourseWithTarget() {
+    if (!courseTarget) return;
+
+    const params = new URLSearchParams({ place: courseTarget.name });
+    navigate(`/course/new?${params.toString()}`);
+  }
+
   const drawerStyle = {
     transform: `translateY(${currentOffset}px)`,
     transition: dragOffset === null ? "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)" : "none",
@@ -185,8 +207,16 @@ export function MapVisibleDrawer({
       </button>
 
       <div
-        className="h-[calc(100%-30px)] touch-pan-y overflow-y-auto px-4 pt-3 pb-4"
+        className="h-[calc(100%-30px)] touch-pan-y overflow-y-auto px-4 pt-3"
+        style={{
+          paddingBottom: `calc(${currentOffset + 16}px + env(safe-area-inset-bottom))`,
+        }}
       >
+        {courseNotice ? (
+          <p className="mb-3 rounded-xl bg-[#fff1ec] px-3 py-2.5 text-sm font-extrabold text-[#C83200]">
+            {courseNotice}
+          </p>
+        ) : null}
         {courseTarget ? (
           <div>
             <div className="mb-4 flex items-start gap-3">
@@ -213,7 +243,7 @@ export function MapVisibleDrawer({
                 <button
                   className="flex items-center gap-3 rounded-xl border border-[#EEEAE2] bg-white p-3 text-left"
                   key={course.id}
-                  onClick={() => setCourseTarget(null)}
+                  onClick={() => addToExistingCourse(course.title)}
                   type="button"
                 >
                   <span className="grid size-10 flex-none place-items-center rounded-lg bg-[#F4F3EF] text-[#3E4A43]">
@@ -231,6 +261,7 @@ export function MapVisibleDrawer({
               ))}
               <button
                 className="mt-1 flex items-center gap-3 rounded-xl border border-dashed border-[#D8D3C9] bg-[#FAF9F6] p-3 text-left"
+                onClick={createCourseWithTarget}
                 type="button"
               >
                 <span className="grid size-10 flex-none place-items-center rounded-lg bg-white text-[#3E4A43]">
@@ -252,20 +283,37 @@ export function MapVisibleDrawer({
           <MapListCard
             point={selectedPoint}
             featured
-            onAddToCourse={setCourseTarget}
-            selected={selectedPoint.id === selectedPointId}
+            onAddToCourse={openCourseSelector}
           />
         ) : visiblePoints.length > 0 ? (
-          <div className="grid gap-2.5">
-            {visiblePoints.map((point) => (
-              <MapListCard
-                key={point.id}
-                point={point}
-                onAddToCourse={setCourseTarget}
-                onSelect={() => onSelectPoint(point)}
-                selected={point.id === selectedPointId}
-              />
-            ))}
+          <div className="grid gap-4">
+            {visibleNotes.length > 0 ? (
+              <section aria-label="쪽지 목록" className="-mx-4">
+                <div className="flex touch-pan-x snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [overscroll-behavior-inline:contain] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {visibleNotes.map((point) => (
+                    <div className="snap-start" key={point.id}>
+                      <MapListCard
+                        point={point}
+                        onAddToCourse={openCourseSelector}
+                        onSelect={() => onSelectPoint(point)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+            {visiblePlaces.length > 0 ? (
+              <div className="grid gap-2.5">
+                {visiblePlaces.map((point) => (
+                  <MapListCard
+                    key={point.id}
+                    point={point}
+                    onAddToCourse={openCourseSelector}
+                    onSelect={() => onSelectPoint(point)}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="rounded-2xl bg-[#F6F5F1] p-4 text-sm font-bold text-[#6d665d]">

@@ -1,5 +1,5 @@
 import type { LocalNote, Place } from "@/shared/types/domain";
-import type { MapFilter } from "../mapStore";
+import type { MapFilter, PlaceCategory } from "../mapStore";
 import type { MapPoint, MarkerCluster } from "../types";
 
 export function toMapPoints(places: Place[], notes: LocalNote[]) {
@@ -39,23 +39,29 @@ export function filterMapPoints({
   filter,
   points,
   query,
-  selectedFriend
+  selectedPlaceCategory,
 }: {
   filter: MapFilter;
   points: MapPoint[];
   query: string;
-  selectedFriend: string | null;
+  selectedPlaceCategory: PlaceCategory | null;
 }) {
   return points.filter((point) => {
     if (!pointMatchesQuery(point, query)) return false;
-    if (filter === "place") return point.kind === "place";
-    if (filter === "spot") return point.kind === "spot";
+    if (filter === "place") {
+      return (
+        point.kind === "place" &&
+        (!selectedPlaceCategory || point.source.tags.includes(selectedPlaceCategory))
+      );
+    }
+    if (filter === "spot") {
+      return point.kind === "spot" && point.source.visibility === "public";
+    }
     if (filter === "saved") return point.saved;
     if (filter === "friend") {
       return (
         point.kind === "spot" &&
-        point.source.relationshipToViewer === "friend" &&
-        (!selectedFriend || point.authorName === selectedFriend)
+        point.source.relationshipToViewer === "friend"
       );
     }
 

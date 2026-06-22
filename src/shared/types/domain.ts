@@ -32,8 +32,10 @@ export type Place = {
 export type LocalNote = {
   id: string;
   body: string;
+  createdAt?: string;
   authorName: string;
   authorAvatarUrl?: string;
+  imageUrl?: string;
   category: NoteCategory;
   visibility: Visibility;
   placeName: string;

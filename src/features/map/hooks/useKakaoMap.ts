@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Coordinates } from "@/shared/types/domain";
+import { categoryLabels } from "@/shared/lib/labels";
 import { getPlaceMarkerColor, initialMapLevel } from "../constants";
 import { loadKakaoMap } from "../lib/kakaoMap";
 import { clusterPoints } from "../lib/mapPoints";
+import type { MapFilter } from "../mapStore";
 import type {
   KakaoBounds,
   KakaoCustomOverlay,
@@ -13,6 +15,7 @@ import type {
 
 export function useKakaoMap(
   points: MapPoint[],
+  activeFilter: MapFilter,
   onSelectPoint: (id: string) => void,
   selectedPointId: string | null,
   initialCenter: Coordinates,
@@ -178,7 +181,7 @@ export function useKakaoMap(
       content.className =
         !isSinglePoint
           ? getClusterClassName(cluster.points.length)
-          : getOverlayClassName(cluster.points[0], isSelected);
+          : getOverlayClassName(cluster.points[0], activeFilter, isSelected);
       if (cluster.points.length === 1 && cluster.points[0].kind === "place") {
         content.style.setProperty(
           "--marker-color",
@@ -188,7 +191,7 @@ export function useKakaoMap(
       content.innerHTML =
         cluster.points.length > 1
           ? `<span>${cluster.points.length}</span>`
-          : getOverlayContent(cluster.points[0]);
+          : getOverlayContent(cluster.points[0], activeFilter);
       content.addEventListener("click", () => {
         if (cluster.points.length > 1 && mapRef.current && window.kakao) {
           const anchor = new kakaoMaps.LatLng(
@@ -234,6 +237,7 @@ export function useKakaoMap(
     }
   }, [
     currentLocation,
+    activeFilter,
     focusMapOn,
     level,
     onSelectPoint,
@@ -288,9 +292,16 @@ function toRadians(degrees: number) {
   return (degrees * Math.PI) / 180;
 }
 
-function getOverlayClassName(point: MapPoint, selected: boolean) {
-  const baseClassName =
-    point.kind === "place" ? "place-star-marker" : "spot-avatar-marker";
+function getOverlayClassName(
+  point: MapPoint,
+  activeFilter: MapFilter,
+  selected: boolean,
+) {
+  const baseClassName = point.kind === "place"
+    ? "place-star-marker"
+    : activeFilter === "friend"
+      ? "friend-profile-marker"
+      : "spot-avatar-marker";
 
   return selected ? `${baseClassName} is-selected` : baseClassName;
 }
@@ -301,14 +312,37 @@ function getClusterClassName(count: number) {
     : "map-cluster-marker";
 }
 
-function getOverlayContent(point: MapPoint) {
+function getOverlayContent(point: MapPoint, activeFilter: MapFilter) {
   if (point.kind === "place") {
-    return `<span>${point.name}</span>`;
+    return `<span>${escapeHtml(point.name)}</span>`;
   }
 
-  if (point.authorAvatarUrl) {
-    return `<img src="${point.authorAvatarUrl}" alt="" /><span>${point.authorName}</span>`;
+  if (activeFilter === "friend") {
+    return point.authorAvatarUrl
+      ? `<img src="${escapeHtml(point.authorAvatarUrl)}" alt="" /><span>${escapeHtml(point.authorName)}</span>`
+      : `<strong>${escapeHtml(point.authorName.slice(0, 1))}</strong><span>${escapeHtml(point.authorName)}</span>`;
   }
 
-  return `<strong>${point.authorName.slice(0, 1)}</strong><span>${point.authorName}</span>`;
+  const imageUrl = point.source.imageUrl;
+  const categoryLabel = `#${categoryLabels[point.source.category].replace(/\s+/g, "")}`;
+
+  if (imageUrl) {
+    return `<img src="${escapeHtml(imageUrl)}" alt="" /><span>${escapeHtml(categoryLabel)}</span>`;
+  }
+
+  return `<strong>${escapeHtml(point.authorName.slice(0, 1))}</strong><span>${escapeHtml(categoryLabel)}</span>`;
+}
+
+function escapeHtml(value: string) {
+  return value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;",
+      })[character] ?? character,
+  );
 }

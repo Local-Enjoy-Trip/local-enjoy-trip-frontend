@@ -1,15 +1,19 @@
 import type { CSSProperties } from "react";
 import type { Coordinates } from "@/shared/types/domain";
+import { categoryLabels } from "@/shared/lib/labels";
 import { getPlaceMarkerColor } from "../constants";
 import { getFallbackPosition } from "../lib/mapPoints";
+import type { MapFilter } from "../mapStore";
 import type { MarkerCluster } from "../types";
 
 export function FallbackMapLayer({
+  activeFilter,
   clusters,
   currentLocation,
   onSelectPoint,
   selectedPointId
 }: {
+  activeFilter?: MapFilter;
   clusters: MarkerCluster[];
   currentLocation: Coordinates | null;
   onSelectPoint: (pointId: string) => void;
@@ -70,9 +74,11 @@ export function FallbackMapLayer({
           );
         }
 
+        const isFriendMarker = activeFilter === "friend";
+
         return (
           <button
-            className={`spot-avatar-marker absolute -translate-x-1/2 -translate-y-full ${
+            className={`${isFriendMarker ? "friend-profile-marker" : "spot-avatar-marker"} absolute -translate-x-1/2 -translate-y-full ${
               isSelected ? "is-selected z-10" : ""
             }`}
             key={point.id}
@@ -80,12 +86,18 @@ export function FallbackMapLayer({
             type="button"
             onClick={() => onSelectPoint(point.id)}
           >
-            {point.authorAvatarUrl ? (
-              <img alt="" src={point.authorAvatarUrl} />
+            {(isFriendMarker ? point.authorAvatarUrl : point.source.imageUrl) ? (
+              <img
+                alt=""
+                src={isFriendMarker ? point.authorAvatarUrl : point.source.imageUrl}
+              />
             ) : (
               <strong>{point.authorName.slice(0, 1)}</strong>
             )}
-            <span>{point.authorName}</span>
+            <span>{isFriendMarker
+              ? point.authorName
+              : `#${categoryLabels[point.source.category].replace(/\s+/g, "")}`}
+            </span>
           </button>
         );
       })}

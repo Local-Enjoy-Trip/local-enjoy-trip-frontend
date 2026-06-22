@@ -52,10 +52,12 @@ body {
   }
 }
 
-button,
-textarea,
-input {
-  font: inherit;
+@layer base {
+  button,
+  textarea,
+  input {
+    font: inherit;
+  }
 }
 
 button,
@@ -106,6 +108,7 @@ a {
 
 .place-star-marker,
 .spot-avatar-marker,
+.friend-profile-marker,
 .map-cluster-marker {
   appearance: none;
   border: 0;
@@ -121,6 +124,7 @@ a {
 
 .place-star-marker:hover,
 .spot-avatar-marker:hover,
+.friend-profile-marker:hover,
 .map-cluster-marker:hover {
   filter: brightness(1.03);
   translate: 0 -2px;
@@ -133,60 +137,63 @@ a {
   color: #202124;
   display: inline-flex;
   flex-direction: column;
-  gap: 3px;
-  min-width: 54px;
+  gap: 2px;
+  min-width: 42px;
 }
 
 .place-star-marker::before {
-  background: #ffffff;
-  border: 2px solid var(--marker-color);
+  background: var(--marker-color);
+  border: 2px solid #ffffff;
   border-radius: 999px;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.88) inset,
     0 8px 20px rgba(17, 17, 17, 0.18);
   color: var(--marker-color);
   content: "";
-  height: 34px;
-  width: 34px;
+  height: 28px;
+  width: 28px;
   z-index: 1;
 }
 
 .place-star-marker::after {
-  color: var(--marker-color);
+  color: #ffffff;
   content: "★";
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 950;
   left: 50%;
   line-height: 1;
   position: absolute;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
-  top: 17px;
+  top: 14px;
   translate: -50% -50%;
   z-index: 2;
 }
 
 .place-star-marker span {
-  background: #ffffff;
-  border: 1px solid rgba(32, 33, 36, 0.12);
-  border-radius: 999px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 8px 18px rgba(17, 17, 17, 0.14);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   color: #202124;
   display: block;
-  font-size: 12px;
-  font-weight: 800;
-  max-width: 112px;
+  font-size: 11px;
+  font-weight: 900;
+  max-width: 92px;
   overflow: hidden;
-  padding: 6px 10px 6px 11px;
+  padding: 2px 3px;
   position: relative;
   text-overflow: ellipsis;
+  text-shadow:
+    -1px -1px 0 #ffffff,
+    1px -1px 0 #ffffff,
+    -1px 1px 0 #ffffff,
+    1px 1px 0 #ffffff,
+    0 2px 4px rgba(17, 17, 17, 0.2);
   white-space: nowrap;
   z-index: 2;
 }
 
 .place-star-marker.is-selected {
-  translate: 0 -4px;
   z-index: 30;
 }
 
@@ -194,8 +201,8 @@ a {
   background: var(--marker-color);
   border-color: #ffffff;
   box-shadow:
-    0 0 0 3px rgba(255, 67, 0, 0.18),
-    0 12px 24px rgba(17, 17, 17, 0.22);
+    0 0 0 2px color-mix(in srgb, var(--marker-color) 30%, transparent),
+    0 8px 18px rgba(17, 17, 17, 0.2);
 }
 
 .place-star-marker.is-selected::after {
@@ -204,9 +211,8 @@ a {
 }
 
 .place-star-marker.is-selected span {
-  background: var(--marker-color);
-  border-color: var(--marker-color);
-  color: #ffffff;
+  background: transparent;
+  color: #202124;
   font-weight: 900;
 }
 
@@ -221,24 +227,24 @@ a {
 
 .spot-avatar-marker img,
 .spot-avatar-marker strong {
-  background: #2b7a55;
-  border: 3px solid #ffffff;
-  border-radius: 999px;
+  background: #55504b;
+  border: 2px solid #ffffff;
+  border-radius: 12px;
   box-shadow:
     0 0 0 2px rgba(43, 122, 85, 0.18),
     0 9px 20px rgba(17, 17, 17, 0.18);
   display: grid;
-  height: 42px;
+  height: 40px;
   object-fit: cover;
   place-items: center;
   position: relative;
-  width: 42px;
+  width: 40px;
   z-index: 2;
 }
 
 .spot-avatar-marker strong {
   color: #ffffff;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 950;
 }
 
@@ -249,14 +255,14 @@ a {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 8px 18px rgba(17, 17, 17, 0.13);
-  color: #202124;
+  color: #FD4003;
   display: block;
-  font-size: 12px;
-  font-weight: 800;
-  margin-top: -5px;
-  max-width: 88px;
+  font-size: 10px;
+  font-weight: 900;
+  margin-top: -3px;
+  max-width: 76px;
   overflow: hidden;
-  padding: 5px 8px 5px 9px;
+  padding: 4px 6px;
   position: relative;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -267,39 +273,113 @@ a {
   background: #ffffff;
   border-right: 1px solid rgba(32, 33, 36, 0.1);
   border-bottom: 1px solid rgba(32, 33, 36, 0.1);
-  bottom: -4px;
+  bottom: -3px;
   box-shadow: 4px 4px 10px rgba(17, 17, 17, 0.08);
   content: "";
-  height: 11px;
+  height: 9px;
   position: absolute;
   rotate: 45deg;
-  width: 11px;
+  width: 9px;
   z-index: 0;
 }
 
 .spot-avatar-marker.is-selected {
-  translate: 0 -4px;
   z-index: 30;
 }
 
 .spot-avatar-marker.is-selected img,
 .spot-avatar-marker.is-selected strong {
-  background: #ff4300;
+  background: #55504b;
   box-shadow:
-    0 0 0 3px rgba(255, 67, 0, 0.2),
-    0 12px 24px rgba(17, 17, 17, 0.22);
+    0 0 0 2px rgba(253, 64, 3, 0.35),
+    0 9px 20px rgba(17, 17, 17, 0.2);
 }
 
 .spot-avatar-marker.is-selected span {
-  background: #ff4300;
-  border-color: #ff4300;
-  color: #ffffff;
+  background: #ffffff;
+  border-color: rgba(253, 64, 3, 0.45);
+  color: #FD4003;
   font-weight: 900;
 }
 
 .spot-avatar-marker.is-selected::after {
-  background: #ff4300;
-  border-color: #ff4300;
+  background: #ffffff;
+  border-color: rgba(253, 64, 3, 0.45);
+}
+
+.friend-profile-marker {
+  align-items: center;
+  background: transparent;
+  color: #202124;
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 48px;
+}
+
+.friend-profile-marker img,
+.friend-profile-marker strong {
+  background: #fd4003;
+  border: 3px solid #fd4003;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 9px 20px rgba(253, 64, 3, 0.28);
+  display: grid;
+  height: 42px;
+  object-fit: cover;
+  place-items: center;
+  position: relative;
+  width: 42px;
+  z-index: 2;
+}
+
+.friend-profile-marker strong {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.friend-profile-marker::after {
+  background: #fd4003;
+  bottom: 14px;
+  content: "";
+  height: 13px;
+  left: 50%;
+  position: absolute;
+  rotate: 45deg;
+  translate: -50% 0;
+  width: 13px;
+  z-index: 1;
+}
+
+.friend-profile-marker span {
+  background: #fd4003;
+  border-radius: 999px;
+  box-shadow: 0 5px 14px rgba(253, 64, 3, 0.24);
+  color: #ffffff;
+  display: block;
+  font-size: 10px;
+  font-weight: 900;
+  margin-top: 4px;
+  max-width: 82px;
+  overflow: hidden;
+  padding: 4px 7px;
+  position: relative;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.friend-profile-marker.is-selected {
+  z-index: 30;
+}
+
+.friend-profile-marker.is-selected img,
+.friend-profile-marker.is-selected strong {
+  box-shadow:
+    0 0 0 4px #ffffff,
+    0 0 0 7px rgba(253, 64, 3, 0.28),
+    0 12px 24px rgba(253, 64, 3, 0.3);
 }
 
 .map-cluster-marker {
@@ -311,21 +391,21 @@ a {
     0 7px 18px rgba(17, 17, 17, 0.14);
   color: #0e2418;
   display: inline-flex;
-  height: 50px;
+  height: 38px;
   justify-content: center;
-  width: 50px;
+  width: 38px;
 }
 
 .map-cluster-marker.is-large {
-  height: 72px;
-  width: 72px;
+  height: 50px;
+  width: 50px;
 }
 
 .map-cluster-marker span {
   align-items: center;
   background: transparent;
   display: inline-flex;
-  font-size: 23px;
+  font-size: 16px;
   font-weight: 600;
   height: 100%;
   justify-content: center;
@@ -334,7 +414,7 @@ a {
 }
 
 .map-cluster-marker.is-large span {
-  font-size: 32px;
+  font-size: 20px;
 }
 
 .current-location-marker {

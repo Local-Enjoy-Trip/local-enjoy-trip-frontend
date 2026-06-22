@@ -21,7 +21,6 @@ import {
 import {
   clusterPoints,
   filterMapPoints,
-  getFriends,
   toMapPoints,
 } from "@/features/map/lib/mapPoints";
 import { type MapFilter, useMapStore } from "@/features/map/mapStore";
@@ -38,11 +37,11 @@ export function MapPage() {
 
   const {
     filter,
-    selectedFriend,
+    selectedPlaceCategory,
     selectedPinId,
     selectPin,
     setFilter,
-    setSelectedFriend,
+    setSelectedPlaceCategory,
   } = useMapStore();
   const location = useCurrentLocation();
   const requestLocation = location.requestLocation;
@@ -83,20 +82,15 @@ export function MapPage() {
     return toMapPoints(data.places, data.notes);
   }, [data]);
 
-  const friends = useMemo(() => {
-    if (!data) return [];
-    return getFriends(data.notes);
-  }, [data]);
-
   const filteredPoints = useMemo(
     () =>
       filterMapPoints({
         filter,
         points: allPoints,
         query,
-        selectedFriend,
+        selectedPlaceCategory,
       }),
-    [allPoints, filter, query, selectedFriend],
+    [allPoints, filter, query, selectedPlaceCategory],
   );
 
   const selectMapPin = useCallback(
@@ -126,6 +120,7 @@ export function MapPage() {
 
   const kakao = useKakaoMap(
     filteredPoints,
+    filter,
     selectMapPin,
     selectedPinId,
     data?.center.coordinates ?? mapCenter,
@@ -198,11 +193,11 @@ export function MapPage() {
   useEffect(() => {
     if (
       selectedPinId &&
-      !allPoints.some((point) => point.id === selectedPinId)
+      !filteredPoints.some((point) => point.id === selectedPinId)
     ) {
       selectPin(null);
     }
-  }, [allPoints, selectPin, selectedPinId]);
+  }, [filteredPoints, selectPin, selectedPinId]);
 
   useEffect(() => {
     if (location.status === "success" && kakao.status === "ready") {
@@ -299,6 +294,7 @@ export function MapPage() {
         />
         {kakao.status === "missing-key" || kakao.status === "error" ? (
           <FallbackMapLayer
+            activeFilter={filter}
             clusters={fallbackClusters}
             currentLocation={currentLocation}
             onSelectPoint={selectMapPin}
@@ -314,10 +310,9 @@ export function MapPage() {
           </div>
           <MapFilterChips
             filter={filter}
-            friends={friends}
             onFilterChange={setFilter}
-            onSelectedFriendChange={setSelectedFriend}
-            selectedFriend={selectedFriend}
+            onSelectedPlaceCategoryChange={setSelectedPlaceCategory}
+            selectedPlaceCategory={selectedPlaceCategory}
           />
         </div>
 
@@ -342,7 +337,6 @@ export function MapPage() {
           onRequestLocation={requestCurrentLocation}
           onSelectPoint={selectVisiblePoint}
           onSnapChange={setDrawerSnap}
-          selectedPointId={visibleSelectedPinId}
           selectedPoint={selectedPoint}
           visiblePoints={visiblePoints}
         />
