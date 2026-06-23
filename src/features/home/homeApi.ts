@@ -48,11 +48,15 @@ type PopularAttractionsResponse = {
 };
 
 type NearbyNoteResponse = {
+  authorNickname?: string | null;
+  authorProfileImageUrl?: string | null;
   authorUserId: string;
   content: string;
   createdAt: string;
   id: number;
   imageObjectKey: string | null;
+  latitude?: number;
+  longitude?: number;
   regionName: string | null;
   title: string;
 };
@@ -136,6 +140,7 @@ function toExperience(attraction: PopularAttractionResponse): Experience {
       attraction.popularityCount > 0
         ? `인기 ${attraction.popularityCount}`
         : "주변 추천",
+    coordinates: { lat: attraction.latitude, lng: attraction.longitude },
     description: address || "주변에서 발견한 장소예요.",
     detailLabel:
       savedCount > 0
@@ -152,12 +157,17 @@ function toExperience(attraction: PopularAttractionResponse): Experience {
 function toHomeNote(note: NearbyNoteResponse): HomeNote {
   return {
     body: note.content || note.title,
+    coordinates:
+      Number.isFinite(note.latitude) && Number.isFinite(note.longitude)
+        ? { lat: Number(note.latitude), lng: Number(note.longitude) }
+        : undefined,
     createdAt: note.createdAt,
     id: `note-${note.id}`,
     image: resolveNoteImageUrl(note.imageObjectKey),
-    location: note.regionName || "주변 동네",
-    name: note.authorUserId,
+    location: note.regionName ? getAreaLabel(note.regionName) : "주변 동네",
+    name: note.authorNickname || note.authorUserId,
     place: note.regionName || note.title,
+    profileImage: note.authorProfileImageUrl ?? undefined,
   };
 }
 

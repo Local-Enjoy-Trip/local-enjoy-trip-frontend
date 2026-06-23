@@ -48,6 +48,7 @@ export type Experience = {
   id: string;
   title: string;
   area: string;
+  coordinates?: Coordinates;
   description: string;
   weatherFit: string;
   imageUrl: string;

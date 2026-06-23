@@ -1,3 +1,9 @@
+import { aiBriefings } from "@/features/home/data/homeContent";
+import type {
+  NeighborhoodBriefing,
+  WeatherForecast,
+} from "@/features/home/homeApi";
+import { homeLocations } from "@/features/home/types/homeTypes";
 import {
   Cloud,
   CloudFog,
@@ -9,14 +15,10 @@ import {
   Snowflake,
   Sparkles,
   SunMedium,
-  Sunrise,
   Sunset,
   type LucideIcon,
 } from "lucide-react";
-import type {
-  NeighborhoodBriefing,
-  WeatherForecast,
-} from "@/features/home/homeApi";
+import { useMemo } from "react";
 
 export type WeatherCondition =
   | "clearDay"
@@ -27,10 +29,18 @@ export type WeatherCondition =
 
 type AiWeatherBriefingProps = {
   briefing?: NeighborhoodBriefing;
+  condition?: WeatherCondition;
   error: Error | null;
   isLoading: boolean;
   location: string;
   onRetry: () => void;
+};
+
+type HourlyWeather = {
+  accent?: boolean;
+  Icon: LucideIcon;
+  temperature: string;
+  time: string;
 };
 
 const weatherThemes: Record<
@@ -41,8 +51,10 @@ const weatherThemes: Record<
     badgeBackground: string;
     currentIcon: LucideIcon;
     hourlyIcon: string;
+    label: string;
     panelBackground: string;
     panelText: string;
+    temperature: string;
     topMuted: string;
     topText: string;
   }
@@ -54,9 +66,11 @@ const weatherThemes: Record<
     badgeBackground: "rgba(255,255,255,0.9)",
     currentIcon: CloudSun,
     hourlyIcon: "#FFFFFF",
+    label: "맑음 · 구름 조금",
     panelBackground:
       "linear-gradient(135deg, rgba(255,255,255,0.62), rgba(255,230,217,0.34))",
     panelText: "#292524",
+    temperature: "32°",
     topMuted: "rgba(255,255,255,0.8)",
     topText: "#FFFFFF",
   },
@@ -67,9 +81,11 @@ const weatherThemes: Record<
     badgeBackground: "rgba(255,255,255,0.92)",
     currentIcon: MoonStar,
     hourlyIcon: "#F8FAFC",
+    label: "맑음 · 구름 조금",
     panelBackground:
       "linear-gradient(135deg, rgba(226,234,249,0.56), rgba(144,159,190,0.32))",
     panelText: "#20283A",
+    temperature: "24°",
     topMuted: "rgba(255,255,255,0.76)",
     topText: "#FFFFFF",
   },
@@ -80,9 +96,11 @@ const weatherThemes: Record<
     badgeBackground: "rgba(255,255,255,0.86)",
     currentIcon: Cloudy,
     hourlyIcon: "#F8FAFC",
+    label: "흐림 · 바람 약함",
     panelBackground:
       "linear-gradient(135deg, rgba(255,255,255,0.58), rgba(213,221,226,0.32))",
     panelText: "#27333D",
+    temperature: "23°",
     topMuted: "rgba(255,255,255,0.78)",
     topText: "#FFFFFF",
   },
@@ -93,9 +111,11 @@ const weatherThemes: Record<
     badgeBackground: "rgba(239,247,252,0.9)",
     currentIcon: CloudRain,
     hourlyIcon: "#EAF6FF",
+    label: "비 · 실내 추천",
     panelBackground:
       "linear-gradient(135deg, rgba(225,240,249,0.52), rgba(135,166,186,0.3))",
     panelText: "#20313D",
+    temperature: "20°",
     topMuted: "rgba(234,246,255,0.78)",
     topText: "#F4FAFF",
   },
@@ -106,62 +126,105 @@ const weatherThemes: Record<
     badgeBackground: "rgba(255,255,255,0.9)",
     currentIcon: Snowflake,
     hourlyIcon: "#4F7188",
+    label: "눈 · 포근하게",
     panelBackground:
       "linear-gradient(135deg, rgba(255,255,255,0.68), rgba(224,241,249,0.38))",
     panelText: "#274051",
+    temperature: "-1°",
     topMuted: "rgba(39,64,81,0.66)",
     topText: "#274051",
   },
 };
 
+const hourlyForecasts: Record<WeatherCondition, HourlyWeather[]> = {
+  clearDay: [
+    { time: "오후 1시", temperature: "32°", Icon: CloudSun },
+    { time: "오후 2시", temperature: "31°", Icon: SunMedium },
+    { time: "오후 3시", temperature: "30°", Icon: SunMedium },
+    { time: "오후 4시", temperature: "29°", Icon: CloudSun },
+    { time: "오후 5시", temperature: "28°", Icon: CloudSun },
+    { time: "오후 6시", temperature: "27°", Icon: Sunset, accent: true },
+  ],
+  clearNight: [
+    { time: "오후 6시", temperature: "26°", Icon: Cloud },
+    { time: "오후 7시", temperature: "25°", Icon: Cloud },
+    { time: "오후 7:56", temperature: "24°", Icon: Sunset, accent: true },
+    { time: "오후 8시", temperature: "24°", Icon: Cloud },
+    { time: "오후 9시", temperature: "23°", Icon: MoonStar },
+    { time: "오후 10시", temperature: "22°", Icon: MoonStar },
+  ],
+  cloudy: [
+    { time: "오후 1시", temperature: "23°", Icon: Cloudy },
+    { time: "오후 2시", temperature: "23°", Icon: Cloud },
+    { time: "오후 3시", temperature: "22°", Icon: Cloudy },
+    { time: "오후 4시", temperature: "22°", Icon: Cloud },
+    { time: "오후 5시", temperature: "21°", Icon: Cloudy },
+    { time: "오후 6시", temperature: "21°", Icon: Cloud },
+  ],
+  rainy: [
+    { time: "오후 1시", temperature: "20°", Icon: CloudRain },
+    { time: "오후 2시", temperature: "20°", Icon: CloudRain },
+    { time: "오후 3시", temperature: "19°", Icon: CloudRain },
+    { time: "오후 4시", temperature: "19°", Icon: CloudRain },
+    { time: "오후 5시", temperature: "18°", Icon: CloudRain },
+    { time: "오후 6시", temperature: "18°", Icon: CloudRain },
+  ],
+  snowy: [
+    { time: "오후 1시", temperature: "-1°", Icon: Snowflake },
+    { time: "오후 2시", temperature: "-1°", Icon: Snowflake },
+    { time: "오후 3시", temperature: "-2°", Icon: Cloud },
+    { time: "오후 4시", temperature: "-2°", Icon: Snowflake },
+    { time: "오후 5시", temperature: "-3°", Icon: Snowflake },
+    { time: "오후 6시", temperature: "-3°", Icon: Cloud },
+  ],
+};
+
+function getDefaultCondition(): WeatherCondition {
+  const hour = new Date().getHours();
+  return hour >= 19 || hour < 6 ? "clearNight" : "clearDay";
+}
+
 export function AiWeatherBriefing({
   briefing,
+  condition,
   error,
   isLoading,
   location,
-  onRetry,
 }: AiWeatherBriefingProps) {
-  if (isLoading) {
-    return (
-      <section className="mt-5 px-5" aria-label="날씨와 AI 브리핑 불러오는 중">
-        <div className="h-[25rem] animate-pulse rounded-[28px] bg-[#E8EBEE]" />
-      </section>
-    );
-  }
+  const fallbackBriefings = useMemo(() => {
+    const knownLocation = homeLocations.find((candidate) => {
+      const neighborhoodStem = candidate.replace(/동$/, "");
+      return (
+        location.includes(candidate) || location.startsWith(neighborhoodStem)
+      );
+    });
 
-  if (!briefing) {
-    return (
-      <section className="mt-5 px-5">
-        <div className="grid min-h-60 place-items-center rounded-[28px] bg-[#F3F5F6] px-6 text-center">
-          <div>
-            <Cloudy className="mx-auto text-[#70808C]" size={32} />
-            <p className="mt-4 mb-0 text-base font-extrabold">
-              날씨와 AI 브리핑을 불러오지 못했어요
-            </p>
-            <p className="mt-2 mb-0 text-xs leading-relaxed font-semibold text-[#6F777C]">
-              {error?.message ?? "잠시 후 다시 시도해주세요."}
-            </p>
-            <button
-              className="mt-5 rounded-full bg-[#111] px-5 py-2.5 text-xs font-extrabold text-white"
-              onClick={onRetry}
-              type="button"
-            >
-              다시 시도
-            </button>
-          </div>
-        </div>
-      </section>
-    );
-  }
+    return aiBriefings[knownLocation ?? homeLocations[0]];
+  }, [location]);
 
-  const activeCondition = toWeatherCondition(briefing.weather.condition);
+  const activeCondition =
+    condition ?? toWeatherCondition(briefing?.weather.condition);
   const theme = weatherThemes[activeCondition];
+  const forecast = getForecasts(briefing?.forecasts, activeCondition);
+  const briefings = getBriefings(briefing?.briefing, fallbackBriefings);
   const CurrentWeatherIcon = theme.currentIcon;
-  const forecasts = briefing.forecasts.slice(0, 6);
+  const displayLocation = briefing?.region || location;
+  const temperature = formatTemperature(
+    briefing?.weather.temperature,
+    theme.temperature,
+  );
+  const temperatureRange = formatTemperatureRange(
+    briefing?.weather.tempMin,
+    briefing?.weather.tempMax,
+  );
+  const label = briefing?.weather.condition || theme.label;
+  const rainChance = formatRainChance(briefing?.weather.rainChance);
 
   return (
     <section className="mt-5 px-5">
       <article
+        aria-busy={isLoading}
+        aria-live={error ? "polite" : undefined}
         className="overflow-hidden rounded-[28px]"
         data-weather-theme={activeCondition}
         style={{ background: theme.background }}
@@ -170,15 +233,16 @@ export function AiWeatherBriefing({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="m-0 text-[2.5rem] leading-none font-bold tracking-[-0.055em]">
-                {formatTemperature(briefing.weather.temperature)}
+                {temperature}
               </p>
-              <p
-                className="mt-2 mb-0 text-xs font-bold"
-                style={{ color: theme.topMuted }}
-              >
-                최저 {formatTemperature(briefing.weather.tempMin)} · 최고{" "}
-                {formatTemperature(briefing.weather.tempMax)}
-              </p>
+              {temperatureRange ? (
+                <p
+                  className="mt-1 mb-0 text-[0.625rem] leading-none font-bold"
+                  style={{ color: theme.topMuted }}
+                >
+                  {temperatureRange}
+                </p>
+              ) : null}
             </div>
             <div className="pt-1 text-right">
               <CurrentWeatherIcon
@@ -187,43 +251,35 @@ export function AiWeatherBriefing({
                 strokeWidth={1.8}
               />
               <p className="mt-1 mb-0 text-xs font-extrabold">
-                {briefing.weather.condition}
-              </p>
-              <p
-                className="mt-1 mb-0 text-[0.625rem] font-bold"
-                style={{ color: theme.topMuted }}
-              >
-                강수 확률 {formatRainChance(briefing.weather.rainChance)}
+                {rainChance ? `${label} · 강수 ${rainChance}` : label}
               </p>
             </div>
           </div>
 
-          {forecasts.length > 0 ? (
-            <div
-              className="mt-6 grid gap-1"
-              style={{
-                gridTemplateColumns: `repeat(${forecasts.length}, minmax(0, 1fr))`,
-              }}
-            >
-              {forecasts.map((forecast, index) => (
-                <ForecastItem
-                  forecast={forecast}
-                  iconColor={theme.hourlyIcon}
-                  mutedColor={theme.topMuted}
-                  textColor={theme.topText}
-                  key={`${forecast.time}-${index}`}
+          <div className="mt-6 grid grid-cols-6 gap-1">
+            {forecast.map(({ accent, Icon, temperature, time }) => (
+              <div className="min-w-0 text-center" key={time}>
+                <span
+                  className="block truncate text-[0.625rem] font-medium"
+                  style={{ color: theme.topMuted }}
+                >
+                  {time}
+                </span>
+                <Icon
+                  className="mx-auto mt-2"
+                  color={accent ? theme.accent : theme.hourlyIcon}
+                  fill={Icon === Cloud ? "currentColor" : "none"}
+                  size={22}
+                  strokeWidth={2}
                 />
-              ))}
-            </div>
-          ) : null}
-
-          <div className="mt-5 flex items-center justify-center gap-5 text-[0.625rem] font-bold">
-            <span className="inline-flex items-center gap-1.5">
-              <Sunrise size={14} /> 일출 {briefing.weather.sunrise ?? "-"}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Sunset size={14} /> 일몰 {briefing.weather.sunset ?? "-"}
-            </span>
+                <strong
+                  className="mt-1.5 block text-xs font-bold"
+                  style={{ color: theme.topText }}
+                >
+                  {temperature}
+                </strong>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -246,11 +302,23 @@ export function AiWeatherBriefing({
 
           <div className="mt-2">
             <p className="m-0 text-sm leading-snug font-bold">
-              알수록 정겨운 동네, {briefing.region || location}
+              알수록 정겨운 동네, {displayLocation}
             </p>
-            <p className="mt-3 mb-0 whitespace-pre-line text-sm leading-relaxed font-bold">
-              {briefing.briefing}
-            </p>
+            <p className="text-sm leading-relaxed font-bold">{briefings[0]}</p>
+            <ul className="mt-4 grid list-none gap-2.5 p-0">
+              {briefings.slice(1).map((briefing) => (
+                <li
+                  className="flex gap-2 text-xs leading-relaxed font-medium"
+                  key={briefing}
+                >
+                  <span
+                    className="mt-2 h-1.5 w-1.5 flex-none rounded-full"
+                    style={{ background: theme.accent }}
+                  />
+                  <span>{briefing}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </article>
@@ -258,50 +326,8 @@ export function AiWeatherBriefing({
   );
 }
 
-function ForecastItem({
-  forecast,
-  iconColor,
-  mutedColor,
-  textColor,
-}: {
-  forecast: WeatherForecast;
-  iconColor: string;
-  mutedColor: string;
-  textColor: string;
-}) {
-  const Icon = getWeatherIcon(forecast.condition);
-
-  return (
-    <div className="min-w-0 text-center">
-      <span
-        className="block truncate text-[0.625rem] font-medium"
-        style={{ color: mutedColor }}
-      >
-        {formatForecastTime(forecast.time)}
-      </span>
-      <Icon
-        className="mx-auto mt-2"
-        color={iconColor}
-        size={22}
-        strokeWidth={2}
-      />
-      <strong
-        className="mt-1.5 block text-xs font-bold"
-        style={{ color: textColor }}
-      >
-        {formatTemperature(forecast.temperature)}
-      </strong>
-      <span
-        className="mt-0.5 block text-[0.5625rem] font-semibold"
-        style={{ color: mutedColor }}
-      >
-        {formatRainChance(forecast.rainChance)}
-      </span>
-    </div>
-  );
-}
-
-function toWeatherCondition(condition: string): WeatherCondition {
+function toWeatherCondition(condition?: string): WeatherCondition {
+  if (!condition) return getDefaultCondition();
   if (condition.includes("눈")) return "snowy";
   if (
     condition.includes("비") ||
@@ -319,8 +345,33 @@ function toWeatherCondition(condition: string): WeatherCondition {
     return "cloudy";
   }
 
-  const hour = new Date().getHours();
-  return hour >= 19 || hour < 6 ? "clearNight" : "clearDay";
+  return getDefaultCondition();
+}
+
+function getForecasts(
+  forecasts: WeatherForecast[] | undefined,
+  activeCondition: WeatherCondition,
+): HourlyWeather[] {
+  if (!forecasts?.length) return hourlyForecasts[activeCondition];
+
+  return forecasts.slice(0, 6).map((forecast) => ({
+    Icon: getWeatherIcon(forecast.condition),
+    temperature: formatTemperature(forecast.temperature, "-"),
+    time: formatForecastTime(forecast.time),
+  }));
+}
+
+function getBriefings(apiBriefing: string | undefined, fallback: string[]) {
+  if (!apiBriefing?.trim()) return fallback;
+
+  const lines = apiBriefing
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length >= 3) return lines.slice(0, 3);
+
+  return [apiBriefing.trim(), ...fallback.slice(1)];
 }
 
 function getWeatherIcon(condition: string): LucideIcon {
@@ -338,12 +389,23 @@ function getWeatherIcon(condition: string): LucideIcon {
   return SunMedium;
 }
 
-function formatTemperature(value: number | null) {
-  return value === null ? "-" : `${value}°`;
+function formatTemperature(value: number | null | undefined, fallback: string) {
+  return value === null || value === undefined ? fallback : `${value}°`;
 }
 
-function formatRainChance(value: number | null) {
-  return value === null ? "-" : `${value}%`;
+function formatTemperatureRange(
+  min: number | null | undefined,
+  max: number | null | undefined,
+) {
+  if (min === null || min === undefined || max === null || max === undefined) {
+    return "";
+  }
+
+  return `최저 ${min}° · 최고 ${max}°`;
+}
+
+function formatRainChance(value: number | null | undefined) {
+  return value === null || value === undefined ? "" : `${value}%`;
 }
 
 function formatForecastTime(value: string) {
@@ -351,7 +413,11 @@ function formatForecastTime(value: string) {
   if (!match) return value;
 
   const hour = Number(match[1]);
+  const minute = match[2];
   const period = hour < 12 ? "오전" : "오후";
   const displayHour = hour % 12 || 12;
-  return `${period} ${displayHour}시`;
+
+  return minute === "00"
+    ? `${period} ${displayHour}시`
+    : `${period} ${displayHour}:${minute}`;
 }

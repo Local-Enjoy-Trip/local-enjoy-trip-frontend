@@ -11,11 +11,25 @@ export function ExperienceCard({
   experience,
   variant = "default",
 }: ExperienceCardProps) {
+  const targetPlaceId = experience.placeIds[0];
+  const mapParams = new URLSearchParams();
+  if (targetPlaceId) {
+    mapParams.set("filter", "place");
+    mapParams.set("target", targetPlaceId);
+  } else {
+    mapParams.set("experience", experience.id);
+  }
+  if (experience.coordinates) {
+    mapParams.set("mapX", String(experience.coordinates.lng));
+    mapParams.set("mapY", String(experience.coordinates.lat));
+  }
+  const mapTargetPath = `/map?${mapParams.toString()}`;
+
   if (variant === "portrait") {
     return (
       <Link
         className="w-[calc(100vw-52px)] max-w-[200px] flex-none snap-start"
-        to={`/map?experience=${experience.id}`}
+        to={mapTargetPath}
       >
         <article className="relative aspect-4/5 w-full overflow-hidden rounded-[1.25rem] ">
           <img
@@ -44,7 +58,7 @@ export function ExperienceCard({
   return (
     <Link
       className="w-[calc(100vw-80px)] max-w-[250px] flex-none snap-start"
-      to={`/map?experience=${experience.id}`}
+      to={mapTargetPath}
     >
       <div className="relative aspect-[0.96/1] w-full overflow-hidden rounded-[22px] shadow-[0_10px_24px_rgba(17,17,17,0.08)]">
         <img

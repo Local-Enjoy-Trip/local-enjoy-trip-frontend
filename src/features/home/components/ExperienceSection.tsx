@@ -1,5 +1,6 @@
 import type { Experience } from "@/shared/types/domain";
 import { SectionHeader } from "@/shared/ui/SectionHeader";
+import { Skeleton } from "@/shared/ui/Skeleton";
 import { ExperienceCard } from "./ExperienceCard";
 
 type ExperienceSectionProps = {
@@ -21,7 +22,11 @@ export function ExperienceSection({
     <section className="mt-8">
       <SectionHeader title={title} actionTo="/map" />
       {isLoading ? (
-        <div className="mx-5 h-60 animate-pulse rounded-[20px] bg-[#F0F0EE]" />
+        <div className="flex gap-4 overflow-hidden px-5 pb-2">
+          <Skeleton className="h-60 w-40 flex-none rounded-[20px]" />
+          <Skeleton className="h-60 w-40 flex-none rounded-[20px]" />
+          <Skeleton className="h-60 w-40 flex-none rounded-[20px]" />
+        </div>
       ) : experiences.length > 0 ? (
         <div className="flex snap-x scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
           {experiences.map((experience) => (

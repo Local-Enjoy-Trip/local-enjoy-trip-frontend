@@ -52,6 +52,10 @@ export const homeLocationOptions = [
 ] as const satisfies readonly HomeLocationOption[];
 
 export type HomeNote = {
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
   createdAt?: string;
   id: string;
   name: string;
