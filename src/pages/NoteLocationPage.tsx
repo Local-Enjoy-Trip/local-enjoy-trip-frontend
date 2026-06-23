@@ -21,6 +21,7 @@ import {
 } from "@/features/map/lib/locationConsent";
 import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
 import noteLocationPinUrl from "@/assets/note-location-pin.png";
+import type { NoteResponse } from "@/features/notes/noteApi";
 import type {
   KakaoCustomOverlay,
   KakaoMapInstance,
@@ -39,7 +40,10 @@ export type NoteLocationSelection = {
 
 type NoteLocationRouteState = {
   locationPurpose?: "home" | "note";
+  note?: NoteResponse;
   noteLocation?: NoteLocationSelection;
+  noteReturnTo?: string;
+  returnTo?: string;
 };
 
 type AdministrativeDongOverlay = {
@@ -129,6 +133,8 @@ export function NoteLocationPage() {
   const routeLocation = useLocation();
   const state = routeLocation.state as NoteLocationRouteState | null;
   const isHomeLocation = state?.locationPurpose === "home";
+  const noteEditorReturnTo = state?.returnTo ?? "/note/new";
+  const noteSubmitReturnTo = state?.noteReturnTo;
   const isReturningWithSelection = Boolean(state?.noteLocation);
   const fallbackSelection = useMemo(
     () => state?.noteLocation ?? defaultNoteLocation,
@@ -686,11 +692,25 @@ export function NoteLocationPage() {
       return;
     }
 
-    navigate(isHomeLocation ? "/" : "/note/new", {
+    navigate(isHomeLocation ? "/" : noteEditorReturnTo, {
       replace: true,
       state: {
         [isHomeLocation ? "homeLocation" : "noteLocation"]: selection,
+        note: state?.note,
+        returnTo: noteSubmitReturnTo,
       },
+    });
+  }
+
+  function navigateBack() {
+    navigate(isHomeLocation ? "/" : noteEditorReturnTo, {
+      state: isHomeLocation
+        ? undefined
+        : {
+            note: state?.note,
+            noteLocation: state?.noteLocation,
+            returnTo: noteSubmitReturnTo,
+          },
     });
   }
 
@@ -728,7 +748,7 @@ export function NoteLocationPage() {
             <button
               className="grid h-12 w-12 flex-none place-items-center rounded-full bg-white text-[#24231f] shadow-[0_10px_24px_rgba(17,17,17,0.14)]"
               type="button"
-              onClick={() => navigate(isHomeLocation ? "/" : "/note/new")}
+              onClick={navigateBack}
               aria-label={isHomeLocation ? "홈으로 돌아가기" : "쪽지 작성으로 돌아가기"}
             >
               <ArrowLeft size={22} strokeWidth={2.5} />

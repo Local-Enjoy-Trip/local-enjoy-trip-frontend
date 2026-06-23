@@ -1,7 +1,9 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { List, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
+import { PageLoadingSkeleton } from "@/shared/ui/Skeleton";
 import { FallbackMapLayer } from "@/features/map/components/FallbackMapLayer";
 import { LocationConsentDialog } from "@/features/map/components/LocationConsentDialog";
 import { MapFilterChips } from "@/features/map/components/MapFilterChips";
@@ -32,6 +34,7 @@ import {
 import type { MapPoint, MapViewport } from "@/features/map/types";
 
 const viewportDebounceMs = 500;
+const targetViewportRadiusMeters = 3_000;
 
 type FrozenMapBounds = {
   northEast: MapViewport["center"];
@@ -40,6 +43,7 @@ type FrozenMapBounds = {
 
 export function MapPage() {
   useMapViewportBackground();
+  const [searchParams] = useSearchParams();
 
   const {
     filter,
@@ -49,12 +53,27 @@ export function MapPage() {
     setFilter,
     setSelectedPlaceCategory,
   } = useMapStore();
+  const requestedFilter = searchParams.get("filter");
+  const requestedTab = searchParams.get("tab") === "note" ? "note" : undefined;
+  const requestedTargetId = searchParams.get("target");
+  const requestedMapX = Number(searchParams.get("mapX"));
+  const requestedMapY = Number(searchParams.get("mapY"));
+  const requestedTargetViewport = useMemo(
+    () =>
+      Number.isFinite(requestedMapX) && Number.isFinite(requestedMapY)
+        ? {
+            center: { lat: requestedMapY, lng: requestedMapX },
+            radiusMeters: targetViewportRadiusMeters,
+          }
+        : null,
+    [requestedMapX, requestedMapY],
+  );
   const location = useCurrentLocation();
   const requestLocation = location.requestLocation;
   const currentLocation =
     location.status === "success" ? location.coordinates : null;
   const [requestedViewport, setRequestedViewport] =
-    useState<MapViewport | null>(null);
+    useState<MapViewport | null>(requestedTargetViewport);
   const [pendingViewport, setPendingViewport] = useState<MapViewport | null>(null);
   const [fullDrawerBounds, setFullDrawerBounds] =
     useState<FrozenMapBounds | null>(null);
@@ -114,7 +133,7 @@ export function MapPage() {
     (pinId: string | null) => {
       selectPin(pinId);
       if (pinId) {
-        setDrawerSnap("default");
+        setDrawerSnap("full");
       }
     },
     [selectPin],
@@ -144,8 +163,10 @@ export function MapPage() {
     0,
     0,
     !isLoading && Boolean(data),
+    filter,
   );
   const recenterMapTo = kakao.recenterTo;
+  const moveMapTo = kakao.moveTo;
 
   useEffect(() => {
     const viewport = kakao.viewport;
@@ -261,6 +282,40 @@ export function MapPage() {
   }, [filteredPoints, selectPin, selectedPinId]);
 
   useEffect(() => {
+    if (
+      requestedFilter === "saved" ||
+      requestedFilter === "spot" ||
+      requestedFilter === "place" ||
+      requestedFilter === "friend" ||
+      requestedFilter === "all"
+    ) {
+      setFilter(requestedFilter);
+      if (requestedFilter === "saved") setDrawerSnap("full");
+    }
+  }, [requestedFilter, setFilter]);
+
+  useEffect(() => {
+    if (!requestedTargetViewport) return;
+
+    setRequestedViewport((currentViewport) =>
+      isSameViewport(currentViewport, requestedTargetViewport)
+        ? currentViewport
+        : requestedTargetViewport,
+    );
+  }, [requestedTargetViewport]);
+
+  useEffect(() => {
+    if (!requestedTargetId || allPoints.length === 0) return;
+
+    const targetPoint = allPoints.find((point) => point.id === requestedTargetId);
+    if (!targetPoint) return;
+
+    selectPin(targetPoint.id);
+    setDrawerSnap("full");
+    moveMapTo(targetPoint.coordinates);
+  }, [allPoints, moveMapTo, requestedTargetId, selectPin]);
+
+  useEffect(() => {
     if (location.status === "success" && kakao.status === "ready") {
       recenterMapTo(location.coordinates);
     }
@@ -281,7 +336,7 @@ export function MapPage() {
 
   const selectVisiblePoint = (point: MapPoint) => {
     selectPin(point.id);
-    setDrawerSnap("default");
+    setDrawerSnap("full");
     kakao.moveTo(point.coordinates);
   };
 
@@ -309,11 +364,7 @@ export function MapPage() {
   };
 
   if (isLoading || (!data && !isError)) {
-    return (
-      <div className="grid min-h-screen place-items-center p-6 font-black text-[#6f6a60]">
-        지도를 준비하는 중...
-      </div>
-    );
+    return <PageLoadingSkeleton type="map" />;
   }
 
   if (!data) {
@@ -432,6 +483,7 @@ export function MapPage() {
           onRequestLocation={requestCurrentLocation}
           onSelectPoint={selectVisiblePoint}
           onSnapChange={setDrawerSnap}
+          preferredTab={requestedTab}
           selectedPoint={selectedPoint}
           visiblePoints={drawerPoints}
         />

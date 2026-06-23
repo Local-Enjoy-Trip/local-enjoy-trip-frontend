@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Coordinates } from "@/shared/types/domain";
+import { categoryLabels } from "@/shared/lib/labels";
 import {
   getPlaceMarkerColor,
   initialMapLevel,
@@ -7,6 +8,7 @@ import {
 } from "../constants";
 import { loadKakaoMap } from "../lib/kakaoMap";
 import { clusterPoints } from "../lib/mapPoints";
+import type { MapFilter } from "../mapStore";
 import type {
   KakaoBounds,
   KakaoCustomOverlay,
@@ -24,6 +26,7 @@ export function useKakaoMap(
   mapBottomInset: number,
   selectedPointBottomInset: number,
   enabled = true,
+  activeFilter?: MapFilter,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
@@ -203,7 +206,7 @@ export function useKakaoMap(
       content.className =
         !isSinglePoint
           ? getClusterClassName(cluster.points.length)
-          : getOverlayClassName(cluster.points[0], isSelected);
+          : getOverlayClassName(cluster.points[0], isSelected, activeFilter);
       if (cluster.points.length === 1 && cluster.points[0].kind === "place") {
         content.style.setProperty(
           "--marker-color",
@@ -213,7 +216,10 @@ export function useKakaoMap(
       content.innerHTML =
         cluster.points.length > 1
           ? `<span>${cluster.points.length}</span>`
-          : getOverlayContent(cluster.points[0]);
+          : getOverlayContent(cluster.points[0], activeFilter);
+      if (cluster.points.length === 1 && cluster.points[0].kind === "spot") {
+        replaceBrokenMarkerImage(content, cluster.points[0]);
+      }
       content.addEventListener("click", (event) => {
         event.stopPropagation();
         if (cluster.points.length > 1 && mapRef.current && window.kakao) {
@@ -267,7 +273,8 @@ export function useKakaoMap(
     points,
     selectedPointBottomInset,
     selectedPointId,
-    status
+    status,
+    activeFilter,
   ]);
 
   const moveTo = useCallback(
@@ -318,10 +325,14 @@ function toRadians(degrees: number) {
 function getOverlayClassName(
   point: MapPoint,
   selected: boolean,
+  activeFilter?: MapFilter,
 ) {
-  const baseClassName = point.kind === "place"
-    ? "place-star-marker"
-    : "spot-avatar-marker";
+  const baseClassName =
+    point.kind === "place"
+      ? "place-star-marker"
+      : activeFilter === "friend"
+        ? "friend-profile-marker"
+        : "spot-avatar-marker";
 
   return selected ? `${baseClassName} is-selected` : baseClassName;
 }
@@ -332,14 +343,40 @@ function getClusterClassName(count: number) {
     : "map-cluster-marker";
 }
 
-function getOverlayContent(point: MapPoint) {
+function getOverlayContent(point: MapPoint, activeFilter?: MapFilter) {
   if (point.kind === "place") {
     return `<span>${escapeHtml(point.name)}</span>`;
   }
 
+  if (activeFilter === "friend") {
+    return point.authorAvatarUrl
+      ? `<img src="${escapeHtml(point.authorAvatarUrl)}" alt="" loading="lazy" decoding="async" /><span>${escapeHtml(point.authorName)}</span>`
+      : `<strong>${escapeHtml(getMarkerInitial(point.authorName))}</strong><span>${escapeHtml(point.authorName)}</span>`;
+  }
+
+  const categoryLabel = categoryLabels[point.source.category].replace(/\s+/g, "");
+
   return point.authorAvatarUrl
-    ? `<img src="${escapeHtml(point.authorAvatarUrl)}" alt="" loading="lazy" decoding="async" /><span>${escapeHtml(point.authorName)}</span>`
-    : `<strong>${escapeHtml(point.authorName.slice(0, 1))}</strong><span>${escapeHtml(point.authorName)}</span>`;
+    ? `<img src="${escapeHtml(point.authorAvatarUrl)}" alt="" loading="lazy" decoding="async" /><span>#${escapeHtml(categoryLabel)}</span>`
+    : `<strong>${escapeHtml(getMarkerInitial(point.authorName))}</strong><span>#${escapeHtml(categoryLabel)}</span>`;
+}
+
+function replaceBrokenMarkerImage(
+  content: HTMLElement,
+  point: Extract<MapPoint, { kind: "spot" }>,
+) {
+  const image = content.querySelector("img");
+  if (!image) return;
+
+  image.addEventListener("error", () => {
+    const fallback = document.createElement("strong");
+    fallback.textContent = getMarkerInitial(point.authorName);
+    image.replaceWith(fallback);
+  });
+}
+
+function getMarkerInitial(value: string) {
+  return value.trim().slice(0, 1) || "?";
 }
 
 function escapeHtml(value: string) {

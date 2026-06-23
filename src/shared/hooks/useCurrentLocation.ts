@@ -36,12 +36,23 @@ export function useCurrentLocation() {
     setState({ status: "loading", coordinates: null, error: null });
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const coordinates = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+
+        if (!isInKorea(coordinates)) {
+          setState({
+            status: "error",
+            coordinates: null,
+            error: "현재 위치가 서비스 지역 밖으로 잡혀 기본 동네 기준으로 보여드릴게요."
+          });
+          return;
+        }
+
         setState({
           status: "success",
-          coordinates: {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          },
+          coordinates,
           error: null
         });
       },
@@ -57,4 +68,8 @@ export function useCurrentLocation() {
   }, []);
 
   return { ...state, requestLocation };
+}
+
+function isInKorea({ lat, lng }: Coordinates) {
+  return lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132;
 }

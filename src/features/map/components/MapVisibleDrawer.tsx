@@ -1,3 +1,6 @@
+import { courses } from "@/shared/data/mockData";
+import { Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -6,12 +9,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { Check, ChevronLeft, ChevronRight, Crosshair, Plus } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { courses } from "@/shared/data/mockData";
 import type { MapPoint } from "../types";
-import { MapListCard } from "./MapListCard";
+import { getNeighborhoodLabel, MapListCard } from "./MapListCard";
 
 export type DrawerSnap = "hidden" | "default" | "full";
 type DrawerTab = "place" | "note";
@@ -38,6 +38,7 @@ export function MapVisibleDrawer({
   onRequestLocation,
   onSelectPoint,
   onSnapChange,
+  preferredTab,
   selectedPoint,
   visiblePoints,
 }: {
@@ -45,12 +46,14 @@ export function MapVisibleDrawer({
   onRequestLocation: () => void;
   onSelectPoint: (point: MapPoint) => void;
   onSnapChange: (snap: DrawerSnap) => void;
+  preferredTab?: DrawerTab;
   selectedPoint: MapPoint | null;
   visiblePoints: MapPoint[];
 }) {
   const navigate = useNavigate();
   const drawerRef = useRef<HTMLElement>(null);
-  const noteCardRefs = useRef(new Map<string, HTMLDivElement>());
+  const pointCardRefs = useRef(new Map<string, HTMLDivElement>());
+  const lastAutoFocusedPointIdRef = useRef<string | null>(null);
   const dragStartRef = useRef({ offset: 0, time: 0, y: 0 });
   const dragMovedRef = useRef(false);
   const [courseTarget, setCourseTarget] = useState<MapPoint | null>(null);
@@ -59,6 +62,8 @@ export function MapVisibleDrawer({
   const [dragOffset, setDragOffset] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<DrawerTab>("place");
   const [tabDirection, setTabDirection] = useState(1);
+  const [detailDismissedId, setDetailDismissedId] = useState<string | null>(null);
+  const [pendingScrollPointId, setPendingScrollPointId] = useState<string | null>(null);
   const [visibleItemCount, setVisibleItemCount] = useState(listBatchSize);
 
   useEffect(() => {
@@ -91,7 +96,15 @@ export function MapVisibleDrawer({
 
   useEffect(() => {
     setVisibleItemCount(listBatchSize);
+    setPendingScrollPointId(null);
   }, [visiblePointKey]);
+
+  useEffect(() => {
+    if (!preferredTab) return;
+
+    setTabDirection(preferredTab === "note" ? 1 : -1);
+    setActiveTab(preferredTab);
+  }, [preferredTab]);
 
   useEffect(() => {
     if (
@@ -112,18 +125,27 @@ export function MapVisibleDrawer({
   }, [activeTab, allVisibleNotes.length, allVisiblePlaces.length]);
 
   useEffect(() => {
-    if (selectedPoint?.kind !== "spot") return;
+    if (selectedPoint?.kind !== "spot") {
+      lastAutoFocusedPointIdRef.current = null;
+      return;
+    }
+
+    if (lastAutoFocusedPointIdRef.current === selectedPoint.id) return;
 
     const selectedIndex = allVisibleNotes.findIndex(
       (point) => point.id === selectedPoint.id,
     );
+    if (selectedIndex < 0) return;
+
+    lastAutoFocusedPointIdRef.current = selectedPoint.id;
+
     if (selectedIndex >= visibleItemCount) {
       setVisibleItemCount(selectedIndex + 1);
     }
     setTabDirection(1);
     setActiveTab("note");
     const frame = window.requestAnimationFrame(() => {
-      noteCardRefs.current.get(selectedPoint.id)?.scrollIntoView({
+      pointCardRefs.current.get(selectedPoint.id)?.scrollIntoView({
         behavior: "smooth",
         block: "nearest",
         inline: "center",
@@ -132,6 +154,21 @@ export function MapVisibleDrawer({
 
     return () => window.cancelAnimationFrame(frame);
   }, [allVisibleNotes, selectedPoint, visibleItemCount]);
+
+  useEffect(() => {
+    if (!pendingScrollPointId) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      pointCardRefs.current.get(pendingScrollPointId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+        inline: activeTab === "note" ? "center" : "nearest",
+      });
+      setPendingScrollPointId(null);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTab, pendingScrollPointId, visibleItemCount]);
 
   function changeTab(nextTab: DrawerTab) {
     if (nextTab === activeTab) return;
@@ -213,6 +250,22 @@ export function MapVisibleDrawer({
     setCourseTarget(point);
   }
 
+  function openPointDetail(point: MapPoint) {
+    setDetailDismissedId(null);
+    onSelectPoint(point);
+    onSnapChange("full");
+  }
+
+  function showMoreItems() {
+    const activeItems = activeTab === "note" ? allVisibleNotes : allVisiblePlaces;
+    const firstNewItem = activeItems[visibleItemCount];
+
+    setVisibleItemCount((current) => current + listBatchSize);
+    if (firstNewItem) {
+      setPendingScrollPointId(firstNewItem.id);
+    }
+  }
+
   function addToExistingCourse(courseTitle: string) {
     if (!courseTarget) return;
 
@@ -274,7 +327,7 @@ export function MapVisibleDrawer({
       </button>
 
       <div
-        className="h-[calc(100%-30px)] touch-pan-y overflow-y-auto px-4 pt-3"
+        className="h-[calc(100%-30px)] touch-pan-y overflow-y-auto px-4 pt-0"
         style={{
           paddingBottom: `calc(${currentOffset + 16}px + env(safe-area-inset-bottom))`,
         }}
@@ -346,38 +399,34 @@ export function MapVisibleDrawer({
               </button>
             </div>
           </div>
-        ) : selectedPoint?.kind === "place" ? (
-          <MapListCard
-            point={selectedPoint}
-            featured
-            onAddToCourse={openCourseSelector}
-          />
         ) : visiblePoints.length > 0 ? (
           <div>
-            <div
-              aria-label="지도 목록 종류"
-              className="mb-4 grid grid-cols-2 rounded-2xl bg-[#F3F1ED] p-1"
-              role="tablist"
-            >
-              {([
-                ["place", "장소", allVisiblePlaces.length],
-                ["note", "쪽지", allVisibleNotes.length],
-              ] as const).map(([value, label, count]) => (
-                <button
-                  aria-selected={activeTab === value}
-                  className={`h-10 rounded-xl text-sm font-black transition-all ${
-                    activeTab === value
-                      ? "bg-white text-[#171717] shadow-[0_3px_10px_rgba(17,17,17,0.08)]"
-                      : "bg-transparent text-[#888178]"
-                  }`}
-                  key={value}
-                  onClick={() => changeTab(value)}
-                  role="tab"
-                  type="button"
-                >
-                  {label} <span className="text-[11px]">{count}</span>
-                </button>
-              ))}
+            <div className="sticky top-0 z-40 -mx-4 mb-3 bg-white">
+              <div
+                aria-label="지도 목록 종류"
+                className="grid grid-cols-2 rounded-2xl bg-[#F3F1ED] p-1"
+                role="tablist"
+              >
+                {([
+                  ["place", "장소", allVisiblePlaces.length],
+                  ["note", "쪽지", allVisibleNotes.length],
+                ] as const).map(([value, label, count]) => (
+                  <button
+                    aria-selected={activeTab === value}
+                    className={`h-10 rounded-xl text-sm font-black ${
+                      activeTab === value
+                        ? "bg-white text-[#171717]"
+                        : "bg-transparent text-[#888178]"
+                    }`}
+                    key={value}
+                    onClick={() => changeTab(value)}
+                    role="tab"
+                    type="button"
+                  >
+                    {label} <span className="text-[11px]">{count}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <AnimatePresence custom={tabDirection} initial={false} mode="wait">
@@ -385,16 +434,9 @@ export function MapVisibleDrawer({
                 animate={{ opacity: 1, x: 0 }}
                 className="min-h-[280px]"
                 custom={tabDirection}
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.12}
                 exit={{ opacity: 0, x: tabDirection > 0 ? -36 : 36 }}
                 initial={{ opacity: 0, x: tabDirection > 0 ? 36 : -36 }}
                 key={activeTab}
-                onDragEnd={(_, info) => {
-                  if (info.offset.x < -45) changeTab("note");
-                  if (info.offset.x > 45) changeTab("place");
-                }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
               >
                 {activeTab === "note" ? (
@@ -406,14 +448,14 @@ export function MapVisibleDrawer({
                             className="snap-center"
                             key={point.id}
                             ref={(element) => {
-                              if (element) noteCardRefs.current.set(point.id, element);
-                              else noteCardRefs.current.delete(point.id);
+                              if (element) pointCardRefs.current.set(point.id, element);
+                              else pointCardRefs.current.delete(point.id);
                             }}
                           >
                             <MapListCard
                               point={point}
                               onAddToCourse={openCourseSelector}
-                              onSelect={() => onSelectPoint(point)}
+                              onSelect={() => openPointDetail(point)}
                               selected={selectedPoint?.id === point.id}
                             />
                           </div>
@@ -426,12 +468,19 @@ export function MapVisibleDrawer({
                 ) : allVisiblePlaces.length > 0 ? (
                   <div className="grid gap-2.5">
                     {visiblePlaces.map((point) => (
-                      <MapListCard
+                      <div
                         key={point.id}
-                        point={point}
-                        onAddToCourse={openCourseSelector}
-                        onSelect={() => onSelectPoint(point)}
-                      />
+                        ref={(element) => {
+                          if (element) pointCardRefs.current.set(point.id, element);
+                          else pointCardRefs.current.delete(point.id);
+                        }}
+                      >
+                        <MapListCard
+                          point={point}
+                          onAddToCourse={openCourseSelector}
+                          onSelect={() => openPointDetail(point)}
+                        />
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -445,9 +494,7 @@ export function MapVisibleDrawer({
               : allVisiblePlaces.length) > visibleItemCount ? (
               <button
                 className="mt-3 h-11 w-full rounded-xl border border-[#E6E1D8] bg-white text-sm font-black text-[#514D47]"
-                onClick={() =>
-                  setVisibleItemCount((current) => current + listBatchSize)
-                }
+                onClick={showMoreItems}
                 type="button"
               >
                 더 보기
@@ -460,7 +507,151 @@ export function MapVisibleDrawer({
           </div>
         )}
       </div>
+
+      {selectedPoint && detailDismissedId !== selectedPoint.id && !courseTarget ? (
+        <div className="absolute inset-x-0 top-6 bottom-0 z-50 overflow-y-auto bg-white px-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
+          <PointDetailPanel
+            onAddToCourse={openCourseSelector}
+            onBack={() => setDetailDismissedId(selectedPoint.id)}
+            point={selectedPoint}
+          />
+        </div>
+      ) : null}
     </aside>
+  );
+}
+
+function PointDetailPanel({
+  onAddToCourse,
+  onBack,
+  point,
+}: {
+  onAddToCourse: (point: MapPoint) => void;
+  onBack: () => void;
+  point: MapPoint;
+}) {
+  const isPlace = point.kind === "place";
+  const imageUrl = isPlace ? point.source.imageUrl : point.source.imageUrl;
+  const title = (isPlace ? point.name : point.source.placeName) || point.name;
+  const fullLocation = isPlace ? point.source.area : point.source.placeName;
+  const neighborhood = getNeighborhoodLabel(fullLocation);
+  const tags = isPlace ? point.source.tags : [getNoteVisibilityLabel(point.source.visibility)];
+  const summary = isPlace ? point.source.summary : point.source.body;
+  const favoriteCount = getFavoriteCount(point);
+  const [primaryTag, ...secondaryTags] = tags;
+
+  return (
+    <article className="pb-4">
+      <div className="sticky top-0 z-10 -mx-4 mb-4 grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 bg-white px-4 pt-4 pb-3">
+        <button
+          aria-label="목록으로 돌아가기"
+          className="grid size-9 flex-none place-items-center rounded-full border-0 bg-[#F4F3EF] text-[#4B4741]"
+          onClick={onBack}
+          type="button"
+        >
+          <ChevronLeft size={19} />
+        </button>
+        <div className="min-w-0">
+          <h2 className="m-0 min-w-0 truncate text-xl leading-none font-black text-[#171717]">
+            {title}
+          </h2>
+          {primaryTag ? (
+            <span className="mt-1.5 block truncate text-[11px] font-black text-[#8B857C]">
+              {primaryTag}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex flex-none items-start gap-4">
+          <span className="grid min-w-7 place-items-center text-[#FD4003]">
+            <Heart size={20} fill="#FD4003" strokeWidth={2.3} />
+            <span className="mt-1 text-[10px] leading-none font-black">
+              {favoriteCount}
+            </span>
+          </span>
+          <button
+            aria-label="코스에 추가하기"
+            className="grid min-w-7 place-items-center border-0 bg-transparent text-[#171717]"
+            onClick={() => onAddToCourse(point)}
+            type="button"
+          >
+            <Plus size={20} strokeWidth={2.5} />
+            <span className="mt-1 text-[10px] leading-none font-black">
+              코스
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {isPlace ? (
+        <>
+          {imageUrl ? (
+            <img
+              alt=""
+              className="h-44 w-full rounded-2xl object-cover"
+              loading="lazy"
+              src={imageUrl}
+            />
+          ) : null}
+          <p className={`${imageUrl ? "mt-4" : "mt-0"} mb-0 text-sm font-bold text-[#746F67]`}>
+            {neighborhood} · {fullLocation}
+          </p>
+        </>
+      ) : (
+        <div className="flex items-center gap-3">
+          {point.authorAvatarUrl ? (
+            <img
+              alt=""
+              className="size-10 rounded-full object-cover"
+              loading="lazy"
+              src={point.authorAvatarUrl}
+            />
+          ) : (
+            <span className="grid size-10 place-items-center rounded-full bg-[#111] text-sm font-black text-white">
+              {point.authorName.slice(0, 1)}
+            </span>
+          )}
+          <div className="min-w-0">
+            <strong className="block truncate text-sm font-black text-[#171717]">
+              {point.authorName}
+            </strong>
+            <span className="mt-0.5 block truncate text-xs font-bold text-[#746F67]">
+              {fullLocation}
+              {point.source.createdAt
+                ? ` · ${formatRelativeTime(point.source.createdAt)}`
+                : ""}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!isPlace && imageUrl ? (
+        <img
+          alt=""
+          className="mt-4 h-44 w-full rounded-2xl bg-[#F4F3EF] object-contain"
+          loading="lazy"
+          src={imageUrl}
+        />
+      ) : null}
+
+      <div className="mt-4">
+        {secondaryTags.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {secondaryTags.map((tag) => (
+            <span
+              className="rounded-full bg-[#F4F3EF] px-2.5 py-1 text-[11px] font-black text-[#5E5850]"
+              key={tag}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+        ) : null}
+
+        <p className={`${secondaryTags.length > 0 ? "mt-4" : "mt-0"} mb-0 whitespace-pre-wrap text-sm leading-relaxed font-semibold text-[#49443E]`}>
+          {summary}
+        </p>
+      </div>
+    </article>
   );
 }
 
@@ -470,4 +661,44 @@ function EmptyTabMessage({ label }: { label: string }) {
       현재 지도 영역에 표시할 {label}가 없어요.
     </div>
   );
+}
+
+function getNoteVisibilityLabel(
+  visibility: Extract<MapPoint, { kind: "spot" }>["source"]["visibility"],
+) {
+  if (visibility === "private") return "나만 보기";
+  if (visibility === "friends") return "친구 공개";
+  return "공개 쪽지";
+}
+
+function getFavoriteCount(point: MapPoint) {
+  const seed = Array.from(point.id).reduce(
+    (total, character) => total + character.charCodeAt(0),
+    0,
+  );
+
+  return 18 + (seed % 184);
+}
+
+function formatRelativeTime(createdAt: string) {
+  const timestamp = new Date(createdAt).getTime();
+  if (!Number.isFinite(timestamp)) return "방금 전";
+
+  const seconds = Math.round((timestamp - Date.now()) / 1_000);
+  const formatter = new Intl.RelativeTimeFormat("ko", { numeric: "auto" });
+  const ranges: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+    ["year", 31_536_000],
+    ["month", 2_592_000],
+    ["day", 86_400],
+    ["hour", 3_600],
+    ["minute", 60],
+  ];
+
+  for (const [unit, divisor] of ranges) {
+    if (Math.abs(seconds) >= divisor) {
+      return formatter.format(Math.round(seconds / divisor), unit);
+    }
+  }
+
+  return formatter.format(seconds, "second");
 }

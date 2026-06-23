@@ -86,10 +86,10 @@ export function FallbackMapLayer({
             type="button"
             onClick={() => onSelectPoint(point.id)}
           >
-            {(isFriendMarker ? point.authorAvatarUrl : point.source.imageUrl) ? (
+            {point.authorAvatarUrl ? (
               <img
                 alt=""
-                src={isFriendMarker ? point.authorAvatarUrl : point.source.imageUrl}
+                src={point.authorAvatarUrl}
               />
             ) : (
               <strong>{point.authorName.slice(0, 1)}</strong>

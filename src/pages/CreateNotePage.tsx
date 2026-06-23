@@ -28,6 +28,7 @@ import { homeLocationOptions } from "@/features/home/types/homeTypes";
 import type { NoteLocationSelection } from "@/pages/NoteLocationPage";
 import noteLocationPinUrl from "@/assets/note-location-pin.png";
 import type { Visibility } from "@/shared/types/domain";
+import { PageLoadingSkeleton } from "@/shared/ui/Skeleton";
 
 const MAX_BODY_LENGTH = 80;
 const defaultNoteLocation = homeLocationOptions[0];
@@ -59,6 +60,7 @@ type NoteDraft = {
 type CreateNoteRouteState = {
   note?: NoteResponse;
   noteLocation?: NoteLocationSelection;
+  returnTo?: string;
 };
 
 function getDefaultLocation(): NoteLocationSelection {
@@ -112,6 +114,10 @@ export function CreateNotePage() {
     editNoteQuery.data?.find((note) => note.id === parsedNoteId) ??
     null;
   const isEditing = parsedNoteId !== null;
+  const submitReturnTo = routeState?.returnTo ?? (isEditing ? "/my/notes" : "/my");
+  const locationReturnTo = isEditing && parsedNoteId !== null
+    ? `/note/${parsedNoteId}/edit`
+    : "/note/new";
   const initialDraft = readDraft();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hydratedEditNoteIdRef = useRef<number | null>(null);
@@ -135,6 +141,7 @@ export function CreateNotePage() {
     visibilityOptions.find((option) => option.value === visibility) ??
     visibilityOptions[1];
   useEffect(() => {
+    if (routeState?.noteLocation) return;
     if (!editNote || hydratedEditNoteIdRef.current === editNote.id) return;
 
     hydratedEditNoteIdRef.current = editNote.id;
@@ -146,7 +153,7 @@ export function CreateNotePage() {
       name: editNote.regionName || "선택한 위치",
     });
     setVisibility(editNote.visibility.toLowerCase() as Visibility);
-  }, [editNote]);
+  }, [editNote, routeState?.noteLocation]);
 
   const noteMutation = useMutation({
     mutationFn: async () => {
@@ -186,7 +193,7 @@ export function CreateNotePage() {
     onSuccess: async () => {
       window.sessionStorage.removeItem(noteDraftStorageKey);
       await queryClient.invalidateQueries({ queryKey: savedNotesQueryKey });
-      navigate(isEditing ? "/my/notes" : "/my", { replace: true });
+      navigate(submitReturnTo, { replace: true });
     },
   });
 
@@ -216,7 +223,6 @@ export function CreateNotePage() {
   }
 
   function openLocationPage() {
-    if (isEditing) return;
     window.sessionStorage.setItem(
       noteDraftStorageKey,
       JSON.stringify({
@@ -230,7 +236,10 @@ export function CreateNotePage() {
 
     navigate("/note/location", {
       state: {
+        note: editNote ?? routeNote ?? undefined,
         noteLocation,
+        noteReturnTo: submitReturnTo,
+        returnTo: locationReturnTo,
       },
     });
   }
@@ -244,11 +253,7 @@ export function CreateNotePage() {
   }
 
   if (isEditing && editNoteQuery.isPending && !routeNote) {
-    return (
-      <div className="grid min-h-screen place-items-center p-6 font-black text-[#6f6a60]">
-        쪽지를 불러오는 중...
-      </div>
-    );
+    return <PageLoadingSkeleton type="list" />;
   }
 
   if (isEditing && !editNote) {
@@ -284,7 +289,6 @@ export function CreateNotePage() {
           className="mt-7 flex w-full items-center justify-between gap-4 rounded-[26px] border border-white/80 bg-white/72 px-4 py-4 text-left shadow-[0_16px_36px_rgba(39,32,25,0.07),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur transition-[border-color,transform,box-shadow] active:scale-[0.995]"
           type="button"
           onClick={openLocationPage}
-          disabled={isEditing}
         >
           <span className="flex min-w-0 items-center gap-3">
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-[#fff4ef]">

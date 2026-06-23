@@ -8,6 +8,12 @@ const neighborhoodDistricts: Record<string, string> = {
   서울숲: "성동구",
 };
 
+const neighborhoodAliases: Record<string, string> = {
+  망원: "망원동",
+  성수: "성수동",
+  서울숲: "성수동",
+};
+
 function getDistrictLabel(location: string | null | undefined) {
   if (!location?.trim()) return "서울시";
 
@@ -25,6 +31,24 @@ function getDistrictLabel(location: string | null | undefined) {
   return neighborhood
     ? `서울시 ${neighborhoodDistricts[neighborhood]}`
     : "서울시";
+}
+
+export function getNeighborhoodLabel(location: string | null | undefined) {
+  if (!location?.trim()) return "위치 정보 없음";
+
+  const parts = location.trim().split(/\s+/);
+  const neighborhood = parts.find((part) => /(?:동|읍|면)$/.test(part));
+  if (neighborhood) return neighborhood;
+
+  const compactNeighborhood = location.match(/[가-힣0-9]+동/);
+  if (compactNeighborhood) return compactNeighborhood[0];
+
+  const alias = Object.entries(neighborhoodAliases).find(([keyword]) =>
+    location.includes(keyword),
+  );
+  if (alias) return alias[1];
+
+  return "주변 동네";
 }
 
 export function MapListCard({
@@ -45,6 +69,8 @@ export function MapListCard({
   const locationLabel = getDistrictLabel(addressLabel);
 
   if (!isPlace) {
+    const noteLocationLabel = getNeighborhoodLabel(point.source.placeName);
+
     return (
       <NoteCard
         className={featured ? "mb-2" : ""}
@@ -55,12 +81,14 @@ export function MapListCard({
           id: point.id,
           imageAlt: point.source.placeName,
           imageUrl: point.source.imageUrl,
-          locationLabel: point.source.placeName || locationLabel,
+          locationLabel: noteLocationLabel,
           profileImageUrl: point.authorAvatarUrl,
           saved: point.saved,
         }}
+        onAddToCourse={() => onAddToCourse?.(point)}
         onSelect={onSelect}
         selected={selected}
+        showAddToCourse
         wide={featured}
       />
     );

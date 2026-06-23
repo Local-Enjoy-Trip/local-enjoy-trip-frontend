@@ -1,7 +1,7 @@
 import {
-  Bookmark,
   ChevronDown,
   Footprints,
+  Heart,
   Sparkles,
   Star,
   UsersRound,
@@ -17,7 +17,7 @@ const filters: Array<{
   { value: "place", label: "장소", icon: Star },
   { value: "spot", label: "쪽지", icon: Footprints },
   { value: "friend", label: "친구", icon: UsersRound },
-  { value: "saved", label: "저장됨", icon: Bookmark },
+  { value: "saved", label: "저장됨", icon: Heart },
 ];
 
 const placeCategories: Array<{ label: PlaceCategory; color: string }> = [
