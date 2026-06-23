@@ -1,6 +1,9 @@
 import { ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export function AiCourseRecommendation() {
+  const navigate = useNavigate();
+
   return (
     <section className="mt-8 px-5">
       <div className="rounded-[20px] bg-linear-to-br from-[#ff957f] via-[#ffd1cc] to-[#ff6549] p-[2px] shadow-[0_2px_5px_rgba(17,17,17,0.08)]">
@@ -15,6 +18,7 @@ export function AiCourseRecommendation() {
           </p>
           <button
             className="mt-5 inline-flex items-center gap-1 px-2 text-[10px]! font-bold text-[#202020]"
+            onClick={() => navigate("/course/new?mode=ai")}
             type="button"
           >
             곳곳 AI 로 코스 만들기

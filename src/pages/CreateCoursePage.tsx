@@ -1,4 +1,9 @@
 import {
+  saveCourse,
+  type SavedCourse,
+  type SavedCourseStop,
+} from "@/features/course/courseStorage";
+import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
@@ -14,11 +19,6 @@ import {
 } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  saveCourse,
-  type SavedCourse,
-  type SavedCourseStop,
-} from "@/features/course/courseStorage";
 
 type DirectStop = { id: number; name: string };
 
@@ -188,7 +188,7 @@ function AiCourseCreator() {
             <LoaderCircle className="animate-spin text-[#1F3D35]" size={58} strokeWidth={1.7} />
             <MapPin className="absolute text-[#FD4003]" size={26} fill="#FD4003" />
           </div>
-          <h1 className="mt-8 mb-0 text-3xl font-black tracking-[-0.05em]">추천 코스를 만들고 있어요</h1>
+          <h1 className="mt-8 mb-0 text-3xl font-black tracking-tighter">추천 코스를 만들고 있어요</h1>
           <p className="mt-3 text-sm leading-relaxed font-bold text-[#817B73]">
             {area}의 장소들을 살펴보고<br />{companion} 걷기 좋은 순서로 정리하는 중이에요.
           </p>
@@ -212,7 +212,7 @@ function AiCourseCreator() {
         <div className="px-5 pt-7 text-center">
           <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-[#1F3D35] text-white shadow-[0_12px_28px_rgba(31,61,53,0.18)]"><Sparkles size={29} /></div>
           <p className="mt-5 mb-1 text-sm font-black text-[#FD4003]">{companion} · {pace}</p>
-          <h1 className="m-0 text-[2rem] leading-tight font-black tracking-[-0.05em]">{recommendation.title}</h1>
+          <h1 className="m-0 text-[2rem] leading-tight font-black tracking-tighter">{recommendation.title}</h1>
           <p className="mt-2 text-sm font-bold text-[#817B73]">지금의 취향으로 고른 {recommendation.stops.length}곳을 소개할게요.</p>
         </div>
 
@@ -303,7 +303,7 @@ function DirectCourseCreator() {
 
   return (
     <section className="min-h-screen bg-white px-5 pt-[calc(20px+env(safe-area-inset-top))] pb-8 text-[#111]">
-      <header className="flex items-center gap-3"><button aria-label="뒤로 가기" className="grid size-10 place-items-center rounded-full border-0 bg-[#F5F3EF]" onClick={() => navigate(-1)} type="button"><ArrowLeft size={21} /></button><div><p className="mb-1 text-xs font-black text-[#FD4003]">직접 만들기</p><h1 className="m-0 text-[1.65rem] font-black">여행 일정 만들기</h1></div></header>
+      <header className="flex items-center gap-3"><button aria-label="뒤로 가기" className="grid size-10 place-items-center rounded-full border-0 bg-[#F5F3EF]" onClick={() => navigate(-1)} type="button"><ArrowLeft size={21} /></button><div><h1 className="m-0 text-[1.65rem] font-extrabold">여행 일정 만들기</h1></div></header>
       <form className="mt-8 grid gap-6" onSubmit={submit}>
         <label className="grid gap-2 text-sm font-black">코스 이름<input className="min-h-13 rounded-2xl border border-[#E5E1DA] px-4 font-semibold outline-none focus:border-[#1F3D35]" onChange={(event) => setTitle(event.target.value)} placeholder="여행 코스 이름" value={title} /></label>
         <label className="grid gap-2 text-sm font-black">여행 날짜<span className="relative"><CalendarDays className="absolute top-1/2 left-3 -translate-y-1/2 text-[#999]" size={17} /><input className="min-h-13 w-full rounded-2xl border border-[#E5E1DA] pl-10 font-semibold" onChange={(event) => setDate(event.target.value)} type="date" value={date} /></span></label>
