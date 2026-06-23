@@ -5,6 +5,7 @@ import {
   hasAuthSession,
   useAuthUser,
 } from "@/features/auth/authStore";
+import { PageLoadingSkeleton } from "@/shared/ui/Skeleton";
 
 type RequireAuthProps = {
   children: ReactNode;
@@ -22,11 +23,7 @@ export function RequireAuth({ children }: RequireAuthProps) {
   }
 
   if (authQuery.isLoading) {
-    return (
-      <div className="grid min-h-dvh place-items-center bg-white p-6 text-center font-black text-[#555]">
-        로그인 정보를 확인하는 중...
-      </div>
-    );
+    return <PageLoadingSkeleton type="profile" />;
   }
 
   if (authQuery.isError) {

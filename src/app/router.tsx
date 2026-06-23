@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
+import { AuthTransitionShell } from "./AuthTransitionShell";
 import { RequireAuth } from "../features/auth/RequireAuth";
 import { AppShell } from "../shared/components/AppShell";
 import { CreateNotePage } from "../pages/CreateNotePage";
@@ -8,6 +9,7 @@ import { CoursePage } from "../pages/CoursePage";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { EmailLoginPage } from "../pages/EmailLoginPage";
+import { FriendPage } from "../pages/FriendPage";
 import { MapPage } from "../pages/MapPage";
 import { MyPage } from "../pages/MyPage";
 import { MyNotesPage } from "../pages/MyNotesPage";
@@ -31,12 +33,18 @@ export const router = createBrowserRouter([
       { path: "/course", element: <CoursePage /> },
       { path: "/course/new", element: <CreateCoursePage /> },
       { path: "/course/:courseId", element: <CourseDetailPage /> },
+      { path: "/friends", element: <FriendPage /> },
       { path: "/my", element: <MyPage /> },
       { path: "/my/notes", element: <MyNotesPage /> }
     ]
   },
-  { path: "/login", element: <LoginPage /> },
-  { path: "/login/email", element: <EmailLoginPage /> },
-  { path: "/oauth/callback", element: <OAuthCallbackPage /> },
-  { path: "/signup", element: <SignupPage /> }
+  {
+    element: <AuthTransitionShell />,
+    children: [
+      { path: "/login", element: <LoginPage /> },
+      { path: "/login/email", element: <EmailLoginPage /> },
+      { path: "/oauth/callback", element: <OAuthCallbackPage /> },
+      { path: "/signup", element: <SignupPage /> }
+    ]
+  }
 ]);

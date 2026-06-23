@@ -1,7 +1,7 @@
 import {
   authUserQueryKey,
   getAuthErrorMessage,
-  loginWithEmail,
+  loginWithEmailAddress,
 } from "@/features/auth/authStore";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
@@ -17,13 +17,13 @@ export function EmailLoginPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [userId, setUserId] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const routeState = location.state as EmailLoginRouteState | null;
-  const canSubmit = userId.trim().length > 0 && password.length > 0;
+  const canSubmit = email.trim().length > 0 && password.length > 0;
   const loginMutation = useMutation({
-    mutationFn: loginWithEmail,
+    mutationFn: loginWithEmailAddress,
     onSuccess: (user) => {
       queryClient.setQueryData(authUserQueryKey, user);
       navigate(routeState?.returnTo ?? "/my", { replace: true });
@@ -35,7 +35,7 @@ export function EmailLoginPage() {
 
     if (!canSubmit) return;
 
-    loginMutation.mutate({ password, userId: userId.trim() });
+    loginMutation.mutate({ email: email.trim(), password });
   }
 
   return (
@@ -49,7 +49,7 @@ export function EmailLoginPage() {
         >
           <ArrowLeft size={25} />
         </button>
-        <h1 className="m-0 text-center text-xl font-black">아이디로 로그인</h1>
+        <h1 className="m-0 text-center text-xl font-black">이메일로 로그인</h1>
       </header>
 
       <form className="mt-9" onSubmit={handleSubmit}>
@@ -58,19 +58,21 @@ export function EmailLoginPage() {
             aria-live="polite"
             className="mb-6 rounded-2xl bg-[#EEF7F2] px-4 py-3 text-sm font-bold text-[#1F6B4F]"
           >
-            회원가입이 완료됐어요. 새 아이디로 로그인해주세요.
+            회원가입이 완료됐어요. 이메일로 로그인해주세요.
           </p>
         ) : null}
-        <label className="block text-sm font-black text-[#555]" htmlFor="login-user-id">
-          아이디
+        <label className="block text-sm font-black text-[#555]" htmlFor="login-email">
+          이메일
         </label>
         <input
-          autoComplete="username"
+          autoComplete="email"
           className="mt-3 h-11 w-full rounded-xl placeholder:text-xs border border-[#DDDAD4] bg-white px-3.5 text-sm font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
-          id="login-user-id"
-          onChange={(event) => setUserId(event.target.value)}
-          placeholder="아이디를 입력해주세요."
-          value={userId}
+          id="login-email"
+          inputMode="email"
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="이메일을 입력해주세요."
+          type="email"
+          value={email}
         />
 
         <label className="mt-5 block text-sm font-black text-[#555]" htmlFor="login-password">

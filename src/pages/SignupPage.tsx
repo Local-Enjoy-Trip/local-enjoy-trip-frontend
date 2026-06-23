@@ -4,6 +4,8 @@ import { type FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   authUserQueryKey,
+  checkEmailAvailability,
+  createSignupUserId,
   getAuthErrorMessage,
   signupWithEmail,
 } from "@/features/auth/authStore";
@@ -18,26 +20,36 @@ export function SignupPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [userId, setUserId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [checkedEmail, setCheckedEmail] = useState("");
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const routeState = location.state as SignupRouteState | null;
+  const normalizedEmail = email.trim().toLowerCase();
+  const isEmailFormatValid = emailPattern.test(normalizedEmail);
+  const emailCheckMutation = useMutation({
+    mutationFn: checkEmailAvailability,
+    onSuccess: () => setCheckedEmail(normalizedEmail),
+  });
+  const isEmailCheckCurrent = checkedEmail === normalizedEmail;
+  const isEmailAvailable =
+    isEmailCheckCurrent && emailCheckMutation.data?.available === true;
+  const isEmailDuplicated =
+    isEmailCheckCurrent && emailCheckMutation.data?.available === false;
 
-  const hasEmailError = email.length > 0 && !emailPattern.test(email);
+  const hasEmailError = email.length > 0 && !isEmailFormatValid;
   const hasNameError = name.length > 0 && name.trim().length < 2;
   const hasNicknameError = nickname.length > 0 && nickname.trim().length < 2;
   const hasPasswordError = password.length > 0 && password.length < 8;
   const hasPasswordConfirmError =
     passwordConfirm.length > 0 && password !== passwordConfirm;
   const canSubmit =
-    userId.trim().length > 0 &&
     name.trim().length >= 2 &&
-    emailPattern.test(email) &&
+    isEmailAvailable &&
     nickname.trim().length >= 2 &&
     password.length >= 8 &&
     password === passwordConfirm &&
@@ -59,12 +71,23 @@ export function SignupPage() {
     if (!canSubmit) return;
 
     signupMutation.mutate({
-      email: email.trim(),
+      email: normalizedEmail,
       name: name.trim(),
       nickname: nickname.trim(),
       password,
-      userId: userId.trim(),
+      userId: createSignupUserId(normalizedEmail),
     });
+  }
+
+  function handleEmailChange(nextEmail: string) {
+    setEmail(nextEmail);
+    setCheckedEmail("");
+    emailCheckMutation.reset();
+  }
+
+  function handleEmailCheck() {
+    if (!isEmailFormatValid) return;
+    emailCheckMutation.mutate(normalizedEmail);
   }
 
   return (
@@ -82,18 +105,7 @@ export function SignupPage() {
       </header>
 
       <form className="mt-8" noValidate onSubmit={handleSubmit}>
-        <FieldLabel htmlFor="signup-user-id">아이디</FieldLabel>
-        <input
-          autoComplete="username"
-          className="mt-2.5 h-13 w-full rounded-2xl border border-[#DDDAD4] bg-white px-4 text-base font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
-          id="signup-user-id"
-          maxLength={30}
-          onChange={(event) => setUserId(event.target.value)}
-          placeholder="로그인에 사용할 아이디"
-          value={userId}
-        />
-
-        <FieldLabel className="mt-4" htmlFor="signup-name">
+        <FieldLabel htmlFor="signup-name">
           이름
         </FieldLabel>
         <input
@@ -112,21 +124,44 @@ export function SignupPage() {
         </FieldError>
 
         <FieldLabel className="mt-4" htmlFor="signup-email">이메일 주소</FieldLabel>
-        <input
-          autoComplete="email"
-          aria-describedby={hasEmailError ? "signup-email-error" : undefined}
-          aria-invalid={hasEmailError}
-          className="mt-2.5 h-13 w-full rounded-2xl border border-[#DDDAD4] bg-white px-4 text-base font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
-          id="signup-email"
-          inputMode="email"
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="ID@example.com"
-          type="email"
-          value={email}
-        />
+        <div className="mt-2.5 flex gap-2">
+          <input
+            autoComplete="email"
+            aria-describedby={hasEmailError ? "signup-email-error" : undefined}
+            aria-invalid={hasEmailError}
+            className="h-13 min-w-0 flex-1 rounded-2xl border border-[#DDDAD4] bg-white px-4 text-base font-semibold outline-none transition focus:border-[#FF4300] focus:ring-4 focus:ring-[#FF4300]/10"
+            id="signup-email"
+            inputMode="email"
+            onChange={(event) => handleEmailChange(event.target.value)}
+            placeholder="ID@example.com"
+            type="email"
+            value={email}
+          />
+          <button
+            className="h-13 flex-none rounded-2xl border-0 bg-[#1F3D35] px-4 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:bg-[#CFCAC2]"
+            disabled={!isEmailFormatValid || emailCheckMutation.isPending}
+            onClick={handleEmailCheck}
+            type="button"
+          >
+            {emailCheckMutation.isPending ? "확인중" : "중복체크"}
+          </button>
+        </div>
         <FieldError id="signup-email-error" visible={hasEmailError}>
           이메일 형식을 확인해주세요.
         </FieldError>
+        <FieldStatus
+          id="signup-email-availability"
+          tone={isEmailAvailable ? "success" : "error"}
+          visible={isEmailFormatValid && (isEmailCheckCurrent || emailCheckMutation.isError)}
+        >
+          {isEmailDuplicated
+              ? "이미 가입된 이메일이에요."
+              : emailCheckMutation.isError
+                ? "이메일 중복 확인에 실패했어요."
+                : isEmailAvailable
+                  ? "사용 가능한 이메일이에요."
+                  : ""}
+        </FieldStatus>
 
         <FieldLabel className="mt-4" htmlFor="signup-nickname">
           닉네임
@@ -257,9 +292,33 @@ type FieldErrorProps = {
 };
 
 function FieldError({ children, id, visible }: FieldErrorProps) {
+  if (!visible) return null;
+
   return (
-    <p className="mt-1.5 min-h-4 text-xs font-bold text-[#D63B0B]" id={id}>
-      {visible ? children : ""}
+    <p className="mt-1.5 text-xs font-bold text-[#D63B0B]" id={id}>
+      {children}
+    </p>
+  );
+}
+
+type FieldStatusProps = {
+  children: string;
+  id: string;
+  tone: "error" | "success";
+  visible: boolean;
+};
+
+function FieldStatus({ children, id, tone, visible }: FieldStatusProps) {
+  if (!visible || !children) return null;
+
+  return (
+    <p
+      className={`mt-1.5 text-xs font-bold ${
+        tone === "success" ? "text-[#1F7A45]" : "text-[#D63B0B]"
+      }`}
+      id={id}
+    >
+      {children}
     </p>
   );
 }

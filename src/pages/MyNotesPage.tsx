@@ -1,9 +1,11 @@
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { motion } from "motion/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthUser } from "@/features/auth/authStore";
 import { NoteCard } from "@/features/notes/components/NoteCard";
+import { Skeleton } from "@/shared/ui/Skeleton";
 import {
   deleteNote,
   getSavedNotes,
@@ -47,16 +49,14 @@ export function MyNotesPage() {
         >
           <ArrowLeft size={20} />
         </button>
-        <div>
-          <p className="m-0 text-xs font-black tracking-[0.12em] text-[#8B857C]">
-            MY NOTES
-          </p>
-          <h1 className="mt-1 mb-0 text-2xl font-black">내 쪽지</h1>
-        </div>
+        <h1 className="m-0 text-lg font-black">내 쪽지</h1>
       </header>
 
       {notesQuery.isPending ? (
-        <StateMessage>쪽지를 불러오는 중...</StateMessage>
+        <div className="mt-6 grid gap-5">
+          <Skeleton className="h-72 w-full rounded-[24px]" />
+          <Skeleton className="h-72 w-full rounded-[24px]" />
+        </div>
       ) : notesQuery.isError ? (
         <StateMessage error>
           {notesQuery.error instanceof Error
@@ -67,8 +67,14 @@ export function MyNotesPage() {
         <StateMessage>아직 작성한 쪽지가 없어요.</StateMessage>
       ) : (
         <div className="mt-6 grid gap-5">
-          {myNotes.map((note) => (
-            <article className="relative" key={note.id}>
+          {myNotes.map((note, index) => (
+            <motion.article
+              animate={{ opacity: 1, y: 0 }}
+              className="relative"
+              initial={{ opacity: 0, y: 8 }}
+              key={note.id}
+              transition={{ delay: Math.min(index * 0.04, 0.2), duration: 0.2 }}
+            >
               <NoteCard
                 note={{
                   authorName: user?.name ?? note.authorUserId,
@@ -79,8 +85,9 @@ export function MyNotesPage() {
                   imageUrl: resolveNoteImageUrl(note.imageObjectKey),
                   locationLabel: note.regionName || "위치 정보 없음",
                   profileImageUrl: user?.profileImageUrl,
-                  saved: true,
+                  saved: false,
                 }}
+                showSavedIcon={false}
                 wide
               />
               <div className="absolute top-3 right-3 z-10 flex gap-1.5">
@@ -104,7 +111,7 @@ export function MyNotesPage() {
                   <Trash2 size={16} />
                 </button>
               </div>
-            </article>
+            </motion.article>
           ))}
         </div>
       )}

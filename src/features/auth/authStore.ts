@@ -3,6 +3,7 @@ import {
   ApiError,
   apiGet,
   apiPost,
+  apiPut,
   AUTH_TOKEN_STORAGE_KEY,
 } from "@/shared/api/http";
 
@@ -26,14 +27,21 @@ export type AuthUser = {
   email: string;
   id: string;
   name: string;
+  nickname?: string;
   profileImageUrl?: string;
   provider: AuthProvider;
+  realName: string;
   travelStyle: string;
 };
 
 type LoginRequest = {
   password: string;
   userId: string;
+};
+
+type EmailLoginRequest = {
+  email: string;
+  password: string;
 };
 
 type LoginResponse = {
@@ -55,6 +63,17 @@ type MeResponse = {
   user: UserResponse;
 };
 
+type UsersResponse = {
+  users: UserResponse[];
+};
+
+type ProfileImagePresignedUploadResponse = {
+  expiresAt: string;
+  objectKey: string;
+  publicUrl?: string;
+  uploadUrl: string;
+};
+
 const AUTH_USER_ID_STORAGE_KEY = "local-enjoy-trip-auth-user-id";
 const AUTH_EXPIRES_AT_STORAGE_KEY = "local-enjoy-trip-auth-expires-at";
 const AUTH_PROVIDER_STORAGE_KEY = "local-enjoy-trip-auth-provider";
@@ -68,8 +87,10 @@ function toAuthUser(user: UserResponse, provider: AuthProvider = "email"): AuthU
     email: user.email,
     id: user.userId,
     name: user.nickname?.trim() || user.name,
+    nickname: user.nickname?.trim() || undefined,
     profileImageUrl: user.profileImageUrl ?? undefined,
     provider,
+    realName: user.name,
     travelStyle: "취향을 설정해주세요",
   };
 }
@@ -128,9 +149,94 @@ export async function loginWithEmail(request: LoginRequest) {
   return toAuthUser(response.user);
 }
 
+export async function loginWithEmailAddress(request: EmailLoginRequest) {
+  const member = await findMemberByEmail(request.email);
+
+  if (!member) {
+    throw new ApiError("가입된 이메일을 찾을 수 없어요.", 404);
+  }
+
+  return loginWithEmail({
+    password: request.password,
+    userId: member.userId,
+  });
+}
+
 export async function signupWithEmail(request: SignupRequest) {
   return apiPost<string>("/api/members", request);
 }
+
+export async function uploadProfileImage(file: File) {
+  const contentType = file.type || "image/jpeg";
+  const extension = contentType.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+  const upload = await apiPost<ProfileImagePresignedUploadResponse>(
+    "/api/members/me/profile-image/presigned-upload",
+    { contentType, fileExtension: extension },
+  );
+
+  const uploadResponse = await fetch(upload.uploadUrl, {
+    body: file,
+    headers: { "Content-Type": contentType },
+    method: "PUT",
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error("프로필 이미지를 업로드하지 못했어요.");
+  }
+
+  await apiPut<void>("/api/members/me/profile-image", {
+    contentType,
+    objectKey: upload.objectKey,
+  });
+}
+
+export async function getMembers() {
+  const response = await apiGet<UsersResponse>("/api/members");
+  return response.users;
+}
+
+export async function findMemberByEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const users = await getMembers();
+
+  return (
+    users.find(
+      (user) => user.email.trim().toLowerCase() === normalizedEmail,
+    ) ?? null
+  );
+}
+
+export async function checkEmailAvailability(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const users = await getMembers();
+  const exists = users.some(
+    (user) => user.email.trim().toLowerCase() === normalizedEmail,
+  );
+
+  return { available: !exists };
+}
+
+export function createSignupUserId(email: string) {
+  const [localPart = "user"] = email.trim().toLowerCase().split("@");
+  const base =
+    localPart
+      .replace(/[^a-z0-9_]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 12) || "user";
+  const paddedBase = base.length >= 4 ? base : `${base}${"user".slice(base.length)}`;
+  let hash = 0;
+
+  for (const char of email.trim().toLowerCase()) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+
+  return `${paddedBase.slice(0, 13)}_${hash.toString(36).slice(0, 6)}`.slice(
+    0,
+    20,
+  );
+}
+
 
 export async function completeGoogleSignup(request: {
   name: string;

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { PageTransition } from "@/shared/ui/PageTransition";
 
 function HomeNavIcon({ isActive }: { isActive: boolean }) {
   return (
@@ -216,6 +217,7 @@ export function AppShell() {
     location.pathname.startsWith("/course/") && location.pathname !== "/course/new";
   const usesFixedViewport =
     isMapPage || isNoteLocationPage || isCourseDetailPage || isLoginPage;
+  const quietTransition = usesFixedViewport || ["/", "/map", "/course", "/my"].includes(location.pathname);
 
   useEffect(() => {
     setIsCreateMenuOpen(false);
@@ -262,7 +264,13 @@ export function AppShell() {
             : "min-h-dvh pb-[calc(72px+env(safe-area-inset-bottom))]"
         }
       >
-        <Outlet />
+        <PageTransition
+          fixed={usesFixedViewport}
+          key={location.pathname}
+          quiet={quietTransition}
+        >
+          <Outlet />
+        </PageTransition>
       </main>
       {isLoginPage || isNoteLocationPage ? null : (
       <nav
@@ -274,14 +282,18 @@ export function AppShell() {
 
           return (
             <NavLink
-              className="grid min-h-[54px] place-items-center content-center gap-0.5 rounded-xl text-[0.67rem] text-black"
+              className="grid min-h-[54px] place-items-center content-center gap-0.5 rounded-xl text-[0.67rem] text-black transition-transform duration-150 active:scale-[0.94]"
               aria-label={item.label}
               key={item.to}
               to={item.to}
             >
               {({ isActive }) => (
                 <>
-                  <span className="relative grid h-8 w-9 place-items-center text-black">
+                  <span
+                    className={`relative grid h-8 w-9 place-items-center text-black transition-transform duration-200 ease-out ${
+                      isActive ? "scale-110" : "scale-100"
+                    }`}
+                  >
                     {item.to === "/" ? (
                       <HomeNavIcon isActive={isActive} />
                     ) : item.to === "/map" ? (
@@ -382,14 +394,18 @@ export function AppShell() {
 
           return (
             <NavLink
-              className="grid min-h-[54px] place-items-center content-center gap-0.5 rounded-xl text-[0.67rem] text-black"
+              className="grid min-h-[54px] place-items-center content-center gap-0.5 rounded-xl text-[0.67rem] text-black transition-transform duration-150 active:scale-[0.94]"
               aria-label={item.label}
               key={item.to}
               to={item.to}
             >
               {({ isActive }) => (
                 <>
-                  <span className="relative grid h-8 w-9 place-items-center text-black">
+                  <span
+                    className={`relative grid h-8 w-9 place-items-center text-black transition-transform duration-200 ease-out ${
+                      isActive ? "scale-110" : "scale-100"
+                    }`}
+                  >
                     {item.to === "/course" ? (
                       <CourseNavIcon isActive={isActive} />
                     ) : item.to === "/my" ? (
