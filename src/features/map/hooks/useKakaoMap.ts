@@ -145,6 +145,9 @@ export function useKakaoMap(
 
         resizeObserver = new ResizeObserver(relayout);
         resizeObserver.observe(mapContainer);
+        if (mapContainer.parentElement) {
+          resizeObserver.observe(mapContainer.parentElement);
+        }
       } catch (error) {
         console.error("Failed to initialize Kakao map", error);
         setStatus("error");
@@ -172,15 +175,32 @@ export function useKakaoMap(
       if (!map) return;
 
       const preservedCenter = map.getCenter();
+      const nextBounds = map.getBounds();
+      const northEast = nextBounds.getNorthEast();
+      const southWest = nextBounds.getSouthWest();
       map.relayout();
       map.setCenter(preservedCenter);
-      setBounds(map.getBounds());
+      const relayoutBounds = map.getBounds();
+      const relayoutCenter = map.getCenter();
+      const relayoutNorthEast = relayoutBounds.getNorthEast();
+      const relayoutSouthWest = relayoutBounds.getSouthWest();
+
+      setBounds(relayoutBounds);
       setLevel(map.getLevel());
+      setViewport({
+        center: { lat: relayoutCenter.getLat(), lng: relayoutCenter.getLng() },
+        radiusMeters: Math.max(
+          getDistanceMeters(relayoutCenter, relayoutNorthEast),
+          getDistanceMeters(relayoutCenter, relayoutSouthWest),
+          getDistanceMeters(preservedCenter, northEast),
+          getDistanceMeters(preservedCenter, southWest),
+        ),
+      });
     };
 
     window.requestAnimationFrame(relayout);
     window.setTimeout(relayout, 120);
-  }, [status]);
+  }, [mapBottomInset, selectedPointBottomInset, status]);
 
   useEffect(() => {
     overlaysRef.current.forEach((overlay) => overlay.setMap(null));
@@ -348,17 +368,20 @@ function getOverlayContent(point: MapPoint, activeFilter?: MapFilter) {
     return `<span>${escapeHtml(point.name)}</span>`;
   }
 
+  const authorName = point.authorName?.trim() || "익명";
+
   if (activeFilter === "friend") {
     return point.authorAvatarUrl
-      ? `<img src="${escapeHtml(point.authorAvatarUrl)}" alt="" loading="lazy" decoding="async" /><span>${escapeHtml(point.authorName)}</span>`
-      : `<strong>${escapeHtml(getMarkerInitial(point.authorName))}</strong><span>${escapeHtml(point.authorName)}</span>`;
+      ? `<img src="${escapeHtml(point.authorAvatarUrl)}" alt="" loading="lazy" decoding="async" /><span>${escapeHtml(authorName)}</span>`
+      : `<strong>${escapeHtml(getMarkerInitial(authorName))}</strong><span>${escapeHtml(authorName)}</span>`;
   }
 
-  const categoryLabel = categoryLabels[point.source.category].replace(/\s+/g, "");
+  const categoryLabel =
+    categoryLabels[point.source.category]?.replace(/\s+/g, "") ?? "쪽지";
 
   return point.authorAvatarUrl
     ? `<img src="${escapeHtml(point.authorAvatarUrl)}" alt="" loading="lazy" decoding="async" /><span>#${escapeHtml(categoryLabel)}</span>`
-    : `<strong>${escapeHtml(getMarkerInitial(point.authorName))}</strong><span>#${escapeHtml(categoryLabel)}</span>`;
+    : `<strong>${escapeHtml(getMarkerInitial(authorName))}</strong><span>#${escapeHtml(categoryLabel)}</span>`;
 }
 
 function replaceBrokenMarkerImage(
@@ -375,8 +398,8 @@ function replaceBrokenMarkerImage(
   });
 }
 
-function getMarkerInitial(value: string) {
-  return value.trim().slice(0, 1) || "?";
+function getMarkerInitial(value: string | null | undefined) {
+  return value?.trim().slice(0, 1) || "?";
 }
 
 function escapeHtml(value: string) {

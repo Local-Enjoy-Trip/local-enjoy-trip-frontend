@@ -33,6 +33,9 @@ export function NoteCard({
   showSavedIcon?: boolean;
   wide?: boolean;
 }) {
+  const authorName = note.authorName?.trim() || "익명";
+  const body = note.body ?? "";
+  const locationLabel = note.locationLabel?.trim() || "위치 정보 없음";
   const hasImage = Boolean(note.imageUrl);
   const hasFooterActions = showAddToCourse || showSavedIcon;
   const bodyLineClamp = wide ? (hasImage ? 4 : 7) : 3;
@@ -43,7 +46,7 @@ export function NoteCard({
       className={`relative flex flex-none snap-start flex-col overflow-hidden rounded-[20px] border bg-white shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-[border-color,box-shadow,transform] ${selected ? "border-[#FD4003] shadow-[0_8px_22px_rgba(253,64,3,0.16)]" : "border-[#BDBDBD]"} ${wide ? "h-[270px] w-full" : "h-[270px] w-[200px]"} ${className}`}
     >
       <button
-        aria-label={`${note.authorName}의 쪽지 상세 보기`}
+        aria-label={`${authorName}의 쪽지 상세 보기`}
         className="flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent p-0 text-left"
         onClick={onSelect}
         type="button"
@@ -51,22 +54,22 @@ export function NoteCard({
         <span className="flex w-full flex-none items-center gap-3 px-5 pt-5 pb-3">
           {note.profileImageUrl ? (
             <img
-              alt={`${note.authorName} 프로필`}
+              alt={`${authorName} 프로필`}
               className="size-9.5 flex-none rounded-full object-cover"
               loading="lazy"
               src={note.profileImageUrl}
             />
           ) : (
             <span className="grid size-9.5 flex-none place-items-center rounded-full bg-[#111] text-sm font-black text-white">
-              {note.authorName.slice(0, 1)}
+              {authorName.slice(0, 1)}
             </span>
           )}
           <span className="min-w-0">
             <strong className="block truncate text-xs font-extrabold text-[#171717]">
-              {note.authorName}
+              {authorName}
             </strong>
             <span className="mt-1 block truncate text-[11px] font-bold text-[#817A71]">
-              {note.locationLabel}
+              {locationLabel}
               {note.createdAt ? ` · ${formatRelativeTime(note.createdAt)}` : ""}
             </span>
           </span>
@@ -92,7 +95,7 @@ export function NoteCard({
               maxHeight: `${bodyLineClamp * bodyLineHeight}px`,
             }}
           >
-            {note.body}
+            {body}
           </span>
         </span>
       </button>

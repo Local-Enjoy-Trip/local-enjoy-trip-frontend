@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide
 import { AnimatePresence, motion } from "motion/react";
 import {
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -60,6 +61,8 @@ export function MapVisibleDrawer({
   const dragStartRef = useRef({ offset: 0, time: 0, y: 0 });
   const dragOffsetRef = useRef<number | null>(null);
   const dragMovedRef = useRef(false);
+  const dragStartedFromHandleRef = useRef(false);
+  const suppressClickAfterDragRef = useRef(false);
   const [courseTarget, setCourseTarget] = useState<MapPoint | null>(null);
   const [courseNotice, setCourseNotice] = useState<string | null>(null);
   const [drawerHeight, setDrawerHeight] = useState(0);
@@ -69,6 +72,7 @@ export function MapVisibleDrawer({
   const [detailDismissedId, setDetailDismissedId] = useState<string | null>(null);
   const [pendingScrollPointId, setPendingScrollPointId] = useState<string | null>(null);
   const [visibleItemCount, setVisibleItemCount] = useState(listBatchSize);
+  const canStartDrawerDragRef = useRef(false);
 
   useEffect(() => {
     const drawer = drawerRef.current;
@@ -87,8 +91,10 @@ export function MapVisibleDrawer({
   }, []);
 
   const hasSelectedPoint = selectedPoint !== null;
-  const restingOffset = drawerHeight
-    ? getSnapOffset(drawerSnap, drawerHeight, hasSelectedPoint)
+  const effectiveDrawerHeight =
+    drawerHeight || Math.max(0, window.innerHeight - 196);
+  const restingOffset = effectiveDrawerHeight
+    ? getSnapOffset(drawerSnap, effectiveDrawerHeight, hasSelectedPoint)
     : 0;
   const currentOffset = dragOffset ?? restingOffset;
   const allVisibleNotes = useMemo(
@@ -185,9 +191,16 @@ export function MapVisibleDrawer({
     setActiveTab(nextTab);
   }
 
-  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (!drawerHeight) return;
+  function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
+    if (!effectiveDrawerHeight) return;
 
+    const target = event.target as HTMLElement;
+    const isHandle = target.closest("[data-map-drawer-handle]") !== null;
+
+    canStartDrawerDragRef.current = isHandle;
+    if (!canStartDrawerDragRef.current) return;
+
+    dragStartedFromHandleRef.current = isHandle;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragMovedRef.current = false;
     dragStartRef.current = {
@@ -209,16 +222,16 @@ export function MapVisibleDrawer({
       }
 
       const nextOffset = Math.min(
-        drawerHeight + 24,
+        effectiveDrawerHeight + 24,
         Math.max(0, dragStartRef.current.offset + distance),
       );
       dragOffsetRef.current = nextOffset;
       setDragOffset(nextOffset);
     },
-    [drawerHeight],
+    [effectiveDrawerHeight],
   );
 
-  function handlePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+  function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
     updateDrag(event.clientY);
   }
 
@@ -233,8 +246,14 @@ export function MapVisibleDrawer({
       const currentIndex = SNAP_ORDER.indexOf(drawerSnap);
       let nextSnap: DrawerSnap;
 
-      if (!dragMovedRef.current && Math.abs(distance) <= 3) {
+      if (
+        !dragMovedRef.current &&
+        Math.abs(distance) <= 3 &&
+        dragStartedFromHandleRef.current
+      ) {
         nextSnap = drawerSnap === "full" ? "default" : "full";
+      } else if (!dragMovedRef.current && Math.abs(distance) <= 3) {
+        nextSnap = drawerSnap;
       } else if (Math.abs(velocity) > 0.45 && Math.abs(distance) > 18) {
         const direction = velocity > 0 ? 1 : -1;
         nextSnap =
@@ -244,10 +263,11 @@ export function MapVisibleDrawer({
       } else {
         nextSnap = SNAP_ORDER.reduce((nearest, snap) => {
           const nearestDistance = Math.abs(
-            finalOffset - getSnapOffset(nearest, drawerHeight, hasSelectedPoint),
+            finalOffset -
+              getSnapOffset(nearest, effectiveDrawerHeight, hasSelectedPoint),
           );
           const snapDistance = Math.abs(
-            finalOffset - getSnapOffset(snap, drawerHeight, hasSelectedPoint),
+            finalOffset - getSnapOffset(snap, effectiveDrawerHeight, hasSelectedPoint),
           );
           return snapDistance < nearestDistance ? snap : nearest;
         }, SNAP_ORDER[0]);
@@ -256,17 +276,46 @@ export function MapVisibleDrawer({
       dragOffsetRef.current = null;
       setDragOffset(null);
       onSnapChange(nextSnap);
+      suppressClickAfterDragRef.current = dragMovedRef.current;
       dragMovedRef.current = false;
+      canStartDrawerDragRef.current = false;
+      dragStartedFromHandleRef.current = false;
+      window.setTimeout(() => {
+        suppressClickAfterDragRef.current = false;
+      }, 0);
     },
-    [drawerHeight, drawerSnap, hasSelectedPoint, onSnapChange],
+    [drawerSnap, effectiveDrawerHeight, hasSelectedPoint, onSnapChange],
   );
 
-  function handlePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
+  function handlePointerUp(event: ReactPointerEvent<HTMLElement>) {
     finishDrag(event.clientY);
   }
 
-  function handlePointerCancel(event: ReactPointerEvent<HTMLButtonElement>) {
+  function handlePointerCancel(event: ReactPointerEvent<HTMLElement>) {
     finishDrag(event.clientY);
+  }
+
+  function handleHandlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    handlePointerDown(event);
+  }
+
+  function handleHandlePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+    handlePointerMove(event);
+  }
+
+  function handleHandlePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
+    handlePointerUp(event);
+  }
+
+  function handleHandlePointerCancel(event: ReactPointerEvent<HTMLButtonElement>) {
+    handlePointerCancel(event);
+  }
+
+  function handleClickCapture(event: ReactMouseEvent<HTMLElement>) {
+    if (!suppressClickAfterDragRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   useEffect(() => {
@@ -339,6 +388,7 @@ export function MapVisibleDrawer({
       className={`pointer-events-auto fixed inset-x-0 top-[calc(124px+env(safe-area-inset-top))] bottom-[calc(72px+env(safe-area-inset-bottom))] z-20 mx-auto w-full max-w-[430px] rounded-t-[22px] bg-white shadow-[0_-14px_34px_rgba(17,17,17,0.18)] will-change-transform sm:border-x sm:border-black/10 ${
         drawerSnap === "hidden" && dragOffset === null ? "pointer-events-none" : ""
       }`}
+      onClickCapture={handleClickCapture}
       ref={drawerRef}
       style={drawerStyle}
     >
@@ -364,10 +414,12 @@ export function MapVisibleDrawer({
           drawerSnap === "full" ? "드로어 기본 높이로 내리기" : "드로어 전체로 펼치기"
         }
         className="mx-auto block h-10 w-full cursor-grab touch-none border-0 bg-transparent active:cursor-grabbing"
-        onPointerCancel={handlePointerCancel}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        data-map-drawer-handle
+        onPointerCancel={handleHandlePointerCancel}
+        onPointerDown={handleHandlePointerDown}
+        onPointerMove={handleHandlePointerMove}
+        onPointerUp={handleHandlePointerUp}
+        style={{ touchAction: "none" }}
         type="button"
       >
         <span className="mx-auto mt-1.5 block h-1 w-11 rounded-full bg-[#cfcfcf]" />
@@ -375,6 +427,7 @@ export function MapVisibleDrawer({
 
       <div
         className="h-[calc(100%-40px)] touch-pan-y overflow-y-auto bg-white px-4 pt-0"
+        data-map-drawer-scroller
         style={{
           paddingBottom: `calc(${currentOffset + 16}px + env(safe-area-inset-bottom))`,
         }}
@@ -481,9 +534,16 @@ export function MapVisibleDrawer({
                 animate={{ opacity: 1, x: 0 }}
                 className="min-h-[280px]"
                 custom={tabDirection}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.12}
                 exit={{ opacity: 0, x: tabDirection > 0 ? -36 : 36 }}
                 initial={{ opacity: 0, x: tabDirection > 0 ? 36 : -36 }}
                 key={activeTab}
+                onDragEnd={(_, info) => {
+                  if (info.offset.x < -45) changeTab("note");
+                  if (info.offset.x > 45) changeTab("place");
+                }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
               >
                 {activeTab === "note" ? (
@@ -591,6 +651,7 @@ function PointDetailPanel({
   const summary = isPlace ? point.source.summary : point.source.body;
   const favoriteCount = getFavoriteCount(point);
   const [primaryTag, ...secondaryTags] = tags;
+  const authorName = !isPlace ? point.authorName?.trim() || "익명" : "";
 
   return (
     <article className="pb-4">
@@ -664,12 +725,12 @@ function PointDetailPanel({
             />
           ) : (
             <span className="grid size-10 place-items-center rounded-full bg-[#111] text-sm font-black text-white">
-              {point.authorName.slice(0, 1)}
+              {authorName.slice(0, 1)}
             </span>
           )}
           <div className="min-w-0">
             <strong className="block truncate text-sm font-black text-[#171717]">
-              {point.authorName}
+              {authorName}
             </strong>
             <span className="mt-0.5 block truncate text-xs font-bold text-[#746F67]">
               {fullLocation}

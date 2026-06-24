@@ -59,10 +59,15 @@ export function MapPage() {
     setSelectedPlaceCategory,
   } = useMapStore();
   const requestedFilter = searchParams.get("filter");
+  const hasRequestedTarget = Boolean(searchParams.get("target"));
   const requestedTab = searchParams.get("tab") === "note" ? "note" : undefined;
   const requestedTargetId = searchParams.get("target");
-  const requestedMapX = Number(searchParams.get("mapX"));
-  const requestedMapY = Number(searchParams.get("mapY"));
+  const requestedMapXParam = searchParams.get("mapX");
+  const requestedMapYParam = searchParams.get("mapY");
+  const requestedMapX =
+    requestedMapXParam === null ? Number.NaN : Number(requestedMapXParam);
+  const requestedMapY =
+    requestedMapYParam === null ? Number.NaN : Number(requestedMapYParam);
   const requestedTargetViewport = useMemo(
     () =>
       Number.isFinite(requestedMapX) && Number.isFinite(requestedMapY)
@@ -170,8 +175,8 @@ export function MapPage() {
     selectedPinId,
     data?.center.coordinates ?? mapCenter,
     currentLocation,
-    0,
-    0,
+    mapBottomInset,
+    currentDrawerHeight,
     !isLoading && Boolean(data),
     filter,
   );
@@ -292,6 +297,26 @@ export function MapPage() {
   }, [filteredPoints, selectPin, selectedPinId]);
 
   useEffect(() => {
+    if (hasRequestedTarget) return;
+
+    selectPin(null);
+    setPendingViewport(null);
+    setFullDrawerBounds(null);
+    if (!requestedFilter) {
+      setRequestedViewport(null);
+      setFilter("all");
+      setSelectedPlaceCategory(null);
+    }
+    setDrawerSnap(requestedFilter === "saved" ? "full" : "default");
+  }, [
+    hasRequestedTarget,
+    requestedFilter,
+    selectPin,
+    setFilter,
+    setSelectedPlaceCategory,
+  ]);
+
+  useEffect(() => {
     if (
       requestedFilter === "saved" ||
       requestedFilter === "spot" ||
@@ -324,6 +349,27 @@ export function MapPage() {
     setDrawerSnap("full");
     moveMapTo(targetPoint.coordinates);
   }, [allPoints, moveMapTo, requestedTargetId, selectPin]);
+
+  useEffect(() => {
+    if (
+      hasRequestedTarget ||
+      requestedFilter ||
+      requestedViewport ||
+      kakao.status !== "ready" ||
+      !data
+    ) {
+      return;
+    }
+
+    recenterMapTo(data.center.coordinates);
+  }, [
+    data,
+    hasRequestedTarget,
+    kakao.status,
+    recenterMapTo,
+    requestedFilter,
+    requestedViewport,
+  ]);
 
   useEffect(() => {
     if (location.status === "success" && kakao.status === "ready") {
@@ -428,11 +474,14 @@ export function MapPage() {
       data-map-status={kakao.status}
     >
       <div
-        className="absolute inset-x-0 top-[calc(-1*env(safe-area-inset-top))] transition-[bottom] duration-200"
-        style={{ bottom: mapBottomInset }}
+        className="absolute inset-x-0 transition-[bottom] duration-200"
+        style={{
+          bottom: mapBottomInset,
+          top: "calc(-1 * env(safe-area-inset-top))",
+        }}
       >
         <div
-          className="h-full w-full"
+          className="absolute inset-0 h-full w-full"
           ref={kakao.containerRef}
           aria-label="카카오 지도"
           data-map-root

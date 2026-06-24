@@ -75,6 +75,9 @@ export function FallbackMapLayer({
         }
 
         const isFriendMarker = activeFilter === "friend";
+        const authorName = point.authorName?.trim() || "익명";
+        const categoryLabel =
+          categoryLabels[point.source.category]?.replace(/\s+/g, "") ?? "쪽지";
 
         return (
           <button
@@ -92,11 +95,11 @@ export function FallbackMapLayer({
                 src={point.authorAvatarUrl}
               />
             ) : (
-              <strong>{point.authorName.slice(0, 1)}</strong>
+              <strong>{authorName.slice(0, 1)}</strong>
             )}
             <span>{isFriendMarker
-              ? point.authorName
-              : `#${categoryLabels[point.source.category].replace(/\s+/g, "")}`}
+              ? authorName
+              : `#${categoryLabel}`}
             </span>
           </button>
         );
