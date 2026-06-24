@@ -3,7 +3,7 @@ import { Search } from "lucide-react";
 export function MapSearchBar({
   onQueryChange,
   onSubmit,
-  placeholder = "동대문구 휘경동",
+  placeholder = "장소를 입력해주세요",
   query
 }: {
   onQueryChange: (query: string) => void;

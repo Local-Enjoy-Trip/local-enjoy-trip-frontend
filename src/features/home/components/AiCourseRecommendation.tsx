@@ -17,11 +17,11 @@ export function AiCourseRecommendation() {
             곳곳 AI가 가볍게 다녀올 코스를 만들어줘요.
           </p>
           <button
-            className="mt-5 inline-flex items-center gap-1 px-2 text-[10px]! font-bold text-[#202020]"
+            className="mt-5 inline-flex items-center gap-1 px-2 text-xs font-bold text-[#202020]"
             onClick={() => navigate("/course/new?mode=ai")}
             type="button"
           >
-            곳곳 AI 로 코스 만들기
+            곳곳 AI로 코스 만들기
             <ArrowRight size={10} strokeWidth={2} />
           </button>
         </article>

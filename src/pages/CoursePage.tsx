@@ -179,7 +179,7 @@ export function CoursePage() {
         isLoading={nearbyNotesQuery.isLoading}
         notes={nearbyNotesQuery.data ?? []}
         title="내 일정에 어울리는 쪽지"
-        titleClassName="text-xl mx-5 mt-10 leading-tight font-extrabold tracking-[-0.01em] text-[#202020]"
+        titleClassName="text-xl mx-5 mt-10 mb-4 leading-tight font-extrabold tracking-[-0.01em] text-[#202020]"
       />
 
       {courseSections.map((section) => (

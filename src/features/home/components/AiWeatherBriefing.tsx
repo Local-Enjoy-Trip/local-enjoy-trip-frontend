@@ -226,39 +226,54 @@ export function AiWeatherBriefing({
       <section className="mt-5 px-5">
         <article
           aria-busy="true"
-          className="overflow-hidden rounded-[28px] bg-[#E9EEF0]"
+          className="overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,#8FAAC1_0%,#AFC0CC_44%,#E5E2DF_100%)]"
         >
-          <div className="px-5 pt-7 pb-4">
+          <div className="relative px-5 pt-7 pb-4 text-white">
+            <div className="weather-ambient weather-ambient--cloudy opacity-45" />
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <Skeleton className="h-12 w-24 rounded-2xl bg-white/70" />
-                <Skeleton className="mt-2 h-3 w-20 rounded-full bg-white/60" />
+              <div className="relative">
+                <Skeleton className="h-11 w-24 rounded-2xl bg-white/58" />
+                <Skeleton className="mt-2 h-3 w-28 rounded-full bg-white/42" />
               </div>
-              <div className="grid justify-items-end gap-2">
-                <Skeleton className="size-8 rounded-full bg-white/70" />
-                <Skeleton className="h-3 w-24 rounded-full bg-white/60" />
+              <div className="relative grid justify-items-end gap-2 pt-1">
+                <Skeleton className="size-8 rounded-full bg-white/62" />
+                <Skeleton className="h-3 w-24 rounded-full bg-white/48" />
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-6 gap-1">
+            <div className="relative mt-6 grid grid-cols-6 gap-1">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div className="grid justify-items-center gap-2" key={index}>
-                  <Skeleton className="h-2.5 w-8 rounded-full bg-white/55" />
-                  <Skeleton className="size-6 rounded-full bg-white/65" />
-                  <Skeleton className="h-3 w-7 rounded-full bg-white/55" />
+                <div className="grid min-w-0 justify-items-center gap-2" key={index}>
+                  <Skeleton className="h-2.5 w-8 rounded-full bg-white/42" />
+                  <Skeleton className="size-6 rounded-full bg-white/55" />
+                  <Skeleton className="h-3 w-7 rounded-full bg-white/44" />
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-[1.25rem] border border-white/50 bg-white/60 px-5 pt-5 pb-6 backdrop-blur-[20px]">
-            <Skeleton className="h-8 w-28 rounded-full bg-white/80" />
-            <Skeleton className="mt-5 h-4 w-3/4 rounded-full bg-white/80" />
-            <Skeleton className="mt-3 h-4 w-full rounded-full bg-white/70" />
-            <Skeleton className="mt-2 h-4 w-5/6 rounded-full bg-white/70" />
-            <div className="mt-5 grid gap-2.5">
-              <Skeleton className="h-3 w-full rounded-full bg-white/65" />
-              <Skeleton className="h-3 w-4/5 rounded-full bg-white/65" />
+          <div className="relative rounded-[1.25rem] border border-white/45 bg-white/62 px-5 pt-5 pb-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] backdrop-blur-[20px] backdrop-saturate-150">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/76 px-3 py-2">
+              <Skeleton className="size-3.5 rounded-full bg-[#DDE6E9]" />
+              <Skeleton className="h-2.5 w-20 rounded-full bg-[#DDE6E9]" />
+            </div>
+
+            <div className="mt-4">
+              <Skeleton className="h-4 w-44 rounded-full bg-white/86" />
+              <Skeleton className="mt-4 h-4 w-full rounded-full bg-white/78" />
+              <Skeleton className="mt-2 h-4 w-11/12 rounded-full bg-white/72" />
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {Array.from({ length: 2 }).map((_, index) => (
+                <div className="flex items-start gap-2" key={index}>
+                  <Skeleton className="mt-1.5 size-1.5 flex-none rounded-full bg-[#A9BCC5]" />
+                  <div className="min-w-0 flex-1">
+                    <Skeleton className="h-3 w-full rounded-full bg-white/70" />
+                    <Skeleton className="mt-2 h-3 w-4/5 rounded-full bg-white/62" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </article>

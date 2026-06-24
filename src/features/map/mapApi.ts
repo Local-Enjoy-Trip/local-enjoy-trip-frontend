@@ -10,6 +10,7 @@ import type {
 } from "@/shared/types/domain";
 
 export type MapApiFilter = "ALL" | "PLACE" | "NOTE" | "FRIEND";
+export type MapSearchTarget = "ALL" | "PLACE" | "NOTE";
 export const mapExploreLimit = 200;
 
 type MapCenterResponse = {
@@ -65,6 +66,10 @@ type MapExploreResponse = {
   places: PlaceMapPinResponse[];
   radiusMeters: number;
 };
+
+type MapSearchPinResponse =
+  | (PlaceMapPinResponse & { type: "PLACE" })
+  | (NoteMapPinResponse & { type: "NOTE" });
 
 type ApiNoteCategory =
   | "BEST"
@@ -139,6 +144,46 @@ export async function getMapExplore({
   } satisfies MapExploreData;
 }
 
+export async function searchMap({
+  coordinates,
+  keyword,
+  radiusMeters = 500,
+  target = "ALL",
+}: {
+  coordinates?: Coordinates;
+  keyword: string;
+  radiusMeters?: number;
+  target?: MapSearchTarget;
+}) {
+  const params = new URLSearchParams({
+    keyword,
+    limit: "50",
+    target,
+  });
+
+  if (radiusMeters > 0) {
+    params.set("radius", String(Math.round(radiusMeters)));
+  }
+
+  if (coordinates) {
+    params.set("mapX", String(coordinates.lng));
+    params.set("mapY", String(coordinates.lat));
+  }
+
+  const response = await apiGet<MapSearchPinResponse[]>(
+    `/api/map/search?${params.toString()}`,
+  );
+
+  return {
+    notes: response
+      .filter((pin): pin is NoteMapPinResponse & { type: "NOTE" } => pin.type === "NOTE")
+      .map(toLocalNote),
+    places: response
+      .filter((pin): pin is PlaceMapPinResponse & { type: "PLACE" } => pin.type === "PLACE")
+      .map(toPlace),
+  };
+}
+
 function toPlace(place: PlaceMapPinResponse): Place {
   const contentTypeLabel = contentTypeLabels[place.contentTypeId];
   const ratingLabel =
@@ -191,5 +236,18 @@ function getFavoriteCount(item: {
 
 function toNoteCategory(category: ApiNoteCategory): NoteCategory {
   if (category === "TRANSIT_TIP") return "move";
-  return category.toLowerCase() as NoteCategory;
+  const normalizedCategory = category.toLowerCase();
+
+  if (
+    normalizedCategory === "best" ||
+    normalizedCategory === "music" ||
+    normalizedCategory === "book" ||
+    normalizedCategory === "movie" ||
+    normalizedCategory === "tip" ||
+    normalizedCategory === "uncategorized"
+  ) {
+    return normalizedCategory as NoteCategory;
+  }
+
+  return "uncategorized";
 }

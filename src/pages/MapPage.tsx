@@ -30,6 +30,8 @@ import { type MapFilter, useMapStore } from "@/features/map/mapStore";
 import {
   getMapExplore,
   type MapApiFilter,
+  type MapSearchTarget,
+  searchMap,
 } from "@/features/map/mapApi";
 import type { MapPoint, MapViewport } from "@/features/map/types";
 import {
@@ -100,7 +102,7 @@ export function MapPage() {
     data,
     error,
     isError,
-    isFetching,
+    isFetching: isExploreFetching,
     isLoading,
     refetch,
   } = useQuery({
@@ -121,6 +123,30 @@ export function MapPage() {
     staleTime: 30_000,
   });
   const [query, setQuery] = useState("");
+  const trimmedSearchQuery = query.trim();
+  const searchTarget = toSearchTarget(filter);
+  const searchQuery = useQuery({
+    enabled: trimmedSearchQuery.length > 0,
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      searchMap({
+        coordinates: exploreCoordinates,
+        keyword: trimmedSearchQuery,
+        radiusMeters: exploreRadius,
+        target: searchTarget,
+      }),
+    queryKey: [
+      "map-search",
+      trimmedSearchQuery,
+      searchTarget,
+      exploreCoordinates.lat,
+      exploreCoordinates.lng,
+      exploreRadius,
+    ],
+    staleTime: 15_000,
+  });
+  const isSearching = trimmedSearchQuery.length > 0;
+  const isFetching = isExploreFetching || searchQuery.isFetching;
   const [drawerSnap, setDrawerSnap] = useState<DrawerSnap>("default");
   const [locationConsent, setLocationConsent] =
     useState<LocationConsent>(readLocationConsent);
@@ -142,8 +168,10 @@ export function MapPage() {
   );
 
   const allPoints = useMemo(() => {
-    if (!data) return [];
-    return toMapPoints(data.places, data.notes).map((point) => {
+    const mapData = isSearching ? searchQuery.data : data;
+
+    if (!mapData) return [];
+    return toMapPoints(mapData.places, mapData.notes).map((point) => {
       const override = pointOverrides[point.id];
       const nextPoint = !override
         ? point
@@ -166,17 +194,17 @@ export function MapPage() {
         source,
       };
     });
-  }, [data, noteSaveOverrideVersion, pointOverrides]);
+  }, [data, isSearching, noteSaveOverrideVersion, pointOverrides, searchQuery.data]);
 
   const filteredPoints = useMemo(
     () =>
       filterMapPoints({
         filter,
         points: allPoints,
-        query,
+        query: isSearching ? "" : query,
         selectedPlaceCategory,
       }),
-    [allPoints, filter, query, selectedPlaceCategory],
+    [allPoints, filter, isSearching, query, selectedPlaceCategory],
   );
 
   const selectMapPin = useCallback(
@@ -650,6 +678,12 @@ function toApiFilter(filter: MapFilter): MapApiFilter {
   if (filter === "place") return "PLACE";
   if (filter === "spot") return "NOTE";
   if (filter === "friend") return "FRIEND";
+  return "ALL";
+}
+
+function toSearchTarget(filter: MapFilter): MapSearchTarget {
+  if (filter === "place") return "PLACE";
+  if (filter === "spot" || filter === "friend") return "NOTE";
   return "ALL";
 }
 

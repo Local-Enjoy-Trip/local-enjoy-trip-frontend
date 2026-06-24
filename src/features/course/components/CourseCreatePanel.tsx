@@ -1,10 +1,18 @@
 import { saveCourse } from "@/features/course/courseStorage";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
-import { CalendarDays, ChevronRight, Sparkles } from "lucide-react";
+import {
+  CalendarCheck,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 type CreateMode = "choice" | "direct";
+
+const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 
 export function CourseCreatePanel({ onClick }: { onClick: () => void }) {
   return (
@@ -43,6 +51,9 @@ export function CourseCreateSheet({
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDate, setDraftDate] = useState("");
   const [dateUndecided, setDateUndecided] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() =>
+    startOfMonth(new Date()),
+  );
 
   function closeSheet() {
     onClose();
@@ -71,8 +82,14 @@ export function CourseCreateSheet({
     setDraftTitle("");
     setDraftDate("");
     setDateUndecided(false);
+    setCalendarMonth(startOfMonth(new Date()));
     closeSheet();
     navigate(`/course/${course.id}`);
+  }
+
+  function selectDraftDate(date: string) {
+    setDraftDate(date);
+    setDateUndecided(false);
   }
 
   return (
@@ -132,40 +149,173 @@ export function CourseCreateSheet({
               value={draftTitle}
             />
           </label>
-          <label className="grid gap-2 text-sm font-black text-[#24211E]">
-            날짜
-            <span className="relative">
-              <CalendarDays
-                className="absolute top-1/2 left-3 -translate-y-1/2 text-[#999]"
-                size={17}
-              />
-              <input
-                className="min-h-13 w-full rounded-2xl border border-[#E5E1DA] bg-white pl-10 font-semibold disabled:bg-[#F5F3EF] disabled:text-[#AAA49C]"
-                disabled={dateUndecided}
-                onChange={(event) => setDraftDate(event.target.value)}
-                type="date"
-                value={draftDate}
-              />
-            </span>
-          </label>
-          <label className="flex min-h-12 items-center gap-3 rounded-2xl bg-[#F7F5F0] px-4 text-sm font-black text-[#5F5A54]">
-            <input
-              checked={dateUndecided}
-              className="size-4 accent-[#1F3D35]"
-              onChange={(event) => setDateUndecided(event.target.checked)}
-              type="checkbox"
+
+          <div className="grid gap-2 text-sm font-black text-[#24211E]">
+            <div className="flex items-center justify-between gap-3">
+              <span>날짜</span>
+              <label className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#E4DED3] bg-[#FAF8F4] px-3 text-xs font-black text-[#5F5A54]">
+                <input
+                  checked={dateUndecided}
+                  className="size-4 accent-[#1F3D35]"
+                  onChange={(event) => {
+                    setDateUndecided(event.target.checked);
+                    if (event.target.checked) setDraftDate("");
+                  }}
+                  type="checkbox"
+                />
+                미정
+              </label>
+            </div>
+
+            <CourseDraftCalendar
+              month={calendarMonth}
+              onMonthChange={setCalendarMonth}
+              onSelectDate={selectDraftDate}
+              selectedDate={draftDate}
+              undecided={dateUndecided}
             />
-            날짜는 아직 미정이에요
-          </label>
+          </div>
+
           <button
-            className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C]"
+            className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-extrabold text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C]"
             disabled={!draftTitle.trim()}
             type="submit"
           >
-            생성하고 상세로 이동
+            생성하기
           </button>
         </form>
       )}
     </BottomSheet>
   );
+}
+
+function CourseDraftCalendar({
+  month,
+  onMonthChange,
+  onSelectDate,
+  selectedDate,
+  undecided,
+}: {
+  month: Date;
+  onMonthChange: (month: Date) => void;
+  onSelectDate: (date: string) => void;
+  selectedDate: string;
+  undecided: boolean;
+}) {
+  const days = getCalendarDays(month);
+  const monthLabel = new Intl.DateTimeFormat("ko", {
+    month: "long",
+    year: "numeric",
+  }).format(month);
+
+  return (
+    <section className="overflow-hidden rounded-[18px] border border-[#E9E2D7] bg-[#FFFDF8] shadow-[0_10px_22px_rgba(31,61,53,0.07)]">
+      <div className="flex items-center justify-between gap-2 bg-[#F8F4EC] px-2.5 py-2.5">
+        <button
+          aria-label="이전 달"
+          className="grid size-8 flex-none place-items-center rounded-full border border-[#E4DDD2] bg-white text-[#4E4941] shadow-sm"
+          onClick={() => onMonthChange(addMonths(month, -1))}
+          type="button"
+        >
+          <ChevronLeft size={16} strokeWidth={2.5} />
+        </button>
+
+        <div className="flex min-w-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[#1F3D35] shadow-sm">
+          <CalendarCheck size={16} strokeWidth={2.4} />
+          <strong className="truncate text-xs font-black">{monthLabel}</strong>
+        </div>
+
+        <button
+          aria-label="다음 달"
+          className="grid size-8 flex-none place-items-center rounded-full border border-[#E4DDD2] bg-white text-[#4E4941] shadow-sm"
+          onClick={() => onMonthChange(addMonths(month, 1))}
+          type="button"
+        >
+          <ChevronRight size={16} strokeWidth={2.5} />
+        </button>
+      </div>
+
+      <div className="px-2.5 pt-2 pb-3">
+        <div className="grid grid-cols-7 gap-0.5 text-center">
+          {weekdayLabels.map((label, index) => (
+            <span
+              className={`py-0.5 text-[10px] font-black ${
+                index === 0
+                  ? "text-[#FD4003]"
+                  : index === 6
+                    ? "text-[#3F73A8]"
+                    : "text-[#8B857C]"
+              }`}
+              key={label}
+            >
+              {label}
+            </span>
+          ))}
+
+          {days.map((date, index) => {
+            if (!date) {
+              return <span aria-hidden="true" key={`blank-${index}`} />;
+            }
+
+            const dateValue = formatDateInputValue(date);
+            const selected = !undecided && selectedDate === dateValue;
+            const today = dateValue === formatDateInputValue(new Date());
+
+            return (
+              <button
+                className={`grid aspect-square min-h-8 place-items-center rounded-xl text-[11px] font-black transition ${
+                  selected
+                    ? "bg-[#FD4003] text-white shadow-[0_8px_16px_rgba(253,64,3,0.25)]"
+                    : today
+                      ? "bg-[#EEF4EF] text-[#1F3D35] ring-1 ring-[#BFD0C2]"
+                      : "bg-transparent text-[#2E2A25] hover:bg-[#F4EFE7]"
+                } ${undecided ? "opacity-45" : ""}`}
+                disabled={undecided}
+                key={dateValue}
+                onClick={() => onSelectDate(dateValue)}
+                type="button"
+              >
+                {date.getDate()}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date: Date, months: number) {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+}
+
+function getCalendarDays(month: Date) {
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+  const dayCount = new Date(
+    month.getFullYear(),
+    month.getMonth() + 1,
+    0,
+  ).getDate();
+  const blanks = Array.from<null>({ length: firstDay.getDay() }).fill(null);
+  const dates = Array.from(
+    { length: dayCount },
+    (_, index) => new Date(month.getFullYear(), month.getMonth(), index + 1),
+  );
+  const trailingBlanks = Array.from<null>({
+    length: 42 - blanks.length - dates.length,
+  }).fill(null);
+
+  return [...blanks, ...dates, ...trailingBlanks];
+}
+
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
