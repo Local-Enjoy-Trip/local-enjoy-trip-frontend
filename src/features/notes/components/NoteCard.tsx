@@ -17,6 +17,7 @@ export function NoteCard({
   note,
   onAddToCourse,
   onSelect,
+  onToggleSave,
   selected = false,
   showAddToCourse = false,
   showSavedIcon = true,
@@ -26,6 +27,7 @@ export function NoteCard({
   note: NoteCardModel;
   onAddToCourse?: () => void;
   onSelect?: () => void;
+  onToggleSave?: () => void;
   selected?: boolean;
   showAddToCourse?: boolean;
   showSavedIcon?: boolean;
@@ -98,14 +100,22 @@ export function NoteCard({
       {hasFooterActions ? (
         <div className="absolute right-3 bottom-3 z-10 flex items-center justify-end gap-1.5">
           {showSavedIcon ? (
-            <span className="grid size-6 place-items-center text-[#202020]">
+            <button
+              aria-label={note.saved ? "쪽지 저장 해제" : "쪽지 저장"}
+              className="grid size-6 place-items-center border-0 bg-transparent text-[#202020]"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleSave?.();
+              }}
+              type="button"
+            >
               <Heart
                 className={note.saved ? "text-[#FD4003]" : "text-[#202020]"}
                 fill={note.saved ? "#FD4003" : "none"}
                 size={16}
                 strokeWidth={2.3}
               />
-            </span>
+            </button>
           ) : null}
           {showAddToCourse ? (
             <button

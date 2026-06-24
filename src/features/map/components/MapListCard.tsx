@@ -55,12 +55,14 @@ export function MapListCard({
   featured = false,
   onAddToCourse,
   onSelect,
+  onToggleSave,
   point,
   selected = false,
 }: {
   featured?: boolean;
   onAddToCourse?: (point: MapPoint) => void;
   onSelect?: () => void;
+  onToggleSave?: (point: MapPoint) => void;
   point: MapPoint;
   selected?: boolean;
 }) {
@@ -87,6 +89,7 @@ export function MapListCard({
         }}
         onAddToCourse={() => onAddToCourse?.(point)}
         onSelect={onSelect}
+        onToggleSave={() => onToggleSave?.(point)}
         selected={selected}
         showAddToCourse
         wide={featured}
@@ -143,6 +146,7 @@ export function MapListCard({
         <button
           aria-label={point.saved ? "찜 해제" : "찜"}
           className="grid size-8 place-items-center border-0 bg-transparent text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.45)]"
+          onClick={() => onToggleSave?.(point)}
           type="button"
         >
           <Heart

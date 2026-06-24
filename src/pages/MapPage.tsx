@@ -32,6 +32,11 @@ import {
   type MapApiFilter,
 } from "@/features/map/mapApi";
 import type { MapPoint, MapViewport } from "@/features/map/types";
+import {
+  saveAttraction,
+  unsaveAttraction,
+} from "@/features/attractions/attractionApi";
+import { saveNote, unsaveNote } from "@/features/notes/noteApi";
 
 const viewportDebounceMs = 500;
 const targetViewportRadiusMeters = 3_000;
@@ -112,11 +117,16 @@ export function MapPage() {
   const locationToastTimerRef = useRef<number | null>(null);
   const manualLocationRequestRef = useRef(false);
   const [locationToast, setLocationToast] = useState<string | null>(null);
+  const [savedOverrides, setSavedOverrides] = useState<Record<string, boolean>>({});
 
   const allPoints = useMemo(() => {
     if (!data) return [];
-    return toMapPoints(data.places, data.notes);
-  }, [data]);
+    return toMapPoints(data.places, data.notes).map((point) =>
+      Object.prototype.hasOwnProperty.call(savedOverrides, point.id)
+        ? { ...point, saved: savedOverrides[point.id] }
+        : point,
+    );
+  }, [data, savedOverrides]);
 
   const filteredPoints = useMemo(
     () =>
@@ -363,6 +373,29 @@ export function MapPage() {
     requestLocation();
   };
 
+  async function toggleSave(point: MapPoint) {
+    const nextSaved = !point.saved;
+    setSavedOverrides((current) => ({ ...current, [point.id]: nextSaved }));
+
+    try {
+      const numericId = Number(point.id.replace(/^(place|note)-/, ""));
+      if (!Number.isFinite(numericId)) throw new Error("invalid point id");
+
+      if (point.kind === "place") {
+        if (nextSaved) await saveAttraction(numericId);
+        else await unsaveAttraction(numericId);
+      } else {
+        if (nextSaved) await saveNote(numericId);
+        else await unsaveNote(numericId);
+      }
+
+      showLocationToast(nextSaved ? "저장했어요." : "저장을 해제했어요.");
+    } catch {
+      setSavedOverrides((current) => ({ ...current, [point.id]: point.saved }));
+      showLocationToast("저장 상태를 바꾸지 못했어요.");
+    }
+  }
+
   if (isLoading || (!data && !isError)) {
     return <PageLoadingSkeleton type="map" />;
   }
@@ -483,6 +516,7 @@ export function MapPage() {
           onRequestLocation={requestCurrentLocation}
           onSelectPoint={selectVisiblePoint}
           onSnapChange={setDrawerSnap}
+          onToggleSave={toggleSave}
           preferredTab={requestedTab}
           selectedPoint={selectedPoint}
           visiblePoints={drawerPoints}

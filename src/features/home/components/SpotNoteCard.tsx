@@ -1,5 +1,7 @@
 import type { HomeNote } from "@/features/home/types/homeTypes";
 import { NoteCard } from "@/features/notes/components/NoteCard";
+import { saveNote, unsaveNote } from "@/features/notes/noteApi";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 type SpotNoteCardProps = {
@@ -8,6 +10,8 @@ type SpotNoteCardProps = {
 
 export function SpotNoteCard({ note }: SpotNoteCardProps) {
   const navigate = useNavigate();
+  const [saved, setSaved] = useState(note.saved ?? false);
+  const noteId = getNumericNoteId(note.id);
   const mapParams = new URLSearchParams({
     tab: "note",
     target: note.id,
@@ -29,8 +33,25 @@ export function SpotNoteCard({ note }: SpotNoteCardProps) {
         imageUrl: note.image,
         locationLabel: note.location,
         profileImageUrl: note.profileImage,
+        saved,
       }}
       onSelect={() => navigate(`/map?${mapParams.toString()}`)}
+      onToggleSave={async () => {
+        if (!noteId) return;
+        const nextSaved = !saved;
+        setSaved(nextSaved);
+        try {
+          if (nextSaved) await saveNote(noteId);
+          else await unsaveNote(noteId);
+        } catch {
+          setSaved(saved);
+        }
+      }}
     />
   );
+}
+
+function getNumericNoteId(id: string) {
+  const value = Number(id.replace(/^note-/, ""));
+  return Number.isFinite(value) ? value : null;
 }

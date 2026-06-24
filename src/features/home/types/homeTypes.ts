@@ -64,4 +64,5 @@ export type HomeNote = {
   place: string;
   image?: string;
   profileImage?: string;
+  saved?: boolean;
 };

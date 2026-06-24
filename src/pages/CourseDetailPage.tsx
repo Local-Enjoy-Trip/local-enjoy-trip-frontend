@@ -27,7 +27,16 @@ import type {
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { Coordinates } from "@/shared/types/domain";
 import {
+  getCachedApiCourse,
+  getPublicCourse,
+  recommendCourseOrder,
+  updateCourse,
+  type CourseItemResponse,
+  type CourseResponse,
+} from "@/features/course/courseApi";
+import {
   getSavedCourse,
+  saveCourse,
   updateCourseCollaborators,
 } from "@/features/course/courseStorage";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
@@ -394,6 +403,7 @@ function CourseRouteMap({
 
 function CourseRouteDrawer({
   activeStopId,
+  canEdit,
   drawerCoverOffset,
   drawerTop,
   headerOffset,
@@ -404,6 +414,7 @@ function CourseRouteDrawer({
   onOptimize,
 }: {
   activeStopId: number;
+  canEdit: boolean;
   drawerCoverOffset: number;
   drawerTop: number;
   headerOffset: number;
@@ -605,19 +616,30 @@ function CourseRouteDrawer({
         onWheel={handleListWheel}
         ref={scrollerRef}
       >
-        <button
-          className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#DCE7DF] bg-[#EDF5EF] text-sm font-black text-[#1F3D35]"
-          onClick={onOptimize}
-          type="button"
-        >
-          <WandSparkles size={18} />
-          AI로 걷기 좋은 순서 정리
-        </button>
+        {canEdit ? (
+          <button
+            className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#DCE7DF] bg-[#EDF5EF] text-sm font-black text-[#1F3D35]"
+            onClick={onOptimize}
+            type="button"
+          >
+            <WandSparkles size={18} />
+            AI로 걷기 좋은 순서 정리
+          </button>
+        ) : null}
         <div className="mb-3 flex items-center justify-between">
           <h2 className="m-0 text-lg font-black text-[#272727]">여행지 리스트</h2>
-          <button className="border-0 bg-transparent p-0 text-sm font-black text-[#8B857C]" type="button">편집</button>
+          {canEdit ? <button className="border-0 bg-transparent p-0 text-sm font-black text-[#8B857C]" type="button">편집</button> : null}
         </div>
-        {routeStops.map((stop) => (
+        {routeStops.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[#D8D4CC] bg-white p-5 text-center">
+            <p className="m-0 text-sm font-black text-[#514D47]">
+              아직 추가한 장소가 없어요.
+            </p>
+            <p className="mt-1.5 mb-0 text-xs font-bold text-[#928C84]">
+              상세 페이지에서 저장한 장소와 쪽지를 차례로 담아보세요.
+            </p>
+          </div>
+        ) : routeStops.map((stop) => (
           <StopTimelineItem
             isActive={stop.id === activeStopId}
             key={stop.id}
@@ -709,15 +731,87 @@ const friends = [
   { name: "하린", note: "사진 명소를 좋아해요", color: "bg-[#F6E7C9]" },
 ];
 
+function sortedCourseItems(course: CourseResponse) {
+  return [...course.items].sort((a, b) => a.position - b.position);
+}
+
+function toDisplayRouteStops(course: CourseResponse): CourseStop[] {
+  const items = sortedCourseItems(course);
+  const base = course.startLocation
+    ? { lat: course.startLocation.latitude, lng: course.startLocation.longitude }
+    : defaultStops[0].coordinates;
+
+  return items.map((item, index) => {
+    const fallbackStop = defaultStops[index % defaultStops.length];
+    const segment = course.segments.find(
+      (candidate) => candidate.toPosition === item.position,
+    );
+
+    return {
+      id: item.position || index + 1,
+      accent: (["violet", "coral", "mint"] as const)[index % 3],
+      category: `${getCourseItemTypeLabel(item)} · ${
+        course.regionName ?? "코스"
+      }`,
+      coordinates: {
+        lat: base.lat + index * 0.0018 + (index % 2) * 0.001,
+        lng: base.lng + index * 0.0022 - (index % 2) * 0.001,
+      },
+      distanceFromPrevious:
+        index === 0
+          ? undefined
+          : segment
+            ? `${Math.max(1, Math.round(segment.distanceMeters))}m`
+            : `${320 + index * 110}m`,
+      location: course.regionName ?? fallbackStop.location,
+      title: item.title?.trim() || `${getCourseItemTypeLabel(item)} ${index + 1}`,
+    };
+  });
+}
+
+function getCourseItemTypeLabel(item: CourseItemResponse) {
+  if (item.itemType === "NOTE") return "쪽지";
+  if (item.itemType === "ATTRACTION") return "장소";
+  return item.itemType || "장소";
+}
+
+function toCourseUpdateRequest(course: CourseResponse) {
+  return {
+    coverImageUrl: course.coverImageUrl ?? undefined,
+    description: course.description ?? undefined,
+    items: sortedCourseItems(course).map((item) => ({
+      attractionId: item.attractionId ?? undefined,
+      day: item.day,
+      itemType: item.itemType,
+      memo: item.memo ?? undefined,
+      noteId: item.noteId ?? undefined,
+      stayMinutes: item.stayMinutes ?? undefined,
+    })),
+    regionName: course.regionName ?? undefined,
+    status: course.status,
+    title: course.title,
+    visibility: course.visibility,
+  };
+}
+
 export function CourseDetailPage() {
   const navigate = useNavigate();
   const { courseId = "course-1" } = useParams();
   const [searchParams] = useSearchParams();
   const [savedCourse] = useState(() => getSavedCourse(courseId));
-  const isReadOnly = searchParams.get("view") === "1";
+  const [apiCourse, setApiCourse] = useState<CourseResponse | null>(
+    () => getCachedApiCourse(courseId) ?? null,
+  );
+  const isReadOnly =
+    searchParams.get("view") === "1" ||
+    (!savedCourse && apiCourse?.visibility === "PUBLIC") ||
+    (!savedCourse && !apiCourse);
+  const canEditCourse = !isReadOnly;
   const routeStops = useMemo<CourseStop[]>(
     () =>
-      savedCourse?.stops.map((stop, index) => ({
+      apiCourse
+        ? toDisplayRouteStops(apiCourse)
+        : savedCourse?.stops.map((stop, index) => ({
         id: stop.id,
         accent: (["violet", "coral", "mint"] as const)[index % 3],
         category: `${stop.category} · ${savedCourse.area}`,
@@ -726,17 +820,28 @@ export function CourseDetailPage() {
         location: savedCourse.area,
         title: stop.title,
       })) ?? defaultStops,
-    [savedCourse],
+    [apiCourse, savedCourse],
   );
-  const courseTitle = savedCourse?.title ?? "망원 하루 코스";
-  const companion = savedCourse?.companion ?? "혼자";
-  const styleLabel = savedCourse?.styles.join(" · ") || "로컬 산책";
+  const courseTitle = apiCourse?.title ?? savedCourse?.title ?? "망원 하루 코스";
+  const companion = savedCourse?.companion ?? "내 일정";
+  const dateLabel = savedCourse?.date
+    ? savedCourse.date.replace(/-/g, ".")
+    : "날짜 미정";
+  const styleLabel =
+    apiCourse?.description?.trim() ||
+    apiCourse?.regionName ||
+    savedCourse?.styles.join(" · ") ||
+    "로컬 산책";
   const [activeStopId, setActiveStopId] = useState(routeStops[0]?.id ?? 1);
   const [drawerCoverOffset, setDrawerCoverOffset] = useState(0);
   const [headerOffset, setHeaderOffset] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [optimizeOpen, setOptimizeOpen] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizedCourse, setOptimizedCourse] = useState<CourseResponse | null>(
+    null,
+  );
   const [mapOpen, setMapOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [selectedFriends, setSelectedFriends] = useState(savedCourse?.collaborators ?? []);
@@ -754,6 +859,36 @@ export function CourseDetailPage() {
       document.body.style.overscrollBehavior = previousOverscroll;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCourse() {
+      try {
+        const course = await getPublicCourse(courseId);
+        if (!cancelled) setApiCourse(course);
+      } catch {
+        if (
+          !cancelled &&
+          !getCachedApiCourse(courseId) &&
+          !getSavedCourse(courseId)
+        ) {
+          setNotice("코스를 불러오지 못해 기본 예시를 보여드려요.");
+        }
+      }
+    }
+
+    void loadCourse();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  useEffect(() => {
+    if (routeStops[0] && !routeStops.some((stop) => stop.id === activeStopId)) {
+      setActiveStopId(routeStops[0].id);
+    }
+  }, [activeStopId, routeStops]);
 
   function showNotice(message: string) {
     setNotice(message);
@@ -783,16 +918,86 @@ export function CourseDetailPage() {
   }
 
   function saveFriends() {
+    if (!canEditCourse) return;
     if (savedCourse) updateCourseCollaborators(savedCourse.id, selectedFriends);
     setFriendsOpen(false);
     showNotice(`${selectedFriends.length}명과 일정을 공유했어요.`);
+  }
+
+  function addPublicCourseToMine() {
+    if (!apiCourse) return;
+
+    const localId = `mine-${apiCourse.id}-${Date.now()}`;
+    saveCourse({
+      id: localId,
+      title: apiCourse.title,
+      area: apiCourse.regionName ?? "미정",
+      companion: "내 일정",
+      date: undefined,
+      styles: [apiCourse.description?.trim() || "탐색한 코스"],
+      pace: "날짜 미정",
+      savedAt: new Date().toISOString(),
+      collaborators: [],
+      stops: routeStops.map((stop, index) => ({
+        id: index + 1,
+        title: stop.title,
+        category: stop.category.split(" · ")[0] ?? "장소",
+        description: stop.category,
+        imageUrl:
+          apiCourse.coverImageUrl ??
+          "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80",
+        lat: stop.coordinates.lat,
+        lng: stop.coordinates.lng,
+      })),
+    });
+    showNotice("내 코스에 추가했어요.");
+    navigate(`/course/${localId}`, { replace: true });
+  }
+
+  async function openOptimizeSheet() {
+    if (!canEditCourse) return;
+    setOptimizeOpen(true);
+    setOptimizedCourse(null);
+
+    if (!apiCourse) return;
+
+    setIsOptimizing(true);
+    try {
+      const recommended = await recommendCourseOrder(apiCourse.id);
+      setOptimizedCourse(recommended);
+    } catch {
+      showNotice("AI 동선 추천을 불러오지 못했어요.");
+    } finally {
+      setIsOptimizing(false);
+    }
+  }
+
+  async function applyOptimizedOrder() {
+    if (!canEditCourse) return;
+    if (!apiCourse || !optimizedCourse) {
+      setOptimizeOpen(false);
+      showNotice("AI 추천 동선으로 정리했어요.");
+      return;
+    }
+
+    try {
+      const updated = await updateCourse(
+        apiCourse.id,
+        toCourseUpdateRequest(optimizedCourse),
+      );
+      setApiCourse(updated);
+      setOptimizeOpen(false);
+      showNotice("AI 추천 동선으로 저장했어요.");
+    } catch {
+      showNotice("추천 순서를 저장하지 못했어요.");
+    }
   }
 
   const actionButtons = (
     <div className="flex items-center gap-1">
       <button aria-label="공유하기" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setShareOpen(true)} type="button"><Upload size={23} /></button>
       <button aria-label="전체 지도 보기" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setMapOpen(true)} type="button"><MapIcon size={24} /></button>
-      {!isReadOnly ? <button aria-label="일행과 함께 일정 짜기" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setFriendsOpen(true)} type="button"><UsersRound size={24} /></button> : null}
+      {canEditCourse ? <button aria-label="일행과 함께 일정 짜기" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setFriendsOpen(true)} type="button"><UsersRound size={24} /></button> : null}
     </div>
   );
 
@@ -806,13 +1011,16 @@ export function CourseDetailPage() {
               {actionButtons}
             </header>
             <div className="mt-5">
-              <div className="flex items-end gap-2"><h1 className="m-0 truncate text-[1.85rem] leading-tight font-black text-[#333]">{courseTitle}</h1>{!isReadOnly ? <button className="mb-1 border-0 bg-transparent p-0 text-base font-black text-[#9A958E]" type="button">편집</button> : null}</div>
-              <p className="mt-1.5 mb-0 text-lg font-black text-[#777]">2026.6.23</p>
+              <div className="flex items-end gap-2"><h1 className="m-0 truncate text-[1.85rem] leading-tight font-black text-[#333]">{courseTitle}</h1>{canEditCourse ? <button className="mb-1 border-0 bg-transparent p-0 text-base font-black text-[#9A958E]" type="button">편집</button> : null}</div>
+              <p className="mt-1.5 mb-0 text-lg font-black text-[#777]">{dateLabel}</p>
               <p className="mt-1.5 mb-0 truncate text-base font-bold text-[#777]">{companion} | {styleLabel}</p>
             </div>
-            {!isReadOnly ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+            {canEditCourse ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
               <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white"><Plus size={20} />장소 추가하기</button>
               <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full border border-[#D9E5DC] bg-[#EDF5EF] px-4 text-sm font-black text-[#1F3D35]" onClick={() => setFriendsOpen(true)} type="button"><UserPlus size={18} />일행과 함께 일정 짜기</button>
+            </div> : apiCourse?.visibility === "PUBLIC" ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white" onClick={addPublicCourseToMine} type="button"><Plus size={18} />내 코스에 추가</button>
+              <span className="inline-flex h-10 flex-none items-center rounded-full bg-[#F3F3F3] px-3 text-xs font-black text-[#777]">탐색한 코스</span>
             </div> : <div className="mt-5 inline-flex rounded-full bg-[#F3F3F3] px-3 py-2 text-xs font-black text-[#777]">보기 전용 일정</div>}
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1"><button className="inline-flex h-9 flex-none items-center gap-1.5 rounded-full bg-[#F3F3F3] px-4 text-sm font-black text-[#777]"><Plane size={17} />교통</button><button className="inline-flex h-9 flex-none items-center gap-1.5 rounded-full bg-[#F3F3F3] px-4 text-sm font-black text-[#777]"><WalletCards size={17} />예산</button><button className="inline-flex h-9 flex-none items-center gap-1.5 rounded-full bg-[#F3F3F3] px-4 text-sm font-black text-[#777]"><ReceiptText size={17} />체크리스트</button></div>
           </div>
@@ -824,7 +1032,7 @@ export function CourseDetailPage() {
 
         <div className="relative min-h-0 flex-1 overflow-hidden bg-[#E7F0E8]" data-testid="course-route-stage">
           <CourseRouteMap activeStopId={activeStopId} className="h-[278px]" routeStops={routeStops} />
-          <CourseRouteDrawer activeStopId={activeStopId} drawerCoverOffset={drawerCoverOffset} drawerTop={drawerTop} headerOffset={headerOffset} onOptimize={() => setOptimizeOpen(true)} routeStops={routeStops} setActiveStopId={setActiveStopId} setDrawerCoverOffset={setDrawerCoverOffset} setHeaderOffset={setHeaderOffset} />
+          <CourseRouteDrawer activeStopId={activeStopId} canEdit={canEditCourse} drawerCoverOffset={drawerCoverOffset} drawerTop={drawerTop} headerOffset={headerOffset} onOptimize={openOptimizeSheet} routeStops={routeStops} setActiveStopId={setActiveStopId} setDrawerCoverOffset={setDrawerCoverOffset} setHeaderOffset={setHeaderOffset} />
         </div>
       </section>
 
@@ -838,7 +1046,7 @@ export function CourseDetailPage() {
 
       <BottomSheet isOpen={friendsOpen} onClose={() => setFriendsOpen(false)} title="일행과 함께 일정 짜기"><p className="mt-0 text-sm font-bold text-[#8B857C]">함께 편집할 친구를 선택해주세요.</p><div className="mt-4 grid gap-2">{friends.map((friend) => { const selected = selectedFriends.includes(friend.name); return <button className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left ${selected ? "border-[#1F3D35] bg-[#F0F5F1]" : "border-[#EBE7E0] bg-white"}`} key={friend.name} onClick={() => setSelectedFriends((current) => selected ? current.filter((name) => name !== friend.name) : [...current, friend.name])} type="button"><span className={`grid size-11 place-items-center rounded-full text-sm font-black ${friend.color}`}>{friend.name[0]}</span><span className="min-w-0 flex-1"><strong className="block font-black">{friend.name}</strong><span className="mt-1 block text-xs font-bold text-[#928C84]">{friend.note}</span></span>{selected ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><CheckSquare size={15} /></span> : null}</button>; })}</div><button className="mt-5 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white" onClick={saveFriends} type="button">{selectedFriends.length > 0 ? `${selectedFriends.length}명과 함께하기` : "나만 편집하기"}</button></BottomSheet>
 
-      <BottomSheet isOpen={optimizeOpen} onClose={() => setOptimizeOpen(false)} title="AI 동선 정리"><div className="rounded-2xl bg-[#EEF4EF] p-4"><div className="flex items-center gap-2 text-[#1F3D35]"><WandSparkles size={21} /><strong className="font-black">걷는 시간을 약 18분 줄일 수 있어요</strong></div><p className="mt-2 mb-0 text-sm leading-relaxed font-semibold text-[#667069]">가까운 장소끼리 묶고 마지막 장소가 대중교통과 이어지도록 순서를 정리했어요.</p></div><div className="mt-4 flex flex-wrap items-center gap-2">{routeStops.map((stop, index) => <span className="inline-flex items-center gap-1 text-xs font-black text-[#5D5852]" key={stop.id}><span className="grid size-6 place-items-center rounded-full bg-[#FD4003] text-white">{index + 1}</span>{stop.title}{index < routeStops.length - 1 ? <ChevronRight size={14} className="text-[#AAA49B]" /> : null}</span>)}</div><button className="mt-6 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white" onClick={() => { setOptimizeOpen(false); showNotice("AI 추천 동선으로 정리했어요."); }} type="button">이 순서로 적용하기</button></BottomSheet>
+      <BottomSheet isOpen={optimizeOpen} onClose={() => setOptimizeOpen(false)} title="AI 동선 정리"><div className="rounded-2xl bg-[#EEF4EF] p-4"><div className="flex items-center gap-2 text-[#1F3D35]"><WandSparkles size={21} /><strong className="font-black">{isOptimizing ? "AI가 동선을 계산하고 있어요" : apiCourse ? "서버 추천 동선을 불러왔어요" : "걷는 시간을 약 18분 줄일 수 있어요"}</strong></div><p className="mt-2 mb-0 text-sm leading-relaxed font-semibold text-[#667069]">{apiCourse ? "적용하면 추천 순서를 내 코스에 저장해요." : "가까운 장소끼리 묶고 마지막 장소가 대중교통과 이어지도록 순서를 정리했어요."}</p></div><div className="mt-4 flex flex-wrap items-center gap-2">{(optimizedCourse ? toDisplayRouteStops(optimizedCourse) : routeStops).map((stop, index) => <span className="inline-flex items-center gap-1 text-xs font-black text-[#5D5852]" key={stop.id}><span className="grid size-6 place-items-center rounded-full bg-[#FD4003] text-white">{index + 1}</span>{stop.title}{index < routeStops.length - 1 ? <ChevronRight size={14} className="text-[#AAA49B]" /> : null}</span>)}</div><button className="mt-6 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={isOptimizing} onClick={applyOptimizedOrder} type="button">{isOptimizing ? "추천 받는 중..." : "이 순서로 적용하기"}</button></BottomSheet>
 
       {notice ? <div className="fixed inset-x-5 bottom-[calc(24px+env(safe-area-inset-bottom))] z-[90] mx-auto max-w-[390px] rounded-2xl bg-[#171717] px-4 py-3 text-center text-sm font-black text-white shadow-xl">{notice}</div> : null}
     </>

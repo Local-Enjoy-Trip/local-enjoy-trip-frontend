@@ -23,13 +23,14 @@ type PlaceMapPinResponse = {
   address: string;
   contentTypeId: string;
   distanceMeters: number;
-  favorited: boolean;
+  favorited?: boolean;
   id: number;
   imageUrl: string | null;
   latitude: number;
   longitude: number;
   ratingAverage: number;
   ratingCount: number;
+  saved?: boolean;
   title: string;
 };
 
@@ -46,6 +47,7 @@ type NoteMapPinResponse = {
   longitude: number;
   regionName: string;
   relationshipToViewer: ApiViewerRelationship;
+  saved?: boolean;
   title: string;
   visibility: ApiVisibility;
 };
@@ -142,7 +144,7 @@ function toPlace(place: PlaceMapPinResponse): Place {
     id: `place-${place.id}`,
     imageUrl: place.imageUrl || fallbackPlaceImage,
     name: place.title,
-    saved: place.favorited,
+    saved: place.saved ?? place.favorited ?? false,
     summary: place.address || "장소 정보가 아직 등록되지 않았어요.",
     tags: [contentTypeLabel, ratingLabel].filter(
       (value): value is string => Boolean(value),
@@ -162,7 +164,7 @@ function toLocalNote(note: NoteMapPinResponse): LocalNote {
     imageUrl: resolveNoteImageUrl(note.imageObjectKey),
     placeName: note.regionName,
     relationshipToViewer: note.relationshipToViewer.toLowerCase() as ViewerRelationship,
-    saved: false,
+    saved: note.saved ?? false,
     visibility: note.visibility.toLowerCase() as Visibility,
   };
 }

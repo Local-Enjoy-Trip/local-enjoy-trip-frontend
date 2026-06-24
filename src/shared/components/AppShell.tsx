@@ -199,7 +199,7 @@ const createItems = [
     icon: NotebookPen,
   },
   {
-    to: "/course/new",
+    to: "/course?create=1",
     label: "코스 만들기",
     icon: MapPinned,
   },

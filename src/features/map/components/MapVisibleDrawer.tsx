@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -38,6 +39,7 @@ export function MapVisibleDrawer({
   onRequestLocation,
   onSelectPoint,
   onSnapChange,
+  onToggleSave,
   preferredTab,
   selectedPoint,
   visiblePoints,
@@ -46,6 +48,7 @@ export function MapVisibleDrawer({
   onRequestLocation: () => void;
   onSelectPoint: (point: MapPoint) => void;
   onSnapChange: (snap: DrawerSnap) => void;
+  onToggleSave: (point: MapPoint) => void;
   preferredTab?: DrawerTab;
   selectedPoint: MapPoint | null;
   visiblePoints: MapPoint[];
@@ -55,6 +58,7 @@ export function MapVisibleDrawer({
   const pointCardRefs = useRef(new Map<string, HTMLDivElement>());
   const lastAutoFocusedPointIdRef = useRef<string | null>(null);
   const dragStartRef = useRef({ offset: 0, time: 0, y: 0 });
+  const dragOffsetRef = useRef<number | null>(null);
   const dragMovedRef = useRef(false);
   const [courseTarget, setCourseTarget] = useState<MapPoint | null>(null);
   const [courseNotice, setCourseNotice] = useState<string | null>(null);
@@ -72,9 +76,14 @@ export function MapVisibleDrawer({
 
     const updateDrawerHeight = () => setDrawerHeight(drawer.clientHeight);
     updateDrawerHeight();
+    const resizeObserver = new ResizeObserver(updateDrawerHeight);
+    resizeObserver.observe(drawer);
     window.addEventListener("resize", updateDrawerHeight);
 
-    return () => window.removeEventListener("resize", updateDrawerHeight);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateDrawerHeight);
+    };
   }, []);
 
   const hasSelectedPoint = selectedPoint !== null;
@@ -186,64 +195,103 @@ export function MapVisibleDrawer({
       time: performance.now(),
       y: event.clientY,
     };
+    dragOffsetRef.current = restingOffset;
     setDragOffset(restingOffset);
   }
 
-  function handlePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (dragOffset === null) return;
+  const updateDrag = useCallback(
+    (clientY: number) => {
+      if (dragOffsetRef.current === null) return;
 
-    const distance = event.clientY - dragStartRef.current.y;
-    if (Math.abs(distance) > 3) {
-      dragMovedRef.current = true;
-    }
+      const distance = clientY - dragStartRef.current.y;
+      if (Math.abs(distance) > 3) {
+        dragMovedRef.current = true;
+      }
 
-    setDragOffset(
-      Math.min(
+      const nextOffset = Math.min(
         drawerHeight + 24,
         Math.max(0, dragStartRef.current.offset + distance),
-      ),
-    );
+      );
+      dragOffsetRef.current = nextOffset;
+      setDragOffset(nextOffset);
+    },
+    [drawerHeight],
+  );
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+    updateDrag(event.clientY);
   }
+
+  const finishDrag = useCallback(
+    (clientY: number) => {
+      const finalOffset = dragOffsetRef.current;
+      if (finalOffset === null) return;
+
+      const distance = clientY - dragStartRef.current.y;
+      const elapsed = Math.max(1, performance.now() - dragStartRef.current.time);
+      const velocity = distance / elapsed;
+      const currentIndex = SNAP_ORDER.indexOf(drawerSnap);
+      let nextSnap: DrawerSnap;
+
+      if (!dragMovedRef.current && Math.abs(distance) <= 3) {
+        nextSnap = drawerSnap === "full" ? "default" : "full";
+      } else if (Math.abs(velocity) > 0.45 && Math.abs(distance) > 18) {
+        const direction = velocity > 0 ? 1 : -1;
+        nextSnap =
+          SNAP_ORDER[
+            Math.min(SNAP_ORDER.length - 1, Math.max(0, currentIndex + direction))
+          ];
+      } else {
+        nextSnap = SNAP_ORDER.reduce((nearest, snap) => {
+          const nearestDistance = Math.abs(
+            finalOffset - getSnapOffset(nearest, drawerHeight, hasSelectedPoint),
+          );
+          const snapDistance = Math.abs(
+            finalOffset - getSnapOffset(snap, drawerHeight, hasSelectedPoint),
+          );
+          return snapDistance < nearestDistance ? snap : nearest;
+        }, SNAP_ORDER[0]);
+      }
+
+      dragOffsetRef.current = null;
+      setDragOffset(null);
+      onSnapChange(nextSnap);
+      dragMovedRef.current = false;
+    },
+    [drawerHeight, drawerSnap, hasSelectedPoint, onSnapChange],
+  );
 
   function handlePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
+    finishDrag(event.clientY);
+  }
+
+  function handlePointerCancel(event: ReactPointerEvent<HTMLButtonElement>) {
+    finishDrag(event.clientY);
+  }
+
+  useEffect(() => {
     if (dragOffset === null) return;
 
-    const distance = event.clientY - dragStartRef.current.y;
-    const elapsed = Math.max(1, performance.now() - dragStartRef.current.time);
-    const velocity = distance / elapsed;
-    const currentIndex = SNAP_ORDER.indexOf(drawerSnap);
-    let nextSnap: DrawerSnap;
+    const handleWindowPointerMove = (event: PointerEvent) => {
+      event.preventDefault();
+      updateDrag(event.clientY);
+    };
+    const handleWindowPointerUp = (event: PointerEvent) => {
+      finishDrag(event.clientY);
+    };
 
-    if (Math.abs(velocity) > 0.45 && Math.abs(distance) > 18) {
-      const direction = velocity > 0 ? 1 : -1;
-      nextSnap =
-        SNAP_ORDER[
-          Math.min(SNAP_ORDER.length - 1, Math.max(0, currentIndex + direction))
-        ];
-    } else {
-      nextSnap = SNAP_ORDER.reduce((nearest, snap) => {
-        const nearestDistance = Math.abs(
-          dragOffset - getSnapOffset(nearest, drawerHeight, hasSelectedPoint),
-        );
-        const snapDistance = Math.abs(
-          dragOffset - getSnapOffset(snap, drawerHeight, hasSelectedPoint),
-        );
-        return snapDistance < nearestDistance ? snap : nearest;
-      }, SNAP_ORDER[0]);
-    }
+    window.addEventListener("pointermove", handleWindowPointerMove, {
+      passive: false,
+    });
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerUp);
 
-    setDragOffset(null);
-    onSnapChange(nextSnap);
-  }
-
-  function handleHandleClick() {
-    if (dragMovedRef.current) {
-      dragMovedRef.current = false;
-      return;
-    }
-
-    onSnapChange(drawerSnap === "full" ? "default" : "full");
-  }
+    return () => {
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerUp);
+    };
+  }, [dragOffset, finishDrag, updateDrag]);
 
   function openCourseSelector(point: MapPoint) {
     setCourseNotice(null);
@@ -315,9 +363,8 @@ export function MapVisibleDrawer({
         aria-label={
           drawerSnap === "full" ? "드로어 기본 높이로 내리기" : "드로어 전체로 펼치기"
         }
-        className="mx-auto block h-6 w-full cursor-grab touch-none border-0 bg-transparent active:cursor-grabbing"
-        onClick={handleHandleClick}
-        onPointerCancel={handlePointerUp}
+        className="mx-auto block h-10 w-full cursor-grab touch-none border-0 bg-transparent active:cursor-grabbing"
+        onPointerCancel={handlePointerCancel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -327,7 +374,7 @@ export function MapVisibleDrawer({
       </button>
 
       <div
-        className="h-[calc(100%-30px)] touch-pan-y overflow-y-auto px-4 pt-0"
+        className="h-[calc(100%-40px)] touch-pan-y overflow-y-auto bg-white px-4 pt-0"
         style={{
           paddingBottom: `calc(${currentOffset + 16}px + env(safe-area-inset-bottom))`,
         }}
@@ -401,10 +448,10 @@ export function MapVisibleDrawer({
           </div>
         ) : visiblePoints.length > 0 ? (
           <div>
-            <div className="sticky top-0 z-40 -mx-4 mb-3 bg-white">
+            <div className="sticky top-0 z-40 -mx-4 mb-3 bg-white px-4 pt-1 pb-2">
               <div
                 aria-label="지도 목록 종류"
-                className="grid grid-cols-2 rounded-2xl bg-[#F3F1ED] p-1"
+                className="grid grid-cols-2 rounded-2xl bg-white p-1"
                 role="tablist"
               >
                 {([
@@ -456,6 +503,7 @@ export function MapVisibleDrawer({
                               point={point}
                               onAddToCourse={openCourseSelector}
                               onSelect={() => openPointDetail(point)}
+                              onToggleSave={onToggleSave}
                               selected={selectedPoint?.id === point.id}
                             />
                           </div>
@@ -479,6 +527,7 @@ export function MapVisibleDrawer({
                           point={point}
                           onAddToCourse={openCourseSelector}
                           onSelect={() => openPointDetail(point)}
+                          onToggleSave={onToggleSave}
                         />
                       </div>
                     ))}
@@ -513,6 +562,7 @@ export function MapVisibleDrawer({
           <PointDetailPanel
             onAddToCourse={openCourseSelector}
             onBack={() => setDetailDismissedId(selectedPoint.id)}
+            onToggleSave={onToggleSave}
             point={selectedPoint}
           />
         </div>
@@ -524,10 +574,12 @@ export function MapVisibleDrawer({
 function PointDetailPanel({
   onAddToCourse,
   onBack,
+  onToggleSave,
   point,
 }: {
   onAddToCourse: (point: MapPoint) => void;
   onBack: () => void;
+  onToggleSave: (point: MapPoint) => void;
   point: MapPoint;
 }) {
   const isPlace = point.kind === "place";
@@ -562,12 +614,17 @@ function PointDetailPanel({
           ) : null}
         </div>
         <div className="flex flex-none items-start gap-4">
-          <span className="grid min-w-7 place-items-center text-[#FD4003]">
-            <Heart size={20} fill="#FD4003" strokeWidth={2.3} />
+          <button
+            aria-label={point.saved ? "저장 해제" : "저장"}
+            className="grid min-w-7 place-items-center border-0 bg-transparent text-[#FD4003]"
+            onClick={() => onToggleSave(point)}
+            type="button"
+          >
+            <Heart size={20} fill={point.saved ? "#FD4003" : "none"} strokeWidth={2.3} />
             <span className="mt-1 text-[10px] leading-none font-black">
               {favoriteCount}
             </span>
-          </span>
+          </button>
           <button
             aria-label="코스에 추가하기"
             className="grid min-w-7 place-items-center border-0 bg-transparent text-[#171717]"

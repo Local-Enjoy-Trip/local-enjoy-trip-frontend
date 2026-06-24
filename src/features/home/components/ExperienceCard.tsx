@@ -1,5 +1,10 @@
 import { Heart } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import {
+  saveAttraction,
+  unsaveAttraction,
+} from "@/features/attractions/attractionApi";
 import type { Experience } from "@/shared/types/domain";
 
 type ExperienceCardProps = {
@@ -12,6 +17,8 @@ export function ExperienceCard({
   variant = "default",
 }: ExperienceCardProps) {
   const targetPlaceId = experience.placeIds[0];
+  const attractionId = getNumericId(targetPlaceId);
+  const [saved, setSaved] = useState(false);
   const mapParams = new URLSearchParams();
   if (targetPlaceId) {
     mapParams.set("filter", "place");
@@ -71,9 +78,31 @@ export function ExperienceCard({
         <div className="absolute top-2.5 left-2.5 max-w-[calc(100%-56px)] rounded-full bg-white/95 px-2.5 py-1 text-xs font-black whitespace-nowrap text-[#111111] shadow-[0_4px_12px_rgba(17,17,17,0.12)]">
           {experience.badgeLabel}
         </div>
-        <div className="absolute top-2.5 right-2.5 grid h-9 w-9 place-items-center rounded-full bg-black/25 text-white backdrop-blur-sm">
-          <Heart size={21} strokeWidth={2.6} />
-        </div>
+        <button
+          aria-label={saved ? "장소 저장 해제" : "장소 저장"}
+          className="absolute top-2.5 right-2.5 grid h-9 w-9 place-items-center rounded-full border-0 bg-black/25 text-white backdrop-blur-sm"
+          onClick={async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!attractionId) return;
+            const nextSaved = !saved;
+            setSaved(nextSaved);
+            try {
+              if (nextSaved) await saveAttraction(attractionId);
+              else await unsaveAttraction(attractionId);
+            } catch {
+              setSaved(saved);
+            }
+          }}
+          type="button"
+        >
+          <Heart
+            size={21}
+            fill={saved ? "#FD4003" : "none"}
+            className={saved ? "text-[#FD4003]" : "text-white"}
+            strokeWidth={2.6}
+          />
+        </button>
         <div className="absolute bottom-3 left-3 right-3">
           <p className="m-0 truncate text-xs font-black text-white/85">
             {experience.area}, 서울
@@ -88,4 +117,10 @@ export function ExperienceCard({
       </p>
     </Link>
   );
+}
+
+function getNumericId(id: string | undefined) {
+  if (!id) return null;
+  const value = Number(id.replace(/^place-/, ""));
+  return Number.isFinite(value) ? value : null;
 }

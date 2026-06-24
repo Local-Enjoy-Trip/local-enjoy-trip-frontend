@@ -22,7 +22,7 @@ export function LocationSelector({
         {selectedLocation}
         <ChevronDown size={21} strokeWidth={3} />
       </button>
-      <span className="relative rounded-lg bg-sky-100 px-4 py-3 text-xs leading-none font-bold text-neutral-800 transition-colors before:absolute before:left-[-4px] before:top-1/2 before:h-4 before:w-4 before:-translate-y-1/2 before:rotate-45 before:bg-sky-100">
+      <span className="relative rounded-lg bg-[#E6E6E6] px-4 py-3 text-xs leading-none font-bold text-neutral-800 transition-colors before:absolute before:left-[-4px] before:top-1/2 before:h-4 before:w-4 before:-translate-y-1/2 before:rotate-45 before:bg-[#E6E6E6]">
         {hint}
       </span>
     </div>

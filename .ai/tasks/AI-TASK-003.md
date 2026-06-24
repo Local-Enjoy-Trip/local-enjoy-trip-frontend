@@ -1,48 +1,28 @@
-# AI-TASK-003 — 서울 행정동 경계 선택 지도
+# AI-TASK-003 — Heart save API and note UX
 
-## 요청 요약
+## Summary
 
-홈의 위치 변경 지도에서 서울 행정동별 경계와 이름을 표시하고, 선택한 동의 전체 영역을 색으로 강조한다. 쪽지 위치 설정 지도는 기존 정밀 위치 선택 방식을 유지한다.
+Connect all heart icons to backend save/unsave APIs and improve note creation/location UX.
 
-## 조사
+## Swagger source
 
-- 경계 원본: `vuski/admdongkor`의 `2026-04-01` 행정동 경계
-- 원자료 계보: 통계청 SGIS 행정동 경계를 기반으로 행정구역 변경 이력을 반영한 데이터
-- 좌표계: WGS84 (EPSG:4326)
-- 적용 범위: 서울특별시 행정동만 정적 GeoJSON으로 추출
-- 런타임 API 인증 없이 동작하도록 경계 파일을 프로젝트 자산으로 제공
+- `http://localhost:8080/v3/api-docs`
 
-## 구현 계획
+## Confirmed save APIs
 
-1. 최신 전국 GeoJSON에서 서울 행정동만 추출하고 웹 지도용 정밀도로 단순화한다.
-2. GeoJSON 타입, 로더, 캐시 및 좌표 변환 유틸리티를 추가한다.
-3. 카카오 지도 Polygon과 CustomOverlay 타입을 보강한다.
-4. 홈 위치 모드에서 현재 지도 주변 행정동 경계와 이름을 표시한다.
-5. 경계 또는 이름을 누르면 해당 동을 선택하고 선택 영역을 주황색으로 강조한다.
-6. 지도 이동 시 중심 행정동을 선택 상태와 동기화한다.
-7. 쪽지 모드의 기존 정밀 핀 및 주소 선택 동작이 유지되는지 회귀 검증한다.
+- `PUT /api/attractions/{id}/save`
+- `DELETE /api/attractions/{id}/save`
+- `PUT /api/notes/{id}/save`
+- `DELETE /api/notes/{id}/save`
 
-## 승인된 변경 파일
+## Scope
 
-- `.ai/tasks/AI-TASK-003.md`
-- `.ai/logs/2026-06-21-AI-TASK-003.md`
-- `public/data/seoul-administrative-dongs.geojson`
-- `src/features/map/lib/seoulAdministrativeDongs.ts`
-- `src/features/map/types.ts`
-- `src/pages/NoteLocationPage.tsx`
+- Add missing save/unsave helpers.
+- Wire map/home place hearts and note hearts.
+- Improve the note writing page visual hierarchy and comfort.
+- Prevent note location confirmation outside Seoul.
+- Run build, lint, and visual QA.
 
-## 위험 및 대응
+## Notes
 
-- GeoJSON 용량: 서울만 필터링하고 좌표 정밀도를 줄여 완화한다.
-- 행정동 개편: 원본 기준일을 파일과 로그에 기록하고 교체 가능한 정적 자산으로 분리한다.
-- 복잡한 MultiPolygon: Polygon과 MultiPolygon을 모두 지원한다.
-- 지도 성능: 홈 위치 모드에서만 오버레이를 만들고 페이지 종료 시 제거한다.
-- 선택 불일치: 카카오 행정동 조회 결과와 행정동 코드를 우선 매칭하고 이름을 보조 키로 사용한다.
-
-## 검증
-
-- `npm run lint`
-- `npm run build`
-- 홈 위치 지도: 경계·라벨·선택 강조·홈 복귀
-- 쪽지 위치 지도: 정밀 핀·도로명 주소 회귀
-- 브라우저 콘솔 오류 확인
+- Some note list responses do not expose saved state yet, so note cards start from available data and update optimistically on click.

@@ -58,6 +58,7 @@ type NearbyNoteResponse = {
   latitude?: number;
   longitude?: number;
   regionName: string | null;
+  saved?: boolean;
   title: string;
 };
 
@@ -168,6 +169,7 @@ function toHomeNote(note: NearbyNoteResponse): HomeNote {
     name: note.authorNickname || note.authorUserId,
     place: note.regionName || note.title,
     profileImage: note.authorProfileImageUrl ?? undefined,
+    saved: note.saved ?? false,
   };
 }
 

@@ -75,6 +75,10 @@ export function saveNote(id: number) {
   return apiPut<void>(`/api/notes/${id}/save`);
 }
 
+export function unsaveNote(id: number) {
+  return apiDelete<void>(`/api/notes/${id}/save`);
+}
+
 export async function uploadNoteImage(dataUrl: string) {
   const blob = await fetch(dataUrl).then((response) => response.blob());
   const contentType = blob.type || "image/jpeg";

@@ -5,6 +5,8 @@ import {
   Globe2,
   ImagePlus,
   LockKeyhole,
+  MapPin,
+  PenLine,
   Users,
   X,
 } from "lucide-react";
@@ -26,11 +28,10 @@ import {
 import { resolveNoteImageUrl } from "@/features/notes/noteImage";
 import { homeLocationOptions } from "@/features/home/types/homeTypes";
 import type { NoteLocationSelection } from "@/pages/NoteLocationPage";
-import noteLocationPinUrl from "@/assets/note-location-pin.png";
 import type { Visibility } from "@/shared/types/domain";
 import { PageLoadingSkeleton } from "@/shared/ui/Skeleton";
 
-const MAX_BODY_LENGTH = 80;
+const MAX_BODY_LENGTH = 140;
 const defaultNoteLocation = homeLocationOptions[0];
 const noteDraftStorageKey = "spot-note-draft";
 const defaultNoteTags = ["산책", "맛집", "카페"];
@@ -274,35 +275,43 @@ export function CreateNotePage() {
   }
 
   return (
-    <section className="min-h-dvh bg-white px-5 pt-[calc(26px+env(safe-area-inset-top))] pb-8 text-[#151515]">
-      <header>
-        <h1 className="m-0 text-[1.78rem] leading-tight font-black tracking-[-0.035em]">
-          {isEditing ? "SPOT 쪽지 수정" : "박기현님의 SPOT 쪽지"}
-        </h1>
-        <p className="mt-2 mb-0 text-[0.94rem] leading-relaxed font-semibold text-[#777]">
-          {isEditing
-            ? "남겨둔 장소의 기록을 다시 다듬어보세요."
-            : "방금 스친 장소의 온도와 기분을 짧게 남겨보세요."}
-        </p>
-
+    <section className="min-h-dvh bg-[#F8F3EC] px-4 pt-[calc(18px+env(safe-area-inset-top))] pb-[calc(18px+env(safe-area-inset-bottom))] text-[#201B16]">
+      <header className="rounded-[30px] bg-[#FFFDF8] px-5 py-5 shadow-[0_18px_44px_rgba(93,65,37,0.08)]">
+        <div className="flex items-start gap-3">
+          <span className="grid size-12 flex-none place-items-center rounded-2xl bg-[#FFE7D9] text-[#FF4300]">
+            <PenLine size={23} strokeWidth={2.5} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="m-0 text-xs font-black tracking-[0.16em] text-[#FF4300]">
+              {isEditing ? "EDIT NOTE" : "LEAVE A NOTE"}
+            </p>
+            <h1 className="mt-2 mb-0 text-[1.75rem] leading-tight font-black tracking-[-0.055em]">
+              {isEditing ? "남겨둔 쪽지를 다듬어요" : "이 장소에 작은 쪽지를 붙여요"}
+            </h1>
+            <p className="mt-2 mb-0 text-[0.9rem] leading-relaxed font-semibold text-[#8A7A6E]">
+              {isEditing
+                ? "그날의 문장과 사진을 조금 더 자연스럽게 고쳐보세요."
+                : "길게 쓰지 않아도 괜찮아요. 다음 사람에게 닿을 한 줄이면 충분해요."}
+            </p>
+          </div>
+        </div>
         <button
-          className="mt-7 flex w-full items-center justify-between gap-4 rounded-[26px] border border-white/80 bg-white/72 px-4 py-4 text-left shadow-[0_16px_36px_rgba(39,32,25,0.07),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur transition-[border-color,transform,box-shadow] active:scale-[0.995]"
+          className="mt-5 flex w-full items-center justify-between gap-4 rounded-[24px] border border-[#F4D9C8] bg-[#FFF6EF] px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition-[border-color,transform,box-shadow] active:scale-[0.995]"
           type="button"
           onClick={openLocationPage}
         >
           <span className="flex min-w-0 items-center gap-3">
-            <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-[#fff4ef]">
-              <img
-                className="h-9 w-9 object-contain"
-                src={noteLocationPinUrl}
-                alt=""
-              />
+            <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-white text-[#FF4300] shadow-[0_8px_18px_rgba(255,67,0,0.08)]">
+              <MapPin size={22} fill="#FF4300" />
             </span>
             <span className="min-w-0">
-              <strong className="block truncate text-[0.98rem] font-black text-[#242424]">
+              <small className="mb-1 block text-[0.68rem] font-black text-[#B76745]">
+                붙일 위치
+              </small>
+              <strong className="block truncate text-[1rem] font-black text-[#2B241E]">
                 {noteLocation.name}
               </strong>
-              <small className="mt-1 block truncate text-[0.78rem] font-semibold text-[#8b8580]">
+              <small className="mt-1 block truncate text-[0.78rem] font-semibold text-[#9A7564]">
                 {noteLocation.address}
               </small>
             </span>
@@ -313,7 +322,7 @@ export function CreateNotePage() {
         </button>
       </header>
 
-      <form className="mt-7 grid gap-6" onSubmit={handleSubmit}>
+      <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
         <input
           ref={fileInputRef}
           className="sr-only"
@@ -322,12 +331,12 @@ export function CreateNotePage() {
           onChange={handleImageChange}
         />
 
-        <section>
-          <div className="grid grid-cols-[1.28fr_1fr] gap-2.5">
+        <section className="rounded-[30px] bg-[#FFFDF8] p-4 shadow-[0_18px_44px_rgba(93,65,37,0.08)]">
+          <div className="grid grid-cols-[1.2fr_1fr] gap-3">
             <AnimatePresence mode="wait">
               {imagePreview ? (
                 <motion.div
-                  className="relative aspect-square overflow-hidden rounded-[24px] bg-[#f3f1ef] shadow-[0_14px_32px_rgba(39,32,25,0.06)]"
+                  className="relative aspect-square overflow-hidden rounded-[25px] bg-[#F1E7DB] shadow-[0_14px_32px_rgba(39,32,25,0.06)]"
                   key="preview"
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -359,7 +368,7 @@ export function CreateNotePage() {
                 </motion.div>
               ) : (
                 <motion.button
-                  className="grid aspect-square place-items-center rounded-[24px] bg-[#f3f1ef] text-center shadow-[0_14px_32px_rgba(39,32,25,0.05)] transition-[background-color,transform] active:scale-[0.99]"
+                  className="grid aspect-square place-items-center rounded-[25px] border border-dashed border-[#E8C9B8] bg-[#FBF2EA] text-center shadow-[0_14px_32px_rgba(39,32,25,0.05)] transition-[background-color,transform] active:scale-[0.99]"
                   key="empty"
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -372,11 +381,11 @@ export function CreateNotePage() {
                     <span className="mx-auto grid h-13 w-13 place-items-center rounded-2xl bg-[#FF4300] text-white shadow-[0_12px_26px_rgba(255,67,0,0.18)]">
                       <ImagePlus size={23} strokeWidth={2.2} />
                     </span>
-                    <strong className="mt-3 block text-sm font-black text-[#242424]">
-                      사진
+                    <strong className="mt-3 block text-sm font-black text-[#3A2E25]">
+                      사진 한 장
                     </strong>
-                    <small className="mt-1 block text-[0.7rem] font-semibold text-[#9a948e]">
-                      한 장 추가
+                    <small className="mt-1 block text-[0.7rem] font-semibold text-[#A18B7D]">
+                      분위기를 같이 붙여요
                     </small>
                   </span>
                 </motion.button>
@@ -386,7 +395,7 @@ export function CreateNotePage() {
             <div className="relative grid grid-cols-2 grid-rows-2 gap-2.5">
               {tagValues.map((tag, index) => (
                 <label
-                  className="flex min-h-0 items-center justify-center rounded-[19px] bg-[#f3f1ef] px-2 text-center shadow-[0_10px_24px_rgba(39,32,25,0.045)] transition-[background-color,box-shadow] focus-within:bg-[#fff3ed] focus-within:shadow-[inset_0_0_0_1px_#FF4300]"
+                  className="flex min-h-0 items-center justify-center rounded-[19px] bg-[#F7EEE5] px-2 text-center shadow-[0_10px_24px_rgba(39,32,25,0.035)] transition-[background-color,box-shadow] focus-within:bg-[#fff3ed] focus-within:shadow-[inset_0_0_0_1px_#FF4300]"
                   key={index}
                 >
                   <span className="text-sm font-black text-[#FF4300]">#</span>
@@ -401,7 +410,7 @@ export function CreateNotePage() {
               ))}
 
               <button
-                className="min-h-0 rounded-[19px] bg-[#f3f1ef] px-2 text-sm font-black text-[#242424] shadow-[0_10px_24px_rgba(39,32,25,0.045)] transition-transform active:scale-[0.98]"
+                className="min-h-0 rounded-[19px] bg-[#F7EEE5] px-2 text-sm font-black text-[#3A2E25] shadow-[0_10px_24px_rgba(39,32,25,0.035)] transition-transform active:scale-[0.98]"
                 type="button"
                 onClick={() => setIsVisibilityOpen((isOpen) => !isOpen)}
                 aria-expanded={isVisibilityOpen}
@@ -448,16 +457,16 @@ export function CreateNotePage() {
             </div>
           </div>
 
-          <label className="mt-3 block font-black text-[#242424]">
+          <label className="mt-4 block font-black text-[#3A2E25]">
             <span className="sr-only">쪽지 내용</span>
             <div className="relative">
               <textarea
-                className="min-h-[190px] w-full resize-none rounded-[24px] border border-[#efeae5] bg-white p-5 pb-10 leading-relaxed font-semibold text-[#242424] shadow-[0_14px_32px_rgba(39,32,25,0.045)] outline-none transition-[border-color,box-shadow] placeholder:font-semibold placeholder:text-[#b6b0aa] focus:border-[#FF4300] focus:shadow-[0_0_0_4px_rgba(255,67,0,0.08)]"
+                className="min-h-[230px] w-full resize-none rounded-[26px] border border-[#EFE0D5] bg-[linear-gradient(#fffdf8_31px,#f2e8de_32px)] bg-[length:100%_32px] p-5 pb-11 leading-8 font-semibold text-[#3A2E25] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] outline-none transition-[border-color,box-shadow] placeholder:font-semibold placeholder:text-[#B7A69B] focus:border-[#FF4300] focus:shadow-[0_0_0_4px_rgba(255,67,0,0.08)]"
                 maxLength={MAX_BODY_LENGTH}
                 onChange={(event) =>
                   setBody(event.target.value.slice(0, MAX_BODY_LENGTH))
                 }
-                placeholder="이 장소에서 남기고 싶은 한 줄을 적어보세요."
+                placeholder="예: 이 골목은 해질 때 조용해서 천천히 걷기 좋아요."
                 value={body}
               />
               <span
@@ -474,7 +483,7 @@ export function CreateNotePage() {
         </section>
 
         <button
-          className="inline-flex min-h-[58px] w-full items-center justify-center gap-2 rounded-[22px] border-0 bg-[#FF4300] font-black text-white shadow-[0_16px_30px_rgba(255,67,0,0.22)] transition-[opacity,transform,box-shadow] active:scale-[0.99] disabled:bg-[#efefef] disabled:text-[#aaa] disabled:shadow-none"
+          className="sticky bottom-[calc(12px+env(safe-area-inset-bottom))] z-10 inline-flex min-h-[58px] w-full items-center justify-center gap-2 rounded-[22px] border-0 bg-[#FF4300] font-black text-white shadow-[0_16px_30px_rgba(255,67,0,0.22)] transition-[opacity,transform,box-shadow] active:scale-[0.99] disabled:bg-[#E7DDD3] disabled:text-[#A99B90] disabled:shadow-none"
           disabled={!body.trim() || noteMutation.isPending}
           type="submit"
         >

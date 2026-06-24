@@ -1,5 +1,7 @@
 export type SavedCourseStop = {
+  attractionId?: number;
   id: number;
+  noteId?: number;
   title: string;
   category: string;
   description: string;
@@ -13,6 +15,7 @@ export type SavedCourse = {
   title: string;
   area: string;
   companion: string;
+  date?: string;
   styles: string[];
   pace: string;
   savedAt: string;

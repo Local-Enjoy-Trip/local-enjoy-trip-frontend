@@ -4,6 +4,11 @@ import {
   type SavedCourseStop,
 } from "@/features/course/courseStorage";
 import {
+  createCourse,
+  type CourseCreateRequest,
+  type CourseItemRequest,
+} from "@/features/course/courseApi";
+import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
@@ -51,18 +56,18 @@ const paces = [
 
 const placePool: Record<string, Array<Omit<SavedCourseStop, "id">>> = {
   망원동: [
-    { title: "망원시장", category: "시장·먹거리", description: "동네 간식으로 가볍게 하루를 시작해요.", imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=720&q=80", lat: 37.5567, lng: 126.9057 },
-    { title: "망리단길 골목", category: "로컬 산책", description: "작은 가게와 오래된 주택 사이를 천천히 걸어요.", imageUrl: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=720&q=80", lat: 37.5554, lng: 126.9072 },
-    { title: "망원한강공원", category: "공원·산책", description: "강바람을 맞으며 노을이 드는 시간을 즐겨요.", imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80", lat: 37.5548, lng: 126.8959 },
-    { title: "포은로 책방", category: "책방·문화", description: "동네 큐레이션이 담긴 작은 책방에서 쉬어가요.", imageUrl: "https://images.unsplash.com/photo-1526243741027-444d633d7365?auto=format&fit=crop&w=720&q=80", lat: 37.558, lng: 126.904 },
-    { title: "월드컵시장", category: "시장·로컬", description: "관광지보다 생활에 가까운 시장 풍경을 만나요.", imageUrl: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=720&q=80", lat: 37.5595, lng: 126.9048 },
+    { attractionId: 125405, title: "망원시장", category: "시장·먹거리", description: "동네 간식으로 가볍게 하루를 시작해요.", imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=720&q=80", lat: 37.5567, lng: 126.9057 },
+    { attractionId: 126508, title: "망리단길 골목", category: "로컬 산책", description: "작은 가게와 오래된 주택 사이를 천천히 걸어요.", imageUrl: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=720&q=80", lat: 37.5554, lng: 126.9072 },
+    { attractionId: 126509, title: "망원한강공원", category: "공원·산책", description: "강바람을 맞으며 노을이 드는 시간을 즐겨요.", imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80", lat: 37.5548, lng: 126.8959 },
+    { attractionId: 126510, title: "포은로 책방", category: "책방·문화", description: "동네 큐레이션이 담긴 작은 책방에서 쉬어가요.", imageUrl: "https://images.unsplash.com/photo-1526243741027-444d633d7365?auto=format&fit=crop&w=720&q=80", lat: 37.558, lng: 126.904 },
+    { attractionId: 126511, title: "월드컵시장", category: "시장·로컬", description: "관광지보다 생활에 가까운 시장 풍경을 만나요.", imageUrl: "https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=720&q=80", lat: 37.5595, lng: 126.9048 },
   ],
   성수동: [
-    { title: "서울숲", category: "공원·산책", description: "나무 그늘이 이어지는 길부터 여유롭게 걸어요.", imageUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=720&q=80", lat: 37.5444, lng: 127.0374 },
-    { title: "연무장길", category: "편집숍·골목", description: "성수의 새 공간과 오래된 공장 골목을 함께 봐요.", imageUrl: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=720&q=80", lat: 37.5436, lng: 127.0542 },
-    { title: "성수 베이커리 골목", category: "카페·디저트", description: "갓 구운 빵 냄새를 따라 잠깐 쉬어가요.", imageUrl: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=720&q=80", lat: 37.5462, lng: 127.0428 },
-    { title: "뚝섬한강공원", category: "한강·휴식", description: "탁 트인 강변에서 일정을 느긋하게 마무리해요.", imageUrl: "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&w=720&q=80", lat: 37.5293, lng: 127.0682 },
-    { title: "성수 독립서점", category: "책방·문화", description: "취향이 담긴 책과 소품을 천천히 둘러봐요.", imageUrl: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=720&q=80", lat: 37.545, lng: 127.048 },
+    { attractionId: 125405, title: "서울숲", category: "공원·산책", description: "나무 그늘이 이어지는 길부터 여유롭게 걸어요.", imageUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=720&q=80", lat: 37.5444, lng: 127.0374 },
+    { attractionId: 126508, title: "연무장길", category: "편집숍·골목", description: "성수의 새 공간과 오래된 공장 골목을 함께 봐요.", imageUrl: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=720&q=80", lat: 37.5436, lng: 127.0542 },
+    { attractionId: 126509, title: "성수 베이커리 골목", category: "카페·디저트", description: "갓 구운 빵 냄새를 따라 잠깐 쉬어가요.", imageUrl: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=720&q=80", lat: 37.5462, lng: 127.0428 },
+    { attractionId: 126510, title: "뚝섬한강공원", category: "한강·휴식", description: "탁 트인 강변에서 일정을 느긋하게 마무리해요.", imageUrl: "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&w=720&q=80", lat: 37.5293, lng: 127.0682 },
+    { attractionId: 126511, title: "성수 독립서점", category: "책방·문화", description: "취향이 담긴 책과 소품을 천천히 둘러봐요.", imageUrl: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=720&q=80", lat: 37.545, lng: 127.048 },
   ],
 };
 
@@ -103,6 +108,45 @@ function makeRecommendation(
   };
 }
 
+function toCourseCreateRequest(course: SavedCourse): CourseCreateRequest | null {
+  const items = course.stops.flatMap<CourseItemRequest>((stop, index) => {
+    if (stop.attractionId) {
+      return [{
+        attractionId: stop.attractionId,
+        day: 1,
+        itemType: "ATTRACTION" as const,
+        memo: stop.description,
+        position: index + 1,
+        stayMinutes: 60,
+      }];
+    }
+    if (stop.noteId) {
+      return [{
+        day: 1,
+        itemType: "NOTE" as const,
+        memo: stop.description,
+        noteId: stop.noteId,
+        position: index + 1,
+        stayMinutes: 60,
+      }];
+    }
+    return [];
+  });
+
+  if (items.length < 2) return null;
+
+  return {
+    coverImageUrl: course.stops[0]?.imageUrl,
+    description: `${course.companion} · ${course.styles.join(" · ")} · ${course.pace}`,
+    id: course.id,
+    items,
+    regionName: course.area,
+    status: "READY",
+    title: course.title,
+    visibility: "PRIVATE",
+  };
+}
+
 function ChoiceButton({
   label,
   selected,
@@ -137,6 +181,8 @@ function AiCourseCreator() {
   const [pace, setPace] = useState("");
   const [phase, setPhase] = useState<"questions" | "loading" | "result">("questions");
   const [version, setVersion] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState("");
   const recommendation = useMemo(
     () => makeRecommendation(area, companion, styles, pace, version),
     [area, companion, pace, styles, version],
@@ -178,6 +224,30 @@ function AiCourseCreator() {
     setVersion(0);
     setStep(0);
     setPhase("questions");
+  }
+
+  async function saveRecommendation() {
+    if (isSaving) return;
+
+    setIsSaving(true);
+    setSaveNotice("");
+    const request = toCourseCreateRequest(recommendation);
+
+    if (request) {
+      try {
+        const course = await createCourse(request);
+        navigate(`/course/${course.id}`);
+        return;
+      } catch {
+        setSaveNotice("서버 저장이 어려워 임시 코스로 담아둘게요.");
+      }
+    } else {
+      setSaveNotice("실제 장소 ID가 없어 임시 코스로 담아둘게요.");
+    }
+
+    saveCourse(recommendation);
+    navigate(`/course/${recommendation.id}`);
+    setIsSaving(false);
   }
 
   if (phase === "loading") {
@@ -242,7 +312,8 @@ function AiCourseCreator() {
           <div className="text-3xl">💚</div>
           <h2 className="mt-2 mb-0 text-xl font-black">이 코스가 마음에 드나요?</h2>
           <p className="mt-2 text-sm font-semibold text-[#817B73]">담아두면 내 코스에서 언제든 편집하고 친구와 함께 볼 수 있어요.</p>
-          <button className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white" onClick={() => { saveCourse(recommendation); navigate(`/course/${recommendation.id}`); }} type="button"><Plus size={20} />내 코스에 담기</button>
+          {saveNotice ? <p className="mt-3 mb-0 rounded-xl bg-[#FFF7ED] px-3 py-2 text-xs font-bold text-[#A04A14]">{saveNotice}</p> : null}
+          <button className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#AAB8AE]" disabled={isSaving} onClick={saveRecommendation} type="button"><Plus size={20} />{isSaving ? "담는 중..." : "내 코스에 담기"}</button>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A]" onClick={() => { setVersion((current) => current + 1); setPhase("loading"); }} type="button"><RefreshCw size={17} />새로운 추천</button>
             <button className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A]" onClick={reset} type="button"><RotateCcw size={17} />처음부터</button>

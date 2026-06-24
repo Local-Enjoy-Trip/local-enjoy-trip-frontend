@@ -173,6 +173,7 @@ export function NoteLocationPage() {
     locationConsent === "declined" ||
     isReturningWithSelection ||
     currentLocationStatus === "success";
+  const canConfirmLocation = isMapCenterInSeoul;
 
   const resolvePlaceName = useCallback((
     address: string,
@@ -290,6 +291,8 @@ export function NoteLocationPage() {
         if (geocodeRequestRef.current !== requestId) return;
 
         if (geocodeStatus !== kakaoMaps.services?.Status.OK || !result[0]) {
+          setIsMapCenterInSeoul(false);
+          setSearchMessage("서울 안의 장소만 쪽지 위치로 설정할 수 있어요.");
           return;
         }
 
@@ -301,6 +304,14 @@ export function NoteLocationPage() {
           : undefined;
 
         if (!address) {
+          setIsMapCenterInSeoul(false);
+          setSearchMessage("서울 안의 장소만 쪽지 위치로 설정할 수 있어요.");
+          return;
+        }
+
+        if (!address.startsWith("서울")) {
+          setIsMapCenterInSeoul(false);
+          setSearchMessage("서울 안의 장소만 쪽지 위치로 설정할 수 있어요.");
           return;
         }
 
@@ -308,6 +319,8 @@ export function NoteLocationPage() {
         preservedNameRef.current = null;
         const fallbackResolvedName = preservedName ?? getAddressName(address);
 
+        setIsMapCenterInSeoul(true);
+        setSearchMessage(null);
         setSelection((current) => ({
           ...current,
           address,
@@ -323,6 +336,7 @@ export function NoteLocationPage() {
     geocodeRequestRef.current += 1;
     preservedNameRef.current = nextSelection.name;
     setSelection(nextSelection);
+    setIsMapCenterInSeoul(nextSelection.address.startsWith("서울"));
 
     if (mapRef.current && window.kakao) {
       if (isHomeLocation) {
@@ -687,8 +701,12 @@ export function NoteLocationPage() {
   }
 
   function confirmLocation() {
-    if (isHomeLocation && !isMapCenterInSeoul) {
-      setSearchMessage("서울 지역의 동네만 선택할 수 있어요.");
+    if (!canConfirmLocation) {
+      setSearchMessage(
+        isHomeLocation
+          ? "서울 지역의 동네만 선택할 수 있어요."
+          : "서울 안의 장소만 쪽지 위치로 설정할 수 있어요.",
+      );
       return;
     }
 
@@ -821,8 +839,9 @@ export function NoteLocationPage() {
           </div>
           <div className="mt-5 h-px bg-[#eeeeee]" />
           <button
-            className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-[#FF4300] font-black text-white shadow-[0_10px_20px_rgba(255,67,0,0.2)]"
+            className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-[#FF4300] font-black text-white shadow-[0_10px_20px_rgba(255,67,0,0.2)] disabled:bg-[#E2DDD6] disabled:text-[#9F978E] disabled:shadow-none"
             type="button"
+            disabled={!canConfirmLocation}
             onClick={confirmLocation}
           >
             {isHomeLocation ? "이 동네로 설정하기" : "이 위치로 설정하기"}
