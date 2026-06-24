@@ -24,13 +24,16 @@ type PlaceMapPinResponse = {
   contentTypeId: string;
   distanceMeters: number;
   favorited?: boolean;
+  favoriteCount?: number;
   id: number;
   imageUrl: string | null;
   latitude: number;
   longitude: number;
   ratingAverage: number;
   ratingCount: number;
+  saveCount?: number;
   saved?: boolean;
+  savedCount?: number;
   title: string;
 };
 
@@ -47,7 +50,10 @@ type NoteMapPinResponse = {
   longitude: number;
   regionName: string;
   relationshipToViewer: ApiViewerRelationship;
+  favoriteCount?: number;
+  saveCount?: number;
   saved?: boolean;
+  savedCount?: number;
   title: string;
   visibility: ApiVisibility;
 };
@@ -141,6 +147,7 @@ function toPlace(place: PlaceMapPinResponse): Place {
   return {
     area: place.address,
     coordinates: { lat: place.latitude, lng: place.longitude },
+    favoriteCount: getFavoriteCount(place),
     id: `place-${place.id}`,
     imageUrl: place.imageUrl || fallbackPlaceImage,
     name: place.title,
@@ -160,6 +167,7 @@ function toLocalNote(note: NoteMapPinResponse): LocalNote {
     category: toNoteCategory(note.category),
     coordinates: { lat: note.latitude, lng: note.longitude },
     createdAt: note.createdAt,
+    favoriteCount: getFavoriteCount(note),
     id: `note-${note.id}`,
     imageUrl: resolveNoteImageUrl(note.imageObjectKey),
     placeName: note.regionName,
@@ -167,6 +175,18 @@ function toLocalNote(note: NoteMapPinResponse): LocalNote {
     saved: note.saved ?? false,
     visibility: note.visibility.toLowerCase() as Visibility,
   };
+}
+
+function getFavoriteCount(item: {
+  favoriteCount?: number;
+  saveCount?: number;
+  saved?: boolean;
+  savedCount?: number;
+}) {
+  return Math.max(
+    0,
+    item.savedCount ?? item.saveCount ?? item.favoriteCount ?? (item.saved ? 1 : 0),
+  );
 }
 
 function toNoteCategory(category: ApiNoteCategory): NoteCategory {

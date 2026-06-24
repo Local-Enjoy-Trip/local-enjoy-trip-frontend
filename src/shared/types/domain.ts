@@ -27,6 +27,7 @@ export type Place = {
   coordinates: Coordinates;
   imageUrl: string;
   saved: boolean;
+  favoriteCount: number;
 };
 
 export type LocalNote = {
@@ -41,6 +42,7 @@ export type LocalNote = {
   placeName: string;
   coordinates: Coordinates;
   saved: boolean;
+  favoriteCount: number;
   relationshipToViewer?: ViewerRelationship;
 };
 

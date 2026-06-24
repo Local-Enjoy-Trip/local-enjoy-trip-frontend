@@ -11,6 +11,7 @@ export const places: Place[] = [
     imageUrl:
       "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=900&q=80",
     saved: true,
+    favoriteCount: 1,
   },
   {
     id: "place-hangang",
@@ -22,6 +23,7 @@ export const places: Place[] = [
     imageUrl:
       "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
     saved: false,
+    favoriteCount: 0,
   },
   {
     id: "place-seoul-forest",
@@ -33,6 +35,7 @@ export const places: Place[] = [
     imageUrl:
       "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=900&q=80",
     saved: false,
+    favoriteCount: 0,
   },
 ];
 
@@ -48,6 +51,7 @@ export const notes: LocalNote[] = [
     placeName: "망원시장 골목",
     coordinates: { lat: 37.5562, lng: 126.9049 },
     saved: true,
+    favoriteCount: 1,
   },
   {
     id: "note-2",
@@ -60,6 +64,7 @@ export const notes: LocalNote[] = [
     placeName: "성수 카페 거리",
     coordinates: { lat: 37.5449, lng: 127.0442 },
     saved: false,
+    favoriteCount: 0,
   },
   {
     id: "note-3",
@@ -72,6 +77,7 @@ export const notes: LocalNote[] = [
     placeName: "망원한강공원 입구",
     coordinates: { lat: 37.5545, lng: 126.897 },
     saved: false,
+    favoriteCount: 0,
   },
   {
     id: "note-4",
@@ -84,6 +90,7 @@ export const notes: LocalNote[] = [
     placeName: "성수 베이커리 골목",
     coordinates: { lat: 37.5462, lng: 127.0428 },
     saved: true,
+    favoriteCount: 1,
   },
   {
     id: "note-5",
@@ -96,6 +103,7 @@ export const notes: LocalNote[] = [
     placeName: "서울숲 은행나무길",
     coordinates: { lat: 37.5451, lng: 127.0393 },
     saved: false,
+    favoriteCount: 0,
   },
 ];
 

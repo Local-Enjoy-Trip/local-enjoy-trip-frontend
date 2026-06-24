@@ -1,28 +1,28 @@
-# AI-TASK-003 — Heart save API and note UX
+# AI-TASK-003
 
-## Summary
+## Prompt Summary
 
-Connect all heart icons to backend save/unsave APIs and improve note creation/location UX.
+Refine the course page layout after AI-TASK-002. Shrink the header, base the hero and recommendations on the next dated trip, change section copy, group public course carousels by popular hashtags in pairs, restore the course creation panel in the page body, and add a floating upcoming-trip image button that expands into a horizontal trip panel.
 
-## Swagger source
+## Approved Files
 
-- `http://localhost:8080/v3/api-docs`
+- `.ai/tasks/AI-TASK-003.md`
+- `.ai/logs/AI-TASK-003.md`
+- `src/pages/CoursePage.tsx`
 
-## Confirmed save APIs
+## Plan
 
-- `PUT /api/attractions/{id}/save`
-- `DELETE /api/attractions/{id}/save`
-- `PUT /api/notes/{id}/save`
-- `DELETE /api/notes/{id}/save`
-
-## Scope
-
-- Add missing save/unsave helpers.
-- Wire map/home place hearts and note hearts.
-- Improve the note writing page visual hierarchy and comfort.
-- Prevent note location confirmation outside Seoul.
-- Run build, lint, and visual QA.
+1. Update header sizing and spacing.
+2. Change trip selection from latest saved course to nearest upcoming dated course.
+3. Render `n일 뒤` as the accent-colored part of the hero line.
+4. Remove the `내 최근 코스` carousel.
+5. Rename the place recommendation section.
+6. Add the course creation panel back into the body.
+7. Group public course sections by two popular non-area hashtags.
+8. Add a bottom-right floating representative-image button and expanded trip panel.
+9. Verify with build and lint.
 
 ## Notes
 
-- Some note list responses do not expose saved state yet, so note cards start from available data and update optimistically on click.
+- API courses do not currently expose a trip date, so next-trip selection can only use locally saved courses with `date`.
+- If no dated future trip exists, the page falls back to the most recently saved/local course or a default neighborhood.

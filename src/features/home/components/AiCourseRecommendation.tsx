@@ -6,8 +6,8 @@ export function AiCourseRecommendation() {
 
   return (
     <section className="mt-8 px-5">
-      <div className="rounded-[20px] bg-linear-to-br from-[#ff957f] via-[#ffd1cc] to-[#ff6549] p-[2px] shadow-[0_2px_5px_rgba(17,17,17,0.08)]">
-        <article className="rounded-[22px] bg-[#fbfbfb] px-6 py-7">
+      <div className="ai-course-recommendation-glow rounded-[20px] p-[2px] shadow-[0_2px_5px_rgba(17,17,17,0.08)]">
+        <article className="relative z-10 rounded-[22px] bg-[#fbfbfb] px-6 py-7">
           <p className="m-0 text-[20px] leading-tight font-extrabold tracking-[-0.035em] text-[#252525]">
             어디갈지 모르겠을 땐, 곳곳 AI 추천
           </p>

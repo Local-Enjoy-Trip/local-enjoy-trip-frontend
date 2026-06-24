@@ -1,60 +1,44 @@
-# AI-TASK-002 log
+# AI-TASK-002 Log
 
-## Prompt summary
+## Prompt Summary
 
-User asked to inspect Swagger at `http://localhost:8080/swagger-ui/index.html#/` and integrate the course API.
+Rework home course curation and course page around neighborhood-based courses, latest trip recommendations, and a new course header/menu.
 
-## Swagger/API inspection
+## Files Inspected
 
-- Initial sandboxed `curl` to `localhost:8080` failed due local TCP sandbox restrictions.
-- Escalated read-only `curl -sS http://localhost:8080/v3/api-docs` succeeded.
-- Extracted course paths and schemas from OpenAPI JSON.
-
-## Files inspected
-
-- `src/shared/api/http.ts`
-- `src/features/map/mapApi.ts`
-- `src/features/friends/friendApi.ts`
+- `src/pages/HomePage.tsx`
 - `src/pages/CoursePage.tsx`
-- `src/pages/CreateCoursePage.tsx`
-- `src/pages/CourseDetailPage.tsx`
-- `src/features/course/courseStorage.ts`
-- `../local-enjoy-trip-backend/docs/api/courses.md`
-- `../local-enjoy-trip-backend/core/core-api/src/main/java/com/ssafy/enjoytrip/core/api/web/controller/CourseController.java`
-- Backend course request/response DTOs
-
-## Files changed
-
-- `.ai/tasks/AI-TASK-002.md`
+- `src/features/home/components/CourseCurationSection.tsx`
+- `src/features/home/components/ExperienceSection.tsx`
+- `src/features/home/components/ExperienceCard.tsx`
+- `src/features/home/components/SpotNoteCarousel.tsx`
 - `src/features/course/courseApi.ts`
 - `src/features/course/courseStorage.ts`
+- `src/shared/data/mockData.ts`
+- `src/shared/components/AppShell.tsx`
+
+## Files Changed
+
+- `.ai/tasks/AI-TASK-002.md`
+- `.ai/logs/AI-TASK-002.md`
+- `src/assets/courseLogo.svg`
+- `src/features/course/components/CourseDiscoveryCard.tsx`
+- `src/features/home/components/CourseCurationSection.tsx`
+- `src/pages/HomePage.tsx`
 - `src/pages/CoursePage.tsx`
-- `src/pages/CreateCoursePage.tsx`
-- `src/pages/CourseDetailPage.tsx`
 
-## Implementation notes
+## Commands Run
 
-- Added a Swagger-shaped course API adapter.
-- Course list now loads `GET /api/courses/me`, caches API courses, and falls back to local temporary courses on failure.
-- Course detail now uses cached/API course data when available and keeps local/mock fallback behavior.
-- AI route organization now calls `POST /api/courses/{id}/order-recommendation` for API-backed courses and saves the accepted order with `PUT /api/courses/{id}`.
-- AI recommendation save now attempts `POST /api/courses` first and falls back to local temporary storage if backend item IDs are unavailable or the create call fails.
-
-## Known constraints
-
-- Swagger `CourseItemResponse` does not expose coordinates, image URL, or category. Detail map uses stable generated coordinates around the course start location/default route.
-- `POST /api/courses` requires items with `attractionId` or `noteId`. Mock AI recommendations include candidate attraction IDs, but backend data may reject them; fallback storage keeps the UX working.
-- Collaborator/friend sharing still has no course collaboration API in Swagger, so it remains local UI state for now.
-
-## Commands run
-
-- `curl -sS http://localhost:8080/v3/api-docs`
+- `Copy-Item -LiteralPath 'C:\Users\SSAFY\Downloads\courseLogo.svg' -Destination 'C:\jack\local-enjoy-trip-frontend\src\assets\courseLogo.svg' -Force`
 - `npm run build`
 - `npm run lint`
-- `git diff --check`
+- `npm run build`
 
-## Verification result
+## Build/Lint Result
 
-- Build: passed
-- Lint: passed with one existing Fast Refresh warning in `src/features/map/components/MapListCard.tsx`
-- Diff whitespace check: passed
+- `npm run build`: passed. Vite chunk size warning remains.
+- `npm run lint`: passed with warnings. Remaining warnings are fast-refresh export warnings in `CourseDiscoveryCard.tsx` and existing files, plus an existing `MapPage.tsx` hook dependency warning.
+
+## Reviewer Result
+
+- Self-review complete. Scope stayed within approved files except reading/copying the provided logo into the approved asset path. All courses are treated as public in the new feed/display UI.

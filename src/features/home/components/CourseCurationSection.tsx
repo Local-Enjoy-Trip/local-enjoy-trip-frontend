@@ -1,21 +1,59 @@
-import { MapPinned } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  apiCourseToDiscovery,
+  CourseDiscoveryCard,
+  savedCourseToDiscovery,
+} from "@/features/course/components/CourseDiscoveryCard";
+import { getCourseFeed } from "@/features/course/courseApi";
+import { getSavedCourses } from "@/features/course/courseStorage";
+import type { Coordinates } from "@/shared/types/domain";
 import { SectionHeader } from "@/shared/ui/SectionHeader";
+import { Skeleton } from "@/shared/ui/Skeleton";
 
-export function CourseCurationSection({ location }: { location: string }) {
+export function CourseCurationSection({
+  coordinates,
+  location,
+}: {
+  coordinates: Coordinates;
+  location: string;
+}) {
+  const courseFeedQuery = useQuery({
+    queryFn: () =>
+      getCourseFeed({
+        limit: 10,
+        mapX: coordinates.lng,
+        mapY: coordinates.lat,
+        radius: 3_000,
+      }),
+    queryKey: ["home-course-feed", location, coordinates.lat, coordinates.lng],
+    retry: 1,
+  });
+  const courses =
+    courseFeedQuery.data && courseFeedQuery.data.length > 0
+      ? courseFeedQuery.data.map(apiCourseToDiscovery)
+      : getSavedCourses()
+          .filter((course) => course.area.includes(location) || location.includes(course.area))
+          .map(savedCourseToDiscovery);
+
   return (
     <section className="mt-8">
-      <SectionHeader title="이곳저곳 인기 큐레이션" actionTo="/course" />
-      <div className="mx-5 grid min-h-36 place-items-center rounded-[20px] bg-[#F7F6F3] px-6 text-center">
-        <div>
-          <MapPinned className="mx-auto text-[#FD4003]" size={26} />
-          <p className="mt-3 mb-0 text-sm font-extrabold text-[#302E2A]">
-            {location} 인기 코스를 준비하고 있어요
-          </p>
-          <p className="mt-1.5 mb-0 text-xs font-semibold text-[#817A71]">
-            동네별 공개 코스 API가 연결되면 바로 보여드릴게요.
-          </p>
+      <SectionHeader title={`${location} 인기 코스`} actionTo="/course" />
+      {courseFeedQuery.isLoading ? (
+        <div className="flex gap-4 overflow-hidden px-5 pb-2">
+          <Skeleton className="h-[330px] w-[252px] flex-none rounded-[22px]" />
+          <Skeleton className="h-[330px] w-[252px] flex-none rounded-[22px]" />
         </div>
-      </div>
+      ) : courses.length > 0 ? (
+        <div className="flex snap-x scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
+          {courses.map((course) => (
+            <CourseDiscoveryCard course={course} key={course.id} />
+          ))}
+        </div>
+      ) : (
+        <p className="mx-5 my-0 rounded-[20px] bg-[#F7F6F3] px-5 py-8 text-center text-sm font-bold text-[#77736C]">
+          {location}에서 시작할 수 있는 코스를 곧 보여드릴게요.
+        </p>
+      )}
     </section>
   );
 }

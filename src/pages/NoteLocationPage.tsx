@@ -116,6 +116,7 @@ function createFallbackPoint(selection: NoteLocationSelection): MapPoint {
       coordinates: selection.coordinates,
       imageUrl: "",
       saved: false,
+      favoriteCount: 0,
     },
   };
 }

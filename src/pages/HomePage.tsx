@@ -136,7 +136,10 @@ export function HomePage() {
         isLoading={nearbyNotesQuery.isLoading}
         notes={nearbyNotesQuery.data ?? []}
       />
-      <CourseCurationSection location={neighborhoodName} />
+      <CourseCurationSection
+        coordinates={selectedLocation.coordinates}
+        location={neighborhoodName}
+      />
       <AiCourseRecommendation />
     </section>
   );

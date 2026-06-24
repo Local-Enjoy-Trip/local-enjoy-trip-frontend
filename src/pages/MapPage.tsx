@@ -37,6 +37,11 @@ import {
   unsaveAttraction,
 } from "@/features/attractions/attractionApi";
 import { saveNote, unsaveNote } from "@/features/notes/noteApi";
+import {
+  applyNoteSaveOverride,
+  setNoteSaveOverride,
+  subscribeNoteSaveOverrides,
+} from "@/features/notes/noteSaveOverrides";
 
 const viewportDebounceMs = 500;
 const targetViewportRadiusMeters = 3_000;
@@ -121,17 +126,47 @@ export function MapPage() {
     useState<LocationConsent>(readLocationConsent);
   const locationToastTimerRef = useRef<number | null>(null);
   const manualLocationRequestRef = useRef(false);
+  const initializedTargetIdRef = useRef<string | null>(null);
   const [locationToast, setLocationToast] = useState<string | null>(null);
-  const [savedOverrides, setSavedOverrides] = useState<Record<string, boolean>>({});
+  const [pointOverrides, setPointOverrides] = useState<
+    Record<string, { favoriteCount: number; saved: boolean }>
+  >({});
+  const [noteSaveOverrideVersion, setNoteSaveOverrideVersion] = useState(0);
+
+  useEffect(
+    () =>
+      subscribeNoteSaveOverrides(() =>
+        setNoteSaveOverrideVersion((version) => version + 1),
+      ),
+    [],
+  );
 
   const allPoints = useMemo(() => {
     if (!data) return [];
-    return toMapPoints(data.places, data.notes).map((point) =>
-      Object.prototype.hasOwnProperty.call(savedOverrides, point.id)
-        ? { ...point, saved: savedOverrides[point.id] }
-        : point,
-    );
-  }, [data, savedOverrides]);
+    return toMapPoints(data.places, data.notes).map((point) => {
+      const override = pointOverrides[point.id];
+      const nextPoint = !override
+        ? point
+        : ({
+            ...point,
+            saved: override.saved,
+            source: {
+              ...point.source,
+              favoriteCount: override.favoriteCount,
+              saved: override.saved,
+            },
+          } as MapPoint);
+
+      if (nextPoint.kind === "place") return nextPoint;
+
+      const source = applyNoteSaveOverride(nextPoint.source);
+      return {
+        ...nextPoint,
+        saved: source.saved,
+        source,
+      };
+    });
+  }, [data, noteSaveOverrideVersion, pointOverrides]);
 
   const filteredPoints = useMemo(
     () =>
@@ -340,11 +375,21 @@ export function MapPage() {
   }, [requestedTargetViewport]);
 
   useEffect(() => {
-    if (!requestedTargetId || allPoints.length === 0) return;
+    if (!requestedTargetId) {
+      initializedTargetIdRef.current = null;
+      return;
+    }
+    if (
+      initializedTargetIdRef.current === requestedTargetId ||
+      allPoints.length === 0
+    ) {
+      return;
+    }
 
     const targetPoint = allPoints.find((point) => point.id === requestedTargetId);
     if (!targetPoint) return;
 
+    initializedTargetIdRef.current = requestedTargetId;
     selectPin(targetPoint.id);
     setDrawerSnap("full");
     moveMapTo(targetPoint.coordinates);
@@ -421,7 +466,14 @@ export function MapPage() {
 
   async function toggleSave(point: MapPoint) {
     const nextSaved = !point.saved;
-    setSavedOverrides((current) => ({ ...current, [point.id]: nextSaved }));
+    const nextFavoriteCount = Math.max(
+      0,
+      point.source.favoriteCount + (nextSaved ? 1 : -1),
+    );
+    setPointOverrides((current) => ({
+      ...current,
+      [point.id]: { favoriteCount: nextFavoriteCount, saved: nextSaved },
+    }));
 
     try {
       const numericId = Number(point.id.replace(/^(place|note)-/, ""));
@@ -431,13 +483,21 @@ export function MapPage() {
         if (nextSaved) await saveAttraction(numericId);
         else await unsaveAttraction(numericId);
       } else {
+        setNoteSaveOverride(numericId, nextSaved);
         if (nextSaved) await saveNote(numericId);
         else await unsaveNote(numericId);
       }
 
       showLocationToast(nextSaved ? "저장했어요." : "저장을 해제했어요.");
     } catch {
-      setSavedOverrides((current) => ({ ...current, [point.id]: point.saved }));
+      setPointOverrides((current) => ({
+        ...current,
+        [point.id]: {
+          favoriteCount: point.source.favoriteCount,
+          saved: point.saved,
+        },
+      }));
+      if (point.kind === "spot") setNoteSaveOverride(point.id, point.saved);
       showLocationToast("저장 상태를 바꾸지 못했어요.");
     }
   }

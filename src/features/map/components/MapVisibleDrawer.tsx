@@ -1,5 +1,6 @@
+import { saveCourse, type SavedCourseStop } from "@/features/course/courseStorage";
 import { courses } from "@/shared/data/mockData";
-import { Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   type CSSProperties,
@@ -11,7 +12,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useNavigate } from "react-router-dom";
 import type { MapPoint } from "../types";
 import { getNeighborhoodLabel, MapListCard } from "./MapListCard";
 
@@ -20,6 +20,7 @@ type DrawerTab = "place" | "note";
 
 const SNAP_ORDER: DrawerSnap[] = ["full", "default", "hidden"];
 const listBatchSize = 20;
+const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 
 function getSnapOffset(
   snap: DrawerSnap,
@@ -54,7 +55,6 @@ export function MapVisibleDrawer({
   selectedPoint: MapPoint | null;
   visiblePoints: MapPoint[];
 }) {
-  const navigate = useNavigate();
   const drawerRef = useRef<HTMLElement>(null);
   const pointCardRefs = useRef(new Map<string, HTMLDivElement>());
   const lastAutoFocusedPointIdRef = useRef<string | null>(null);
@@ -65,6 +65,11 @@ export function MapVisibleDrawer({
   const suppressClickAfterDragRef = useRef(false);
   const [courseTarget, setCourseTarget] = useState<MapPoint | null>(null);
   const [courseNotice, setCourseNotice] = useState<string | null>(null);
+  const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [newCourseTitle, setNewCourseTitle] = useState("");
+  const [newCourseDate, setNewCourseDate] = useState(() => formatDateInputValue(new Date()));
+  const [isDateUndecided, setIsDateUndecided] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [drawerHeight, setDrawerHeight] = useState(0);
   const [dragOffset, setDragOffset] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<DrawerTab>("place");
@@ -345,6 +350,11 @@ export function MapVisibleDrawer({
   function openCourseSelector(point: MapPoint) {
     setCourseNotice(null);
     setCourseTarget(point);
+    setIsCreatingCourse(false);
+    setNewCourseTitle(`${point.name} 코스`);
+    setNewCourseDate(formatDateInputValue(new Date()));
+    setIsDateUndecided(false);
+    setCalendarMonth(startOfMonth(new Date()));
   }
 
   function openPointDetail(point: MapPoint) {
@@ -373,8 +383,32 @@ export function MapVisibleDrawer({
   function createCourseWithTarget() {
     if (!courseTarget) return;
 
-    const params = new URLSearchParams({ place: courseTarget.name });
-    navigate(`/course/new?${params.toString()}`);
+    setCourseNotice(null);
+    setIsCreatingCourse(true);
+    setNewCourseTitle((current) => current || `${courseTarget.name} 코스`);
+  }
+
+  function submitNewCourse() {
+    if (!courseTarget) return;
+
+    const title = newCourseTitle.trim() || `${courseTarget.name} 코스`;
+    const course = {
+      id: `map-${Date.now()}`,
+      title,
+      area: getCourseArea(courseTarget),
+      companion: "직접 만들기",
+      date: isDateUndecided ? undefined : newCourseDate,
+      styles: ["직접 선택"],
+      pace: "하루",
+      savedAt: new Date().toISOString(),
+      collaborators: [],
+      stops: [toSavedCourseStop(courseTarget)],
+    };
+
+    saveCourse(course);
+    setCourseNotice(`${title} 코스를 만들었어요.`);
+    setCourseTarget(null);
+    setIsCreatingCourse(false);
   }
 
   const drawerStyle = {
@@ -443,14 +477,20 @@ export function MapVisibleDrawer({
               <button
                 aria-label="장소 목록으로 돌아가기"
                 className="grid size-9 flex-none place-items-center rounded-full border-0 bg-[#F4F3EF] text-[#4B4741]"
-                onClick={() => setCourseTarget(null)}
+                onClick={() => {
+                  if (isCreatingCourse) {
+                    setIsCreatingCourse(false);
+                    return;
+                  }
+                  setCourseTarget(null);
+                }}
                 type="button"
               >
                 <ChevronLeft size={19} />
               </button>
               <div className="min-w-0">
                 <p className="m-0 text-xs font-black text-[#6A665F]">
-                  추가할 코스 선택
+                  {isCreatingCourse ? "새 코스 만들기" : "추가할 코스 선택"}
                 </p>
                 <h2 className="m-0 mt-1 truncate text-lg font-black text-[#171717]">
                   {courseTarget.name}
@@ -458,7 +498,45 @@ export function MapVisibleDrawer({
               </div>
             </div>
 
-            <div className="grid gap-2">
+            {isCreatingCourse ? (
+              <div className="grid gap-4">
+                <label className="grid gap-2">
+                  <span className="text-xs font-black text-[#6A665F]">
+                    코스 이름
+                  </span>
+                  <input
+                    className="h-12 rounded-2xl border border-[#E7E1D8] bg-[#FAF9F6] px-4 text-sm font-black text-[#171717] outline-none transition focus:border-[#FD4003] focus:bg-white"
+                    maxLength={30}
+                    onChange={(event) => setNewCourseTitle(event.target.value)}
+                    placeholder={`${courseTarget.name} 코스`}
+                    value={newCourseTitle}
+                  />
+                </label>
+
+                <CourseDateCalendar
+                  month={calendarMonth}
+                  onMonthChange={setCalendarMonth}
+                  onSelectDate={(date) => {
+                    setNewCourseDate(date);
+                    setIsDateUndecided(false);
+                  }}
+                  onToggleUndecided={() =>
+                    setIsDateUndecided((current) => !current)
+                  }
+                  selectedDate={newCourseDate}
+                  undecided={isDateUndecided}
+                />
+
+                <button
+                  className="mt-1 h-12 rounded-2xl border-0 bg-[#1F3D35] text-sm font-black text-white shadow-[0_10px_22px_rgba(31,61,53,0.18)]"
+                  onClick={submitNewCourse}
+                  type="button"
+                >
+                  코스 생성하기
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-2">
               {courses.map((course) => (
                 <button
                   className="flex items-center gap-3 rounded-xl border border-[#EEEAE2] bg-white p-3 text-left"
@@ -498,6 +576,7 @@ export function MapVisibleDrawer({
                 <ChevronRight size={18} className="text-[#AAA49B]" />
               </button>
             </div>
+            )}
           </div>
         ) : visiblePoints.length > 0 ? (
           <div>
@@ -618,7 +697,7 @@ export function MapVisibleDrawer({
       </div>
 
       {selectedPoint && detailDismissedId !== selectedPoint.id && !courseTarget ? (
-        <div className="absolute inset-x-0 top-6 bottom-0 z-50 overflow-y-auto bg-white px-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
+        <div className="absolute inset-x-0 top-10 bottom-0 z-50 overflow-y-auto bg-white px-4 pb-[calc(20px+env(safe-area-inset-bottom))]">
           <PointDetailPanel
             onAddToCourse={openCourseSelector}
             onBack={() => setDetailDismissedId(selectedPoint.id)}
@@ -628,6 +707,110 @@ export function MapVisibleDrawer({
         </div>
       ) : null}
     </aside>
+  );
+}
+
+function CourseDateCalendar({
+  month,
+  onMonthChange,
+  onSelectDate,
+  onToggleUndecided,
+  selectedDate,
+  undecided,
+}: {
+  month: Date;
+  onMonthChange: (month: Date) => void;
+  onSelectDate: (date: string) => void;
+  onToggleUndecided: () => void;
+  selectedDate: string;
+  undecided: boolean;
+}) {
+  const days = getCalendarDays(month);
+  const monthLabel = new Intl.DateTimeFormat("ko", {
+    month: "long",
+    year: "numeric",
+  }).format(month);
+
+  return (
+    <section className="rounded-2xl border border-[#ECE6DC] bg-[#FAF9F6] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid size-8 flex-none place-items-center rounded-xl bg-white text-[#FD4003]">
+            <CalendarDays size={17} strokeWidth={2.4} />
+          </span>
+          <strong className="truncate text-sm font-black text-[#171717]">
+            {monthLabel}
+          </strong>
+        </div>
+        <div className="flex flex-none items-center gap-1">
+          <button
+            aria-label="이전 달"
+            className="grid size-8 place-items-center rounded-full border-0 bg-white text-[#514D47]"
+            onClick={() => onMonthChange(addMonths(month, -1))}
+            type="button"
+          >
+            <ChevronLeft size={17} />
+          </button>
+          <button
+            aria-label="다음 달"
+            className="grid size-8 place-items-center rounded-full border-0 bg-white text-[#514D47]"
+            onClick={() => onMonthChange(addMonths(month, 1))}
+            type="button"
+          >
+            <ChevronRight size={17} />
+          </button>
+        </div>
+      </div>
+
+      <button
+        className={`mt-3 h-10 w-full rounded-xl border text-xs font-black transition ${
+          undecided
+            ? "border-[#1F3D35] bg-[#1F3D35] text-white"
+            : "border-[#E3DDD3] bg-white text-[#68625B]"
+        }`}
+        onClick={onToggleUndecided}
+        type="button"
+      >
+        날짜 미정
+      </button>
+
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center">
+        {weekdayLabels.map((label) => (
+          <span
+            className="py-1 text-[11px] font-black text-[#8B857C]"
+            key={label}
+          >
+            {label}
+          </span>
+        ))}
+        {days.map((date, index) => {
+          if (!date) {
+            return <span aria-hidden="true" key={`blank-${index}`} />;
+          }
+
+          const dateValue = formatDateInputValue(date);
+          const selected = !undecided && selectedDate === dateValue;
+          const today = dateValue === formatDateInputValue(new Date());
+
+          return (
+            <button
+              className={`grid aspect-square place-items-center rounded-xl text-xs font-black transition ${
+                selected
+                  ? "bg-[#FD4003] text-white shadow-[0_7px_14px_rgba(253,64,3,0.22)]"
+                  : today
+                    ? "bg-white text-[#FD4003]"
+                    : "bg-transparent text-[#2E2A25]"
+              }`}
+              key={dateValue}
+              onClick={() => onSelectDate(dateValue)}
+              type="button"
+            >
+              {date.getDate()}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -790,12 +973,77 @@ function getNoteVisibilityLabel(
 }
 
 function getFavoriteCount(point: MapPoint) {
-  const seed = Array.from(point.id).reduce(
-    (total, character) => total + character.charCodeAt(0),
+  return point.source.favoriteCount;
+}
+
+function toSavedCourseStop(point: MapPoint): SavedCourseStop {
+  const numericId = getNumericPointId(point.id);
+
+  if (point.kind === "place") {
+    return {
+      attractionId: numericId ?? undefined,
+      category: point.source.tags[0] ?? "장소",
+      description: point.source.summary,
+      id: 1,
+      imageUrl: point.source.imageUrl,
+      lat: point.coordinates.lat,
+      lng: point.coordinates.lng,
+      title: point.name,
+    };
+  }
+
+  return {
+    category: "쪽지",
+    description: point.source.body,
+    id: 1,
+    imageUrl: point.source.imageUrl ?? "",
+    lat: point.coordinates.lat,
+    lng: point.coordinates.lng,
+    noteId: numericId ?? undefined,
+    title: point.source.placeName || point.name,
+  };
+}
+
+function getCourseArea(point: MapPoint) {
+  return point.kind === "place"
+    ? getNeighborhoodLabel(point.source.area)
+    : getNeighborhoodLabel(point.source.placeName);
+}
+
+function getNumericPointId(id: string) {
+  const value = Number(id.replace(/^(place|note)-/, ""));
+  return Number.isFinite(value) ? value : null;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date: Date, months: number) {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+}
+
+function getCalendarDays(month: Date) {
+  const firstDay = startOfMonth(month);
+  const dayCount = new Date(
+    month.getFullYear(),
+    month.getMonth() + 1,
     0,
+  ).getDate();
+  const blanks = Array.from<null>({ length: firstDay.getDay() }).fill(null);
+  const dates = Array.from({ length: dayCount }, (_, index) =>
+    new Date(month.getFullYear(), month.getMonth(), index + 1),
   );
 
-  return 18 + (seed % 184);
+  return [...blanks, ...dates];
+}
+
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatRelativeTime(createdAt: string) {
