@@ -52,7 +52,7 @@ export function UpcomingTripPanel({
           to={`/course/${trip.id}`}
         >
           <motion.span
-            className="absolute inset-0 rounded-[25px] bg-linear-to-r from-[#FF9A75] via-[#F98258] to-[#EF7047] shadow-[0_14px_30px_rgba(239,112,71,0.18)]"
+            className="absolute inset-0 rounded-[20px] bg-linear-to-r from-[#FF9A75] via-[#F98258] to-[#EF7047] shadow-[0_14px_30px_rgba(239,112,71,0.18)]"
             transition={tripPanelTransition}
             variants={tripPanelContentVariants}
           />
@@ -62,17 +62,17 @@ export function UpcomingTripPanel({
             variants={tripPanelContentVariants}
           >
             <span className="min-w-0 flex-1 text-left text-white">
-              <strong className="block truncate text-base font-black text-white">
+              <strong className="block truncate text-base font-bold text-white">
                 {trip.title}
               </strong>
-              <span className="mt-1 block text-[13px] font-black text-white">
+              <span className="mt-1 block text-xs font-bold text-white">
                 D-{trip.daysUntil} | {trip.dateLabel}
               </span>
             </span>
             <span className="h-10 w-px flex-none bg-white/25" />
-            <span className="grid min-w-12 flex-none place-items-center text-white">
-              <CalendarDays size={21} strokeWidth={2.5} />
-              <span className="mt-0.5 text-[10px] font-black text-white">
+            <span className="grid min-w-12 gap-1 flex-none place-items-center text-white">
+              <CalendarDays size={21} strokeWidth={1.5} />
+              <span className="mt-0.5 text-[10px] font-medium text-white">
                 내 일정
               </span>
             </span>
