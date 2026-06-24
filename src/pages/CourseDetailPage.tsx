@@ -3,13 +3,11 @@ import {
   CheckSquare,
   ChevronRight,
   Download,
-  Link2,
   Map as MapIcon,
   Plane,
   Plus,
   ReceiptText,
   Star,
-  Upload,
   UserPlus,
   UsersRound,
   WandSparkles,
@@ -25,6 +23,7 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useAuthUser } from "@/features/auth/authStore";
 import type { Coordinates } from "@/shared/types/domain";
 import {
   getCachedApiCourse,
@@ -785,6 +784,7 @@ function toCourseUpdateRequest(course: CourseResponse) {
       itemType: item.itemType,
       memo: item.memo ?? undefined,
       noteId: item.noteId ?? undefined,
+      position: item.position,
       stayMinutes: item.stayMinutes ?? undefined,
     })),
     regionName: course.regionName ?? undefined,
@@ -798,13 +798,18 @@ export function CourseDetailPage() {
   const navigate = useNavigate();
   const { courseId = "course-1" } = useParams();
   const [searchParams] = useSearchParams();
+  const authUserQuery = useAuthUser();
+  const userId = authUserQuery.data?.id;
   const [savedCourse] = useState(() => getSavedCourse(courseId));
   const [apiCourse, setApiCourse] = useState<CourseResponse | null>(
     () => getCachedApiCourse(courseId) ?? null,
   );
   const isReadOnly =
     searchParams.get("view") === "1" ||
-    (!savedCourse && apiCourse?.visibility === "PUBLIC") ||
+    (!savedCourse &&
+      Boolean(apiCourse?.ownerUserId) &&
+      apiCourse?.ownerUserId !== userId) ||
+    (!savedCourse && apiCourse?.visibility === "PUBLIC" && apiCourse.ownerUserId !== userId) ||
     (!savedCourse && !apiCourse);
   const canEditCourse = !isReadOnly;
   const routeStops = useMemo<CourseStop[]>(
@@ -896,32 +901,45 @@ export function CourseDetailPage() {
   }
 
   function saveAsImage() {
-    const lines = routeStops.map((stop, index) => `${index + 1}. ${stop.title}`).join(" · ");
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350"><rect width="1080" height="1350" fill="#F7F5F0"/><rect x="80" y="80" width="920" height="1190" rx="50" fill="white"/><text x="140" y="210" font-size="36" font-weight="700" fill="#FD4003">곳곳 COURSE</text><text x="140" y="310" font-size="68" font-weight="900" fill="#1F3D35">${courseTitle}</text><text x="140" y="375" font-size="30" font-weight="700" fill="#777">${companion} · ${styleLabel}</text><text x="140" y="500" font-size="28" font-weight="700" fill="#333">${lines}</text></svg>`;
-    const link = document.createElement("a");
-    link.href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    link.download = `${courseTitle}.svg`;
-    link.click();
-    setShareOpen(false);
-    showNotice("일정 이미지를 저장했어요.");
-  }
+    const width = 1080;
+    const height = Math.max(1500, 620 + routeStops.length * 150);
+    const stopRows = routeStops
+      .map((stop, index) => {
+        const y = 560 + index * 150;
+        return `<circle cx="152" cy="${y}" r="34" fill="#1F3D35"/><text x="152" y="${y + 12}" text-anchor="middle" font-size="32" font-weight="900" fill="#fff">${index + 1}</text><text x="220" y="${y - 8}" font-size="34" font-weight="900" fill="#242424">${escapeSvg(stop.title)}</text><text x="220" y="${y + 42}" font-size="24" font-weight="700" fill="#777">${escapeSvg(stop.category)}</text>${
+          index < routeStops.length - 1
+            ? `<line x1="152" y1="${y + 42}" x2="152" y2="${y + 116}" stroke="#D7D2C8" stroke-width="8" stroke-linecap="round"/>`
+            : ""
+        }`;
+      })
+      .join("");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#F7F5F0"/><rect x="70" y="70" width="940" height="${height - 140}" rx="44" fill="white"/><text x="130" y="190" font-size="34" font-weight="800" fill="#FD4003">곳곳 COURSE</text><text x="130" y="290" font-size="64" font-weight="900" fill="#1F3D35">${escapeSvg(courseTitle)}</text><text x="130" y="350" font-size="28" font-weight="800" fill="#777">${escapeSvg(`${dateLabel} · ${companion}`)}</text><text x="130" y="402" font-size="28" font-weight="800" fill="#777">${escapeSvg(styleLabel)}</text><text x="130" y="490" font-size="30" font-weight="900" fill="#242424">여행지 리스트</text>${stopRows}</svg>`;
+    const image = new Image();
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
-  async function copyViewLink() {
-    const url = `${window.location.origin}/course/${courseId}?view=1`;
-    try {
-      await navigator.clipboard.writeText(url);
-      showNotice("보기 전용 링크를 복사했어요.");
-    } catch {
-      showNotice("링크를 복사하지 못했어요.");
-    }
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+
+      context.drawImage(image, 0, 0);
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = `${courseTitle}.png`;
+      link.click();
+    };
+    image.src = url;
     setShareOpen(false);
+    showNotice("긴 일정 이미지로 저장했어요.");
   }
 
   function saveFriends() {
     if (!canEditCourse) return;
     if (savedCourse) updateCourseCollaborators(savedCourse.id, selectedFriends);
     setFriendsOpen(false);
-    showNotice(`${selectedFriends.length}명과 일정을 공유했어요.`);
+    showNotice(`${selectedFriends.length}명에게 보기 권한을 공유했어요.`);
   }
 
   function addPublicCourseToMine() {
@@ -995,7 +1013,7 @@ export function CourseDetailPage() {
 
   const actionButtons = (
     <div className="flex items-center gap-1">
-      <button aria-label="공유하기" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setShareOpen(true)} type="button"><Upload size={23} /></button>
+      <button aria-label="일정 이미지 저장" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setShareOpen(true)} type="button"><Download size={23} /></button>
       <button aria-label="전체 지도 보기" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setMapOpen(true)} type="button"><MapIcon size={24} /></button>
       {canEditCourse ? <button aria-label="일행과 함께 일정 짜기" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setFriendsOpen(true)} type="button"><UsersRound size={24} /></button> : null}
     </div>
@@ -1016,7 +1034,7 @@ export function CourseDetailPage() {
               <p className="mt-1.5 mb-0 truncate text-base font-bold text-[#777]">{companion} | {styleLabel}</p>
             </div>
             {canEditCourse ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white"><Plus size={20} />장소 추가하기</button>
+              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white" onClick={() => navigate(`/map?mode=course-add&courseId=${encodeURIComponent(courseId)}&filter=saved`)} type="button"><Plus size={20} />장소 추가하기</button>
               <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full border border-[#D9E5DC] bg-[#EDF5EF] px-4 text-sm font-black text-[#1F3D35]" onClick={() => setFriendsOpen(true)} type="button"><UserPlus size={18} />일행과 함께 일정 짜기</button>
             </div> : apiCourse?.visibility === "PUBLIC" ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
               <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white" onClick={addPublicCourseToMine} type="button"><Plus size={18} />내 코스에 추가</button>
@@ -1042,13 +1060,21 @@ export function CourseDetailPage() {
         <div className="flex flex-none snap-x gap-3 overflow-x-auto bg-white px-5 py-4 pb-[calc(18px+env(safe-area-inset-bottom))]">{routeStops.map((stop, index) => <button className={`flex w-[78%] flex-none snap-center items-center gap-3 rounded-2xl border p-3 text-left ${activeStopId === stop.id ? "border-[#1F3D35] bg-[#EEF4EF]" : "border-[#E7E3DC] bg-white"}`} key={stop.id} onClick={() => setActiveStopId(stop.id)} type="button"><span className="grid size-9 flex-none place-items-center rounded-full bg-[#1F3D35] text-sm font-black text-white">{index + 1}</span><span className="min-w-0"><strong className="block truncate text-sm font-black">{stop.title}</strong><span className="mt-1 block truncate text-xs font-bold text-[#8B857C]">{stop.category}</span></span></button>)}</div>
       </section> : null}
 
-      <BottomSheet isOpen={shareOpen} onClose={() => setShareOpen(false)} title="일정 공유하기"><div className="grid gap-3"><button className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#E9E5DE] bg-white px-4 text-left" onClick={saveAsImage} type="button"><span className="grid size-11 place-items-center rounded-xl bg-[#EEF4EF] text-[#1F3D35]"><Download size={21} /></span><span><strong className="block text-sm font-black">일정 이미지로 저장하기</strong><span className="mt-1 block text-xs font-bold text-[#8B857C]">코스 요약을 한 장의 이미지로 보관해요</span></span></button><button className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#E9E5DE] bg-white px-4 text-left" onClick={copyViewLink} type="button"><span className="grid size-11 place-items-center rounded-xl bg-[#FFF0EA] text-[#FD4003]"><Link2 size={21} /></span><span><strong className="block text-sm font-black">일정 링크 공유하기</strong><span className="mt-1 block text-xs font-bold text-[#8B857C]">받은 사람은 보기 전용으로 확인해요</span></span></button></div></BottomSheet>
+      <BottomSheet isOpen={shareOpen} onClose={() => setShareOpen(false)} title="일정 저장하기"><div className="grid gap-3"><button className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#E9E5DE] bg-white px-4 text-left" onClick={saveAsImage} type="button"><span className="grid size-11 place-items-center rounded-xl bg-[#EEF4EF] text-[#1F3D35]"><Download size={21} /></span><span><strong className="block text-sm font-black">긴 일정 이미지로 저장하기</strong><span className="mt-1 block text-xs font-bold text-[#8B857C]">AI 코스 추천 결과처럼 전체 리스트를 세로 이미지로 저장해요</span></span></button></div></BottomSheet>
 
-      <BottomSheet isOpen={friendsOpen} onClose={() => setFriendsOpen(false)} title="일행과 함께 일정 짜기"><p className="mt-0 text-sm font-bold text-[#8B857C]">함께 편집할 친구를 선택해주세요.</p><div className="mt-4 grid gap-2">{friends.map((friend) => { const selected = selectedFriends.includes(friend.name); return <button className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left ${selected ? "border-[#1F3D35] bg-[#F0F5F1]" : "border-[#EBE7E0] bg-white"}`} key={friend.name} onClick={() => setSelectedFriends((current) => selected ? current.filter((name) => name !== friend.name) : [...current, friend.name])} type="button"><span className={`grid size-11 place-items-center rounded-full text-sm font-black ${friend.color}`}>{friend.name[0]}</span><span className="min-w-0 flex-1"><strong className="block font-black">{friend.name}</strong><span className="mt-1 block text-xs font-bold text-[#928C84]">{friend.note}</span></span>{selected ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><CheckSquare size={15} /></span> : null}</button>; })}</div><button className="mt-5 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white" onClick={saveFriends} type="button">{selectedFriends.length > 0 ? `${selectedFriends.length}명과 함께하기` : "나만 편집하기"}</button></BottomSheet>
+      <BottomSheet isOpen={friendsOpen} onClose={() => setFriendsOpen(false)} title="친구에게 코스 공유"><p className="mt-0 text-sm font-bold text-[#8B857C]">서비스 안에서 맺어진 친구에게만 공유돼요. 코스장인 나만 편집할 수 있고, 친구는 보기 전용으로 확인해요.</p><div className="mt-4 grid gap-2">{friends.map((friend) => { const selected = selectedFriends.includes(friend.name); return <button className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left ${selected ? "border-[#1F3D35] bg-[#F0F5F1]" : "border-[#EBE7E0] bg-white"}`} key={friend.name} onClick={() => setSelectedFriends((current) => selected ? current.filter((name) => name !== friend.name) : [...current, friend.name])} type="button"><span className={`grid size-11 place-items-center rounded-full text-sm font-black ${friend.color}`}>{friend.name[0]}</span><span className="min-w-0 flex-1"><strong className="block font-black">{friend.name}</strong><span className="mt-1 block text-xs font-bold text-[#928C84]">{friend.note} · 보기 전용</span></span>{selected ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><CheckSquare size={15} /></span> : null}</button>; })}</div><button className="mt-5 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white" onClick={saveFriends} type="button">{selectedFriends.length > 0 ? `${selectedFriends.length}명에게 공유` : "공유하지 않기"}</button></BottomSheet>
 
       <BottomSheet isOpen={optimizeOpen} onClose={() => setOptimizeOpen(false)} title="AI 동선 정리"><div className="rounded-2xl bg-[#EEF4EF] p-4"><div className="flex items-center gap-2 text-[#1F3D35]"><WandSparkles size={21} /><strong className="font-black">{isOptimizing ? "AI가 동선을 계산하고 있어요" : apiCourse ? "서버 추천 동선을 불러왔어요" : "걷는 시간을 약 18분 줄일 수 있어요"}</strong></div><p className="mt-2 mb-0 text-sm leading-relaxed font-semibold text-[#667069]">{apiCourse ? "적용하면 추천 순서를 내 코스에 저장해요." : "가까운 장소끼리 묶고 마지막 장소가 대중교통과 이어지도록 순서를 정리했어요."}</p></div><div className="mt-4 flex flex-wrap items-center gap-2">{(optimizedCourse ? toDisplayRouteStops(optimizedCourse) : routeStops).map((stop, index) => <span className="inline-flex items-center gap-1 text-xs font-black text-[#5D5852]" key={stop.id}><span className="grid size-6 place-items-center rounded-full bg-[#FD4003] text-white">{index + 1}</span>{stop.title}{index < routeStops.length - 1 ? <ChevronRight size={14} className="text-[#AAA49B]" /> : null}</span>)}</div><button className="mt-6 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={isOptimizing} onClick={applyOptimizedOrder} type="button">{isOptimizing ? "추천 받는 중..." : "이 순서로 적용하기"}</button></BottomSheet>
 
       {notice ? <div className="fixed inset-x-5 bottom-[calc(24px+env(safe-area-inset-bottom))] z-[90] mx-auto max-w-[390px] rounded-2xl bg-[#171717] px-4 py-3 text-center text-sm font-black text-white shadow-xl">{notice}</div> : null}
     </>
   );
+}
+
+function escapeSvg(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

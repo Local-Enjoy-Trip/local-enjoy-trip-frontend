@@ -45,6 +45,25 @@ export function saveCourse(course: SavedCourse) {
   window.dispatchEvent(new CustomEvent("spot:courses-changed"));
 }
 
+export function appendCourseStop(id: string, stop: SavedCourseStop) {
+  const courses = getSavedCourses().map((course) =>
+    course.id === id
+      ? {
+          ...course,
+          stops: [
+            ...course.stops,
+            {
+              ...stop,
+              id: course.stops.length + 1,
+            },
+          ],
+        }
+      : course,
+  );
+  window.localStorage.setItem(storageKey, JSON.stringify(courses));
+  window.dispatchEvent(new CustomEvent("spot:courses-changed"));
+}
+
 export function updateCourseCollaborators(id: string, collaborators: string[]) {
   const courses = getSavedCourses().map((course) =>
     course.id === id ? { ...course, collaborators } : course,

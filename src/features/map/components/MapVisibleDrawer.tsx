@@ -38,6 +38,8 @@ function getSnapOffset(
 
 export function MapVisibleDrawer({
   drawerSnap,
+  mode = "default",
+  onConfirmPoint,
   onRequestLocation,
   onSelectPoint,
   onSnapChange,
@@ -47,6 +49,8 @@ export function MapVisibleDrawer({
   visiblePoints,
 }: {
   drawerSnap: DrawerSnap;
+  mode?: "default" | "course-add";
+  onConfirmPoint?: (point: MapPoint) => void;
   onRequestLocation: () => void;
   onSelectPoint: (point: MapPoint) => void;
   onSnapChange: (snap: DrawerSnap) => void;
@@ -348,6 +352,11 @@ export function MapVisibleDrawer({
   }, [dragOffset, finishDrag, updateDrag]);
 
   function openCourseSelector(point: MapPoint) {
+    if (mode === "course-add") {
+      onConfirmPoint?.(point);
+      return;
+    }
+
     setCourseNotice(null);
     setCourseTarget(point);
     setIsCreatingCourse(false);
@@ -581,6 +590,11 @@ export function MapVisibleDrawer({
         ) : visiblePoints.length > 0 ? (
           <div>
             <div className="sticky top-0 z-40 -mx-4 mb-3 bg-white px-4 pt-1 pb-2">
+              {mode === "course-add" ? (
+                <p className="mt-0 mb-2 rounded-xl bg-[#EEF4EF] px-3 py-2 text-xs font-black text-[#1F3D35]">
+                  장소나 쪽지를 하나 선택한 뒤 코스에 넣어주세요.
+                </p>
+              ) : null}
               <div
                 aria-label="지도 목록 종류"
                 className="grid grid-cols-2 rounded-2xl bg-white p-1"
@@ -703,6 +717,7 @@ export function MapVisibleDrawer({
             onBack={() => setDetailDismissedId(selectedPoint.id)}
             onToggleSave={onToggleSave}
             point={selectedPoint}
+            confirmLabel={mode === "course-add" ? "코스에 넣기" : undefined}
           />
         </div>
       ) : null}
@@ -815,11 +830,13 @@ function CourseDateCalendar({
 }
 
 function PointDetailPanel({
+  confirmLabel = "코스",
   onAddToCourse,
   onBack,
   onToggleSave,
   point,
 }: {
+  confirmLabel?: string;
   onAddToCourse: (point: MapPoint) => void;
   onBack: () => void;
   onToggleSave: (point: MapPoint) => void;
@@ -877,7 +894,7 @@ function PointDetailPanel({
           >
             <Plus size={20} strokeWidth={2.5} />
             <span className="mt-1 text-[10px] leading-none font-black">
-              코스
+              {confirmLabel}
             </span>
           </button>
         </div>

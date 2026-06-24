@@ -148,6 +148,41 @@ export function updateCourse(courseId: string, request: CourseUpdateRequest) {
   );
 }
 
+export async function appendCourseItem(
+  courseId: string,
+  item: Omit<CourseItemRequest, "position">,
+) {
+  const course = await getPublicCourse(courseId);
+  const items = [...course.items].sort((a, b) => a.position - b.position);
+  const nextPosition =
+    items.reduce((max, courseItem) => Math.max(max, courseItem.position), 0) + 1;
+
+  return updateCourse(courseId, {
+    coverImageUrl: course.coverImageUrl ?? undefined,
+    description: course.description ?? undefined,
+    items: [
+      ...items.map((courseItem) => ({
+        attractionId: courseItem.attractionId ?? undefined,
+        day: courseItem.day,
+        itemType: courseItem.itemType,
+        memo: courseItem.memo ?? undefined,
+        noteId: courseItem.noteId ?? undefined,
+        position: courseItem.position,
+        stayMinutes: courseItem.stayMinutes ?? undefined,
+      })),
+      {
+        ...item,
+        day: item.day ?? 1,
+        position: nextPosition,
+      },
+    ],
+    regionName: course.regionName ?? undefined,
+    status: course.status,
+    title: course.title,
+    visibility: course.visibility,
+  });
+}
+
 export function recommendCourseOrder(
   courseId: string,
   request?: CourseOrderRecommendationRequest,

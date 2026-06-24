@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { List, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
 import { PageLoadingSkeleton } from "@/shared/ui/Skeleton";
 import { FallbackMapLayer } from "@/features/map/components/FallbackMapLayer";
@@ -44,6 +44,12 @@ import {
   setNoteSaveOverride,
   subscribeNoteSaveOverrides,
 } from "@/features/notes/noteSaveOverrides";
+import { appendCourseItem } from "@/features/course/courseApi";
+import {
+  appendCourseStop,
+  getSavedCourse,
+  type SavedCourseStop,
+} from "@/features/course/courseStorage";
 
 const viewportDebounceMs = 500;
 const targetViewportRadiusMeters = 3_000;
@@ -55,7 +61,10 @@ type FrozenMapBounds = {
 
 export function MapPage() {
   useMapViewportBackground();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isCourseAddMode = searchParams.get("mode") === "course-add";
+  const targetCourseId = searchParams.get("courseId");
 
   const {
     filter,
@@ -530,6 +539,42 @@ export function MapPage() {
     }
   }
 
+  async function addPointToCourse(point: MapPoint) {
+    if (!targetCourseId) {
+      showLocationToast("추가할 코스를 찾지 못했어요.");
+      return;
+    }
+
+    const numericId = getNumericPointId(point.id);
+
+    try {
+      if (numericId !== null) {
+        await appendCourseItem(targetCourseId, {
+          attractionId: point.kind === "place" ? numericId : undefined,
+          day: 1,
+          itemType: point.kind === "place" ? "ATTRACTION" : "NOTE",
+          memo: point.kind === "spot" ? point.source.body : undefined,
+          noteId: point.kind === "spot" ? numericId : undefined,
+          stayMinutes: 60,
+        });
+      } else {
+        appendCourseStop(targetCourseId, toSavedCourseStop(point));
+      }
+
+      showLocationToast(`${point.name}을(를) 코스 맨 뒤에 추가했어요.`);
+      window.setTimeout(() => navigate(`/course/${targetCourseId}`), 450);
+    } catch {
+      if (getSavedCourse(targetCourseId)) {
+        appendCourseStop(targetCourseId, toSavedCourseStop(point));
+        showLocationToast(`${point.name}을(를) 코스 맨 뒤에 추가했어요.`);
+        window.setTimeout(() => navigate(`/course/${targetCourseId}`), 450);
+        return;
+      }
+
+      showLocationToast("코스에 추가하지 못했어요.");
+    }
+  }
+
   if (isLoading || (!data && !isError)) {
     return <PageLoadingSkeleton type="map" />;
   }
@@ -650,6 +695,8 @@ export function MapPage() {
 
         <MapVisibleDrawer
           drawerSnap={drawerSnap}
+          mode={isCourseAddMode ? "course-add" : "default"}
+          onConfirmPoint={addPointToCourse}
           onRequestLocation={requestCurrentLocation}
           onSelectPoint={selectVisiblePoint}
           onSnapChange={setDrawerSnap}
@@ -672,6 +719,39 @@ export function MapPage() {
       ) : null}
     </section>
   );
+}
+
+function toSavedCourseStop(point: MapPoint): SavedCourseStop {
+  const numericId = getNumericPointId(point.id);
+
+  if (point.kind === "place") {
+    return {
+      attractionId: numericId ?? undefined,
+      category: point.source.tags[0] ?? "장소",
+      description: point.source.summary,
+      id: 1,
+      imageUrl: point.source.imageUrl,
+      lat: point.coordinates.lat,
+      lng: point.coordinates.lng,
+      title: point.name,
+    };
+  }
+
+  return {
+    category: "쪽지",
+    description: point.source.body,
+    id: 1,
+    imageUrl: point.source.imageUrl ?? "",
+    lat: point.coordinates.lat,
+    lng: point.coordinates.lng,
+    noteId: numericId ?? undefined,
+    title: point.source.placeName || point.name,
+  };
+}
+
+function getNumericPointId(id: string) {
+  const value = Number(id.replace(/^(place|note)-/, ""));
+  return Number.isFinite(value) ? value : null;
 }
 
 function toApiFilter(filter: MapFilter): MapApiFilter {
