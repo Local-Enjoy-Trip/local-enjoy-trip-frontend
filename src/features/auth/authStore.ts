@@ -190,6 +190,10 @@ export async function uploadProfileImage(file: File) {
   });
 }
 
+export async function updateNickname(nickname: string) {
+  await apiPut<void>("/api/members/me", { nickname });
+}
+
 export async function getMembers() {
   const response = await apiGet<UsersResponse>("/api/members");
   return response.users;

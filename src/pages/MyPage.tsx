@@ -1,6 +1,8 @@
 import {
   authUserQueryKey,
+  getAuthErrorMessage,
   logout,
+  updateNickname,
   uploadProfileImage,
   useAuthUser,
 } from "@/features/auth/authStore";
@@ -9,16 +11,19 @@ import { getSavedNotes, savedNotesQueryKey } from "@/features/notes/noteApi";
 import { courses } from "@/shared/data/mockData";
 import { PageLoadingSkeleton, TextSkeleton } from "@/shared/ui/Skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "motion/react";
 import {
   Bookmark,
+  Check,
   ChevronRight,
   LogOut,
   MapPinned,
   Pencil,
   UserRound,
   UsersRound,
+  X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import type { FormEvent } from "react";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -55,6 +60,9 @@ export function MyPage() {
   const queryClient = useQueryClient();
   const profileImageInputRef = useRef<HTMLInputElement | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState("");
+  const [nicknameError, setNicknameError] = useState("");
   const { data: user, isLoading } = useAuthUser();
   const savedNotesQuery = useQuery({
     enabled: Boolean(user),
@@ -83,10 +91,51 @@ export function MyPage() {
       await queryClient.invalidateQueries({ queryKey: authUserQueryKey });
     },
   });
+  const nicknameMutation = useMutation({
+    mutationFn: updateNickname,
+    onError: (error) => {
+      setNicknameError(getAuthErrorMessage(error));
+    },
+    onSuccess: async () => {
+      setIsEditingNickname(false);
+      setNicknameError("");
+      await queryClient.invalidateQueries({ queryKey: authUserQueryKey });
+    },
+  });
 
   function handleProfileImageChange(file: File | undefined) {
     if (!file) return;
     profileImageMutation.mutate(file);
+  }
+
+  function startNicknameEdit() {
+    setNicknameInput(user?.nickname ?? user?.realName ?? "");
+    setNicknameError("");
+    setIsEditingNickname(true);
+  }
+
+  function cancelNicknameEdit() {
+    setNicknameInput("");
+    setNicknameError("");
+    setIsEditingNickname(false);
+  }
+
+  function handleNicknameSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const nextNickname = nicknameInput.trim();
+    if (nextNickname.length < 2) {
+      setNicknameError("닉네임은 2자 이상 입력해주세요.");
+      return;
+    }
+
+    if (nextNickname === user?.nickname) {
+      cancelNicknameEdit();
+      return;
+    }
+
+    setNicknameError("");
+    nicknameMutation.mutate(nextNickname);
   }
 
   if (isLoading) {
@@ -174,6 +223,14 @@ export function MyPage() {
                 {user.nickname}
               </span>
             ) : null}
+            <button
+              aria-label="닉네임 수정"
+              className="grid size-7 place-items-center rounded-full bg-[#F1F3F5] text-[#4F565E]"
+              onClick={startNicknameEdit}
+              type="button"
+            >
+              <Pencil size={14} strokeWidth={2.6} />
+            </button>
           </div>
           <p className="mt-1.5 mb-0 text-sm font-bold text-[#98A1AA]">
             {user.email}
@@ -213,6 +270,84 @@ export function MyPage() {
       </section>
 
       <AnimatePresence>
+        {isEditingNickname ? (
+          <motion.div
+            animate={{ opacity: 1 }}
+            aria-modal="true"
+            className="fixed inset-0 z-[100] grid place-items-center bg-black/35 px-5"
+            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
+            role="dialog"
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <motion.form
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="w-full max-w-[320px] rounded-2xl bg-white p-5 shadow-[0_18px_42px_rgba(17,17,17,0.24)]"
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              onSubmit={handleNicknameSubmit}
+              transition={{ type: "spring", stiffness: 420, damping: 32 }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="m-0 text-lg font-black text-[#111]">
+                  닉네임 수정
+                </h2>
+                <button
+                  aria-label="닉네임 수정 닫기"
+                  className="grid size-8 place-items-center rounded-full bg-[#F1F3F5] text-[#4F565E] disabled:opacity-50"
+                  disabled={nicknameMutation.isPending}
+                  onClick={cancelNicknameEdit}
+                  type="button"
+                >
+                  <X size={17} strokeWidth={2.7} />
+                </button>
+              </div>
+
+              <label
+                className="mt-5 block text-xs font-black text-[#6F7780]"
+                htmlFor="my-page-nickname"
+              >
+                닉네임
+              </label>
+              <input
+                autoComplete="nickname"
+                autoFocus
+                className="mt-2 h-12 w-full rounded-xl border border-[#DDE2E7] bg-white px-3 text-base font-extrabold outline-none transition focus:border-[#1F3D35] focus:ring-3 focus:ring-[#1F3D35]/12"
+                disabled={nicknameMutation.isPending}
+                id="my-page-nickname"
+                maxLength={20}
+                onChange={(event) => setNicknameInput(event.target.value)}
+                placeholder="닉네임을 입력해주세요."
+                value={nicknameInput}
+              />
+              {nicknameError ? (
+                <p className="mt-2 mb-0 text-xs font-bold text-[#D5483D]">
+                  {nicknameError}
+                </p>
+              ) : null}
+
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <button
+                  className="h-11 rounded-xl bg-[#F1F3F5] text-sm font-black text-[#4F565E] disabled:opacity-50"
+                  disabled={nicknameMutation.isPending}
+                  onClick={cancelNicknameEdit}
+                  type="button"
+                >
+                  취소
+                </button>
+                <button
+                  className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[#1F3D35] text-sm font-black text-white disabled:opacity-50"
+                  disabled={nicknameMutation.isPending}
+                  type="submit"
+                >
+                  <Check size={16} strokeWidth={2.8} />
+                  {nicknameMutation.isPending ? "저장 중..." : "저장"}
+                </button>
+              </div>
+            </motion.form>
+          </motion.div>
+        ) : null}
+
         {showLogoutConfirm ? (
           <motion.div
             animate={{ opacity: 1 }}
