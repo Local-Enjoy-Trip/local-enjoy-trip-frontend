@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { PageTransition } from "@/shared/ui/PageTransition";
+import { ScrollToTop } from "@/shared/ui/ScrollToTop";
 
 function HomeNavIcon({ isActive }: { isActive: boolean }) {
   return (
@@ -208,6 +209,7 @@ const createItems = [
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
+  const mainRef = useRef<HTMLElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const isMapPage = location.pathname === "/map";
@@ -257,7 +259,9 @@ export function AppShell() {
           : "min-h-dvh sm:min-h-[calc(100vh-48px)] sm:overflow-hidden"
       }`}
     >
+      <ScrollToTop rootRef={mainRef} />
       <main
+        ref={mainRef}
         className={
           usesFixedViewport
             ? "h-full overflow-hidden"

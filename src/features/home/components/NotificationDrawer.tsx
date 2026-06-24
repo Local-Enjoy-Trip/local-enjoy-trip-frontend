@@ -9,6 +9,7 @@ import {
   receivedFriendRequestsQueryKey,
   rejectFriendshipRequest,
 } from "@/features/friends/friendApi";
+import { Skeleton } from "@/shared/ui/Skeleton";
 
 type NotificationDrawerProps = {
   isOpen: boolean;
@@ -93,9 +94,7 @@ export function NotificationDrawer({
         <section className="mt-6">
           <div className="grid gap-2">
             {receivedRequestsQuery.isLoading ? (
-              <div className="rounded-2xl bg-[#F7F6F2] px-4 py-5 text-sm font-bold text-[#8B857C]">
-                알림을 불러오는 중이에요.
-              </div>
+              <NotificationListSkeleton />
             ) : requests.length > 0 ? (
               requests.map((request) => (
                 <article
@@ -149,5 +148,28 @@ export function NotificationDrawer({
         </motion.div>
       ) : null}
     </AnimatePresence>
+  );
+}
+
+function NotificationListSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <article
+          className="flex min-h-16 items-center gap-3 rounded-2xl bg-[#F7F6F2] px-3"
+          key={index}
+        >
+          <Skeleton className="size-11 flex-none rounded-full" />
+          <span className="min-w-0 flex-1">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="mt-2 h-3 w-40" />
+          </span>
+          <span className="flex flex-none gap-1.5">
+            <Skeleton className="size-9 rounded-full" />
+            <Skeleton className="size-9 rounded-full" />
+          </span>
+        </article>
+      ))}
+    </>
   );
 }

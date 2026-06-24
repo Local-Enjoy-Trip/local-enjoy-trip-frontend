@@ -20,6 +20,8 @@ Refine course page header, next-trip logic, recommendation section titles, hasht
 
 - `npm run build`
 - `npm run lint`
+- `npm run build`
+- `npm run lint`
 
 ## Build/Lint Result
 
@@ -29,3 +31,4 @@ Refine course page header, next-trip logic, recommendation section titles, hasht
 ## Reviewer Result
 
 - Self-review complete. Course page now uses nearest upcoming dated local course as the next-trip basis. API courses do not expose trip dates, so they are fallback only.
+- Follow-up adjustment complete. Removed the large neighborhood hero headline, moved the create-course panel below the place recommendation carousel, and restored the panel to open the existing creation modal instead of showing inline action buttons.

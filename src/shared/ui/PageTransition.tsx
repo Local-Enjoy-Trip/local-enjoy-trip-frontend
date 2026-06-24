@@ -17,7 +17,7 @@ export function PageTransition({
       animate={{ y: 0 }}
       className={fixed ? "h-full min-h-0" : "min-h-full"}
       initial={{ y: quiet ? 0 : 6 }}
-      transition={{ duration: quiet ? 0.12 : 0.18, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: quiet ? 0.16 : 0.22, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
     </motion.div>

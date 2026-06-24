@@ -3,6 +3,7 @@ import type {
   NeighborhoodBriefing,
   WeatherForecast,
 } from "@/features/home/homeApi";
+import { Skeleton } from "@/shared/ui/Skeleton";
 import { homeLocations } from "@/features/home/types/homeTypes";
 import {
   Cloud,
@@ -219,6 +220,51 @@ export function AiWeatherBriefing({
   );
   const label = briefing?.weather.condition || theme.label;
   const rainChance = formatRainChance(briefing?.weather.rainChance);
+
+  if (isLoading) {
+    return (
+      <section className="mt-5 px-5">
+        <article
+          aria-busy="true"
+          className="overflow-hidden rounded-[28px] bg-[#E9EEF0]"
+        >
+          <div className="px-5 pt-7 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Skeleton className="h-12 w-24 rounded-2xl bg-white/70" />
+                <Skeleton className="mt-2 h-3 w-20 rounded-full bg-white/60" />
+              </div>
+              <div className="grid justify-items-end gap-2">
+                <Skeleton className="size-8 rounded-full bg-white/70" />
+                <Skeleton className="h-3 w-24 rounded-full bg-white/60" />
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-6 gap-1">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div className="grid justify-items-center gap-2" key={index}>
+                  <Skeleton className="h-2.5 w-8 rounded-full bg-white/55" />
+                  <Skeleton className="size-6 rounded-full bg-white/65" />
+                  <Skeleton className="h-3 w-7 rounded-full bg-white/55" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[1.25rem] border border-white/50 bg-white/60 px-5 pt-5 pb-6 backdrop-blur-[20px]">
+            <Skeleton className="h-8 w-28 rounded-full bg-white/80" />
+            <Skeleton className="mt-5 h-4 w-3/4 rounded-full bg-white/80" />
+            <Skeleton className="mt-3 h-4 w-full rounded-full bg-white/70" />
+            <Skeleton className="mt-2 h-4 w-5/6 rounded-full bg-white/70" />
+            <div className="mt-5 grid gap-2.5">
+              <Skeleton className="h-3 w-full rounded-full bg-white/65" />
+              <Skeleton className="h-3 w-4/5 rounded-full bg-white/65" />
+            </div>
+          </div>
+        </article>
+      </section>
+    );
+  }
 
   return (
     <section className="mt-5 px-5">

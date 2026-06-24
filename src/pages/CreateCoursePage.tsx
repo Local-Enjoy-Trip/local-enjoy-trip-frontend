@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Skeleton } from "@/shared/ui/Skeleton";
 
 type DirectStop = { id: number; name: string };
 
@@ -252,8 +253,8 @@ function AiCourseCreator() {
 
   if (phase === "loading") {
     return (
-      <section className="fixed inset-0 z-50 mx-auto grid w-full max-w-[430px] place-items-center bg-[#F8F6F1] px-8 text-center text-[#171717]">
-        <div>
+      <section className="fixed inset-0 z-50 mx-auto w-full max-w-[430px] overflow-hidden bg-[#F8F6F1] px-5 text-center text-[#171717]">
+        <div className="pt-[calc(54px+env(safe-area-inset-top))]">
           <div className="relative mx-auto grid size-28 place-items-center rounded-full bg-white shadow-[0_18px_50px_rgba(31,61,53,0.12)]">
             <LoaderCircle className="animate-spin text-[#1F3D35]" size={58} strokeWidth={1.7} />
             <MapPin className="absolute text-[#FD4003]" size={26} fill="#FD4003" />
@@ -264,6 +265,26 @@ function AiCourseCreator() {
           </p>
           <div className="mx-auto mt-8 h-1.5 w-48 overflow-hidden rounded-full bg-[#E7E2D9]">
             <div className="h-full w-2/3 animate-pulse rounded-full bg-[#FD4003]" />
+          </div>
+        </div>
+        <div className="mt-10 rounded-[26px] bg-white p-4 text-left shadow-[0_14px_34px_rgba(31,38,35,0.08)]">
+          <Skeleton className="h-5 w-36 rounded-full" />
+          <div className="relative mt-4 h-36 overflow-hidden rounded-[22px] bg-[#DCE9DF]">
+            <Skeleton className="absolute top-6 left-6 size-9 rounded-full bg-white/70" />
+            <Skeleton className="absolute top-1/2 left-1/3 h-2 w-28 rounded-full bg-white/60" />
+            <Skeleton className="absolute right-8 bottom-8 size-9 rounded-full bg-white/70" />
+          </div>
+          <div className="mt-4 grid gap-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div className="flex items-center gap-3" key={index}>
+                <Skeleton className="size-16 flex-none rounded-xl" />
+                <span className="min-w-0 flex-1">
+                  <Skeleton className="h-4 w-3/4 rounded-full" />
+                  <Skeleton className="mt-2 h-3 w-full rounded-full" />
+                  <Skeleton className="mt-2 h-3 w-2/3 rounded-full" />
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </section>

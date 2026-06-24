@@ -7,7 +7,7 @@ import {
 import { friendsQueryKey, getFriends } from "@/features/friends/friendApi";
 import { getSavedNotes, savedNotesQueryKey } from "@/features/notes/noteApi";
 import { courses } from "@/shared/data/mockData";
-import { PageLoadingSkeleton } from "@/shared/ui/Skeleton";
+import { PageLoadingSkeleton, TextSkeleton } from "@/shared/ui/Skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -138,12 +138,26 @@ export function MyPage() {
 
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
-              { label: "친구", value: friendCount },
-              { label: "코스", value: courses.length },
-              { label: "쪽지", value: myNoteCount },
+              {
+                isLoading: friendsQuery.isLoading,
+                label: "친구",
+                value: friendCount,
+              },
+              { isLoading: false, label: "코스", value: courses.length },
+              {
+                isLoading: savedNotesQuery.isLoading,
+                label: "쪽지",
+                value: myNoteCount,
+              },
             ].map((item) => (
               <div key={item.label}>
-                <strong className="block text-xl font-black">{item.value}</strong>
+                {item.isLoading ? (
+                  <TextSkeleton className="mx-auto h-6 w-7 rounded-md" />
+                ) : (
+                  <strong className="block text-xl font-black">
+                    {item.value}
+                  </strong>
+                )}
                 <span className="mt-0.5 block text-xs font-black text-[#34383D]">
                   {item.label}
                 </span>

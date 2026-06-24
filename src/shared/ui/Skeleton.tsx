@@ -13,6 +13,13 @@ export function Skeleton({
   );
 }
 
+export function TextSkeleton({
+  className = "",
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return <Skeleton className={`h-4 ${className}`} {...props} />;
+}
+
 export function PageLoadingSkeleton({
   type = "list",
 }: {
