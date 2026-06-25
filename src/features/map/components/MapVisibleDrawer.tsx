@@ -877,7 +877,8 @@ function PointDetailPanel({
   });
   const imageUrl = isPlace
     ? point.source.imageUrl
-    : resolveNoteImageSrc(noteDetailQuery.data ?? point.source);
+    : (noteDetailQuery.data ? resolveNoteImageSrc(noteDetailQuery.data) : null) ||
+      point.source.imageUrl;
   const title = (isPlace ? point.name : point.source.placeName) || point.name;
   const fullLocation = isPlace ? point.source.area : point.source.placeName;
   const neighborhood = getNeighborhoodLabel(fullLocation);

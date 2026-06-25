@@ -18,7 +18,7 @@ import {
   deleteFriendship,
   friendsQueryKey,
   getFriends,
-  getMembers,
+  searchMembers,
   getReceivedFriendRequests,
   getSentFriendRequests,
   memberSearchQueryKey,
@@ -72,13 +72,16 @@ export function FriendPage() {
   const { data: user } = useAuthUser();
   const refreshFriendQueries = useRefreshFriendQueries();
 
+  const normalizedEmailInput = emailInput.trim().toLowerCase();
+
   const friendsQuery = useQuery({
     queryFn: getFriends,
     queryKey: friendsQueryKey,
   });
   const membersQuery = useQuery({
-    queryFn: getMembers,
-    queryKey: memberSearchQueryKey,
+    enabled: normalizedEmailInput.length >= 2,
+    queryFn: () => searchMembers(normalizedEmailInput),
+    queryKey: [...memberSearchQueryKey, normalizedEmailInput],
   });
   const receivedRequestsQuery = useQuery({
     queryFn: getReceivedFriendRequests,
@@ -89,12 +92,10 @@ export function FriendPage() {
     queryKey: sentFriendRequestsQueryKey,
   });
 
-  const normalizedEmailInput = emailInput.trim().toLowerCase();
   const searchResults = useMemo(() => {
     if (normalizedEmailInput.length < 2) return [];
 
     return (membersQuery.data ?? [])
-      .filter((member) => member.email.toLowerCase().includes(normalizedEmailInput))
       .filter((member) => member.userId !== user?.id)
       .slice(0, 5);
   }, [membersQuery.data, normalizedEmailInput, user?.id]);

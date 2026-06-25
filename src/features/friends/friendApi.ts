@@ -51,10 +51,10 @@ export const memberSearchQueryKey = ["members", "search"] as const;
 export const receivedFriendRequestsQueryKey = ["friends", "requests", "received"] as const;
 export const sentFriendRequestsQueryKey = ["friends", "requests", "sent"] as const;
 
-export function getMembers() {
-  return apiGet<MembersResponse>("/api/members").then(
-    (response) => response.users,
-  );
+export function searchMembers(email: string) {
+  return apiGet<MembersResponse>(
+    `/api/members/search?email=${encodeURIComponent(email)}`,
+  ).then((response) => response.users);
 }
 
 export function getFriends() {

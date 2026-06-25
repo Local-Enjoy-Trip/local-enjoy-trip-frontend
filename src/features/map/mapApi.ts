@@ -48,6 +48,11 @@ type NoteMapPinResponse = {
   id: number;
   imageObjectKey: string | null;
   imageUrl?: string | null;
+  image?: {
+    contentType: string;
+    objectKey: string;
+    publicUrl?: string;
+  } | null;
   latitude: number;
   longitude: number;
   regionName: string;
