@@ -12,16 +12,6 @@ import {
   type CourseResponse,
 } from "@/features/course/courseApi";
 import {
-  appendCourseStop,
-  appendCourseStops,
-  getSavedCourse,
-  getSavedCourses,
-  saveCourse,
-  updateCourseCollaborators,
-  type SavedCourse,
-  type SavedCourseStop,
-} from "@/features/course/courseStorage";
-import {
   normalizeCourseTags,
   parseCourseDescriptionTags,
 } from "@/features/course/courseTags";
@@ -1167,9 +1157,6 @@ export function CourseDetailPage() {
     locationState.createdCourseId === courseId;
   const authUserQuery = useAuthUser();
   const userId = authUserQuery.data?.id;
-  const [savedCourse, setSavedCourse] = useState<SavedCourse | undefined>(() =>
-    getSavedCourse(courseId),
-  );
   const [apiCourse, setApiCourse] = useState<CourseResponse | null>(
     () => getCachedApiCourse(courseId) ?? null,
   );
@@ -1193,26 +1180,15 @@ export function CourseDetailPage() {
 
   const isReadOnly =
     searchParams.get("view") === "1" ||
-    (!savedCourse &&
-      (!apiCourse ||
-        (!isMyApiCourse && !myCoursesQuery.isLoading && !myCoursesQuery.isError)));
+    !apiCourse ||
+    (!isMyApiCourse && !myCoursesQuery.isLoading && !myCoursesQuery.isError);
   const canEditCourse = !isReadOnly;
   const routeStops = useMemo<CourseStop[]>(
     () =>
       apiCourse
         ? toDisplayRouteStops(apiCourse, attractionDetails)
-        : savedCourse?.stops.map((stop, index) => ({
-        id: stop.id,
-        accent: (["violet", "coral", "mint"] as const)[index % 3],
-        category: `${stop.category} · ${savedCourse.area}`,
-        coordinates: { lat: stop.lat, lng: stop.lng },
-        description: stop.description,
-        distanceFromPrevious: index === 0 ? undefined : `${320 + index * 110}m`,
-        imageUrl: stop.imageUrl || fallbackCourseImage,
-        location: savedCourse.area,
-        title: stop.title,
-      })) ?? [],
-    [apiCourse, savedCourse, attractionDetails],
+        : [],
+    [apiCourse, attractionDetails],
   );
 
   useEffect(() => {
@@ -1249,8 +1225,8 @@ export function CourseDetailPage() {
 
     void fetchDetails();
   }, [apiCourse, attractionDetails]);
-  const courseTitle = apiCourse?.title ?? savedCourse?.title ?? "망원 하루 코스";
-  const companion = savedCourse?.companion ?? "내 일정";
+  const courseTitle = apiCourse?.title ?? "망원 하루 코스";
+  const companion = "내 일정";
   const descParts = apiCourse?.description?.split("|") ?? [];
   const apiDate = descParts[0]?.match(/^\d{4}-\d{2}-\d{2}$/)
     ? descParts[0]
@@ -1261,12 +1237,12 @@ export function CourseDetailPage() {
     return getCourseResponseTags(apiCourse);
   }, [apiCourse]);
 
-  const dateLabel = savedCourse?.date || apiDate
-    ? (savedCourse?.date ?? apiDate ?? "").replace(/-/g, ".")
+  const dateLabel = apiDate
+    ? apiDate.replace(/-/g, ".")
     : "날짜 미정";
 
   const styleLabel =
-    (savedCourse ? savedCourse.styles.join(" · ") : apiTags.join(" · ")) ||
+    apiTags.join(" · ") ||
     apiCourse?.regionName ||
     "로컬 산책";
   const [activeStopId, setActiveStopId] = useState(routeStops[0]?.id ?? 1);
@@ -1283,7 +1259,7 @@ export function CourseDetailPage() {
   const [placePickerOpen, setPlacePickerOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(courseTitle);
-  const [editDate, setEditDate] = useState(savedCourse?.date ?? apiDate ?? "");
+  const [editDate, setEditDate] = useState(apiDate ?? "");
   const [calendarMonth, setCalendarMonth] = useState(() =>
     startOfMonth(new Date()),
   );
@@ -1293,18 +1269,15 @@ export function CourseDetailPage() {
   const [isCopyingCourse, setIsCopyingCourse] = useState(false);
   const [copyTargetId, setCopyTargetId] = useState("");
   const [copyNewTitle, setCopyNewTitle] = useState("");
-  const [copySavedCourses, setCopySavedCourses] = useState(() => getSavedCourses());
   const [notice, setNotice] = useState("");
-  const [selectedFriends, setSelectedFriends] = useState(
-    savedCourse?.collaborators ?? [],
-  );
+  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const friendsQuery = useQuery({
     enabled: friendsOpen,
     queryFn: getServiceFriends,
     queryKey: ["friends"],
   });
   const copyTargets = useMemo(() => {
-    const apiTargets = (myCoursesQuery.data ?? [])
+    return (myCoursesQuery.data ?? [])
       .filter((course) => course.id !== apiCourse?.id)
       .map((course) => ({
         id: `api:${course.id}`,
@@ -1313,18 +1286,7 @@ export function CourseDetailPage() {
         type: "api" as const,
         value: course,
       }));
-    const localTargets = copySavedCourses
-      .filter((course) => course.id !== savedCourse?.id)
-      .map((course) => ({
-        id: `local:${course.id}`,
-        meta: `${course.area} · ${course.stops.length}곳`,
-        title: course.title,
-        type: "local" as const,
-        value: course,
-      }));
-
-    return [...apiTargets, ...localTargets];
-  }, [apiCourse?.id, copySavedCourses, myCoursesQuery.data, savedCourse?.id]);
+  }, [apiCourse?.id, myCoursesQuery.data]);
   const expandedHeaderHeight = HEADER_EXPANDED_HEIGHT + safeAreaTop;
   const drawerCollapsedTop = DRAWER_COLLAPSED_TOP;
   const headerCollapseDistance = expandedHeaderHeight - (HEADER_COMPACT_HEIGHT + safeAreaTop);
@@ -1354,10 +1316,9 @@ export function CourseDetailPage() {
       } catch {
         if (
           !cancelled &&
-          !getCachedApiCourse(courseId) &&
-          !getSavedCourse(courseId)
+          !getCachedApiCourse(courseId)
         ) {
-          setNotice("코스를 불러오지 못해 기본 예시를 보여드려요.");
+          setNotice("코스를 불러오지 못했어요.");
         }
       }
     }
@@ -1377,18 +1338,17 @@ export function CourseDetailPage() {
   useEffect(() => {
     if (editOpen) {
       setEditTitle(courseTitle);
-      const initialDate = savedCourse?.date ?? apiDate ?? "";
+      const initialDate = apiDate ?? "";
       setEditDate(initialDate);
       setCalendarMonth(startOfMonth(initialDate ? new Date(initialDate) : new Date()));
       setEditStops(routeStops);
-      setEditTags(savedCourse ? [...(savedCourse.styles ?? [])] : [...apiTags]);
+      setEditTags([...apiTags]);
     }
-  }, [editOpen, routeStops, courseTitle, savedCourse, apiDate, apiTags]);
+  }, [editOpen, routeStops, courseTitle, apiDate, apiTags]);
 
   useEffect(() => {
     if (!copyOpen) return;
 
-    setCopySavedCourses(getSavedCourses());
     setCopyTargetId("");
     setCopyNewTitle(`${courseTitle} 복사`);
   }, [copyOpen, courseTitle]);
@@ -1411,7 +1371,7 @@ export function CourseDetailPage() {
     try {
       const trimmedTags = normalizeCourseTags(
         editTags,
-        apiCourse?.regionName ?? savedCourse?.area ?? "로컬",
+        apiCourse?.regionName ?? "로컬",
       );
       if (apiCourse) {
         const nextItems = editStops.flatMap((stop, index) => {
@@ -1431,16 +1391,6 @@ export function CourseDetailPage() {
           title,
         });
         setApiCourse(updated);
-      } else if (savedCourse) {
-        const updatedStops = toSavedStops(editStops);
-        saveCourse({
-          ...savedCourse,
-          date: editDate || undefined,
-          title,
-          stops: updatedStops,
-          styles: trimmedTags,
-        });
-        setSavedCourse(getSavedCourse(savedCourse.id));
       }
       setEditOpen(false);
       showNotice("코스 정보를 수정했어요.");
@@ -1556,7 +1506,6 @@ export function CourseDetailPage() {
 
   function saveFriends() {
     if (!canEditCourse) return;
-    if (savedCourse) updateCourseCollaborators(savedCourse.id, selectedFriends);
     setFriendsOpen(false);
     showNotice(
       selectedFriends.length > 0
@@ -1566,71 +1515,54 @@ export function CourseDetailPage() {
   }
 
   async function addPointsToCourse(points: MapPoint[]) {
-    if (!canEditCourse || isAddingPoint || points.length === 0) return;
+    if (!canEditCourse || !apiCourse || isAddingPoint || points.length === 0) return;
 
     setIsAddingPoint(true);
     try {
-      if (apiCourse) {
-        const currentItems = sortedCourseItems(apiCourse).map((item) => ({
-          attractionId: item.attractionId ?? undefined,
-          day: item.day,
-          itemType: item.itemType,
-          memo: item.memo ?? undefined,
-          noteId: item.noteId ?? undefined,
-          position: item.position,
-          stayMinutes: item.stayMinutes ?? undefined,
-        }));
-        const startPosition = currentItems.reduce(
-          (max, item) => Math.max(max, item.position ?? 0),
-          0,
-        );
-        const newItems = points.map((point, index) => {
-          const numericId = getNumericPointId(point.id);
-          return {
-            attractionId: point.kind === "place" ? numericId ?? undefined : undefined,
-            day: 1,
-            itemType: point.kind === "place" ? "ATTRACTION" : "NOTE",
-            memo: point.kind === "spot" ? point.source.body : undefined,
-            noteId: point.kind === "spot" ? numericId ?? undefined : undefined,
-            position: startPosition + index + 1,
-            stayMinutes: 60,
-          };
-        });
+      const currentItems = sortedCourseItems(apiCourse).map((item) => ({
+        attractionId: item.attractionId ?? undefined,
+        day: item.day,
+        itemType: item.itemType,
+        memo: item.memo ?? undefined,
+        noteId: item.noteId ?? undefined,
+        position: item.position,
+        stayMinutes: item.stayMinutes ?? undefined,
+      }));
+      const startPosition = currentItems.reduce(
+        (max, item) => Math.max(max, item.position ?? 0),
+        0,
+      );
+      const newItems = points.map((point, index) => {
+        const numericId = getNumericPointId(point.id);
+        return {
+          attractionId: point.kind === "place" ? numericId ?? undefined : undefined,
+          day: 1,
+          itemType: point.kind === "place" ? "ATTRACTION" : "NOTE",
+          memo: point.kind === "spot" ? point.source.body : undefined,
+          noteId: point.kind === "spot" ? numericId ?? undefined : undefined,
+          position: startPosition + index + 1,
+          stayMinutes: 60,
+        };
+      });
 
-        const updated = await updateCourse(apiCourse.id, {
-          coverImageUrl:
-            apiCourse.coverImageUrl ??
-            getFirstRealStopImage(routeStops) ??
-            getFirstRealPointImage(points),
-          description: apiCourse.description ?? undefined,
-          items: [...currentItems, ...newItems],
-          regionName: apiCourse.regionName ?? undefined,
-          status: apiCourse.status,
-          tags: getCourseResponseTags(apiCourse),
-          title: apiCourse.title,
-          visibility: apiCourse.visibility,
-        });
-        setApiCourse(updated);
-      } else if (savedCourse) {
-        for (const point of points) {
-          appendCourseStop(savedCourse.id, toSavedCourseStop(point));
-        }
-        setSavedCourse(getSavedCourse(savedCourse.id));
-      }
+      const updated = await updateCourse(apiCourse.id, {
+        coverImageUrl:
+          apiCourse.coverImageUrl ??
+          getFirstRealStopImage(routeStops) ??
+          getFirstRealPointImage(points),
+        description: apiCourse.description ?? undefined,
+        items: [...currentItems, ...newItems],
+        regionName: apiCourse.regionName ?? undefined,
+        status: apiCourse.status,
+        tags: getCourseResponseTags(apiCourse),
+        title: apiCourse.title,
+        visibility: apiCourse.visibility,
+      });
+      setApiCourse(updated);
 
       setPlacePickerOpen(false);
       showNotice(`${points.length}개의 장소를 코스 맨 뒤에 추가했어요.`);
     } catch {
-      if (savedCourse) {
-        for (const point of points) {
-          appendCourseStop(savedCourse.id, toSavedCourseStop(point));
-        }
-        setSavedCourse(getSavedCourse(savedCourse.id));
-        setPlacePickerOpen(false);
-        showNotice(`${points.length}개의 장소를 코스 맨 뒤에 추가했어요.`);
-        return;
-      }
-
       showNotice("코스에 추가하지 못했어요.");
     } finally {
       setIsAddingPoint(false);
@@ -1645,19 +1577,13 @@ export function CourseDetailPage() {
 
     setIsCopyingCourse(true);
     try {
-      if (target.type === "api") {
-        const request = appendStopsToCourseRequest(target.value, routeStops);
-        if (request.items.length <= target.value.items.length) {
-          showNotice("담을 수 있는 실제 장소 ID가 부족해요.");
-          return;
-        }
-
-        await updateCourse(target.value.id, request);
-      } else {
-        appendCourseStops(target.value.id, toSavedStops(routeStops));
-        setCopySavedCourses(getSavedCourses());
+      const request = appendStopsToCourseRequest(target.value, routeStops);
+      if (request.items.length <= target.value.items.length) {
+        showNotice("담을 수 있는 실제 장소 ID가 부족해요.");
+        return;
       }
 
+      await updateCourse(target.value.id, request);
       setCopyOpen(false);
       showNotice(`${target.title}에 ${routeStops.length}곳을 담았어요.`);
     } catch {
@@ -1671,12 +1597,12 @@ export function CourseDetailPage() {
     if (!apiCourse || isCopyingCourse) return;
 
     const title = copyNewTitle.trim() || `${courseTitle} 복사`;
-    const localId = `mine-${apiCourse.id}-${Date.now()}`;
+    const newCourseId = `mine-${apiCourse.id}-${Date.now()}`;
     setIsCopyingCourse(true);
 
     try {
       const request = createCourseRequestFromStops({
-        id: localId,
+        id: newCourseId,
         sourceCourse: apiCourse,
         stops: routeStops,
         title,
@@ -1690,25 +1616,10 @@ export function CourseDetailPage() {
         return;
       }
     } catch {
-      // Fall back to local storage below.
+      showNotice("새 내 코스로 담지 못했어요.");
+    } finally {
+      setIsCopyingCourse(false);
     }
-
-    saveCourse({
-      id: localId,
-      title,
-      area: apiCourse.regionName ?? "미정",
-      companion: "내 일정",
-      date: undefined,
-      styles: getCourseResponseTags(apiCourse),
-      pace: "날짜 미정",
-      savedAt: new Date().toISOString(),
-      collaborators: [],
-      stops: toSavedStops(routeStops),
-    });
-    setCopyOpen(false);
-    showNotice("새 내 코스로 담았어요.");
-    navigate(`/course/${localId}`, { replace: true });
-    setIsCopyingCourse(false);
   }
 
   async function applyOptimizedOrder() {
@@ -1811,16 +1722,6 @@ export function CourseDetailPage() {
           setApiCourse(apiCourse);
         }
       }
-    } else if (savedCourse) {
-      const updatedCourse = {
-        ...savedCourse,
-        stops: toSavedStops(newStops),
-      };
-
-      setSavedCourse(updatedCourse);
-      saveCourse(updatedCourse);
-      window.dispatchEvent(new CustomEvent("spot:courses-changed"));
-      showNotice("순서를 저장했어요.");
     }
   }
 
@@ -2820,34 +2721,6 @@ function CoursePickerNoteCard({
   );
 }
 
-function toSavedCourseStop(point: MapPoint): SavedCourseStop {
-  const numericId = getNumericPointId(point.id);
-
-  if (point.kind === "place") {
-    return {
-      attractionId: numericId ?? undefined,
-      category: point.source.tags[0] ?? "장소",
-      description: point.source.summary,
-      id: 1,
-      imageUrl: point.source.imageUrl,
-      lat: point.coordinates.lat,
-      lng: point.coordinates.lng,
-      title: point.name,
-    };
-  }
-
-  return {
-    category: "쪽지",
-    description: point.source.body,
-    id: 1,
-    imageUrl: point.source.imageUrl ?? "",
-    lat: point.coordinates.lat,
-    lng: point.coordinates.lng,
-    noteId: numericId ?? undefined,
-    title: point.source.placeName || point.name,
-  };
-}
-
 function toCourseItemRequest(
   stop: CourseStop,
   index: number,
@@ -2943,20 +2816,6 @@ function createCourseRequestFromStops({
     title,
     visibility: "PRIVATE",
   };
-}
-
-function toSavedStops(stops: CourseStop[]): SavedCourseStop[] {
-  return stops.map((stop, index) => ({
-    attractionId: stop.sourceItem?.attractionId ?? undefined,
-    category: stop.category.split(" · ")[0] ?? "장소",
-    description: stop.description,
-    id: index + 1,
-    imageUrl: stop.imageUrl || fallbackCourseImage,
-    lat: stop.coordinates.lat,
-    lng: stop.coordinates.lng,
-    noteId: stop.sourceItem?.noteId ?? undefined,
-    title: stop.title,
-  }));
 }
 
 function getNumericPointId(id: string) {

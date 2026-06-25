@@ -1,8 +1,4 @@
 import {
-  type SavedCourse,
-  type SavedCourseStop,
-} from "@/features/course/courseStorage";
-import {
   createCourse,
   generateAiCourse,
   type CourseCreateRequest,
@@ -32,6 +28,28 @@ import { useQueryClient } from "@tanstack/react-query";
 import { SpotLogo } from "@/shared/ui/SpotLogo";
 
 type DirectStop = { id: number; name: string };
+type AiRecommendationStop = {
+  attractionId?: number;
+  category: string;
+  description: string;
+  id: number;
+  imageUrl: string;
+  lat: number;
+  lng: number;
+  noteId?: number;
+  title: string;
+};
+type AiRecommendationCourse = {
+  area: string;
+  collaborators: string[];
+  companion: string;
+  id: string;
+  pace: string;
+  savedAt: string;
+  stops: AiRecommendationStop[];
+  styles: string[];
+  title: string;
+};
 
 const neighborhoodOptions = [
   { label: "서촌", regionName: "청운효자동" },
@@ -65,7 +83,7 @@ const paces = [
   { value: "알차게", description: "5곳 안팎, 동네를 꽉 채운 일정" },
 ];
 
-function toCourseCreateRequest(course: SavedCourse): CourseCreateRequest | null {
+function toCourseCreateRequest(course: AiRecommendationCourse): CourseCreateRequest | null {
   const items = course.stops.flatMap<CourseItemRequest>((stop, index) => {
     if (stop.attractionId) {
       return [{
@@ -135,7 +153,7 @@ function AiRoutePreviewMap({
   stops,
 }: {
   area: string;
-  stops: SavedCourseStop[];
+  stops: AiRecommendationStop[];
 }) {
   const validStops = stops.filter(
     (stop) =>
@@ -235,7 +253,7 @@ function AiCourseCreator() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(8);
-  const [recommendation, setRecommendation] = useState<SavedCourse | null>(null);
+  const [recommendation, setRecommendation] = useState<AiRecommendationCourse | null>(null);
   const aiRequestIdRef = useRef(0);
 
   useEffect(() => {
@@ -310,7 +328,7 @@ function AiCourseCreator() {
 
       if (aiRequestIdRef.current !== requestId) return;
 
-      const stops: SavedCourseStop[] = response.stops.map((stop, index) => {
+      const stops: AiRecommendationStop[] = response.stops.map((stop, index) => {
         const detail = details[index];
         const address = detail?.address || stop.addr1 || "";
 

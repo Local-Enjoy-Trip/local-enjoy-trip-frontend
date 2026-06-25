@@ -1,19 +1,16 @@
 import {
   apiCourseToDiscovery,
-  savedCourseToDiscovery,
   type CourseDiscoveryModel,
 } from "@/features/course/components/CourseDiscoveryCard";
 import { getMyCourses } from "@/features/course/courseApi";
-import { getSavedCourses } from "@/features/course/courseStorage";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CalendarDays } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 export function MyCoursesPage() {
   const navigate = useNavigate();
-  const [savedCourses, setSavedCourses] = useState(() => getSavedCourses());
   const myCoursesQuery = useQuery({
     queryFn: getMyCourses,
     queryKey: ["courses", "me"],
@@ -22,23 +19,8 @@ export function MyCoursesPage() {
   const courses = useMemo(() => {
     const apiCourses = myCoursesQuery.data ?? [];
 
-    return [
-      ...apiCourses.map(apiCourseToDiscovery),
-      ...savedCourses
-        .filter((course) => !apiCourses.some((apiCourse) => apiCourse.id === course.id))
-        .map(savedCourseToDiscovery),
-    ];
-  }, [myCoursesQuery.data, savedCourses]);
-
-  useEffect(() => {
-    const refresh = () => setSavedCourses(getSavedCourses());
-    window.addEventListener("spot:courses-changed", refresh);
-    window.addEventListener("focus", refresh);
-    return () => {
-      window.removeEventListener("spot:courses-changed", refresh);
-      window.removeEventListener("focus", refresh);
-    };
-  }, []);
+    return apiCourses.map(apiCourseToDiscovery);
+  }, [myCoursesQuery.data]);
 
   return (
     <section className="min-h-screen bg-white px-5 pt-[calc(20px+env(safe-area-inset-top))] pb-[calc(96px+env(safe-area-inset-bottom))] text-[#171717]">

@@ -1,14 +1,10 @@
 import {
   apiCourseToDiscovery,
   type CourseDiscoveryModel,
-  savedCourseToDiscovery,
 } from "@/features/course/components/CourseDiscoveryCard";
 import type { CourseResponse } from "@/features/course/courseApi";
-import type { SavedCourse } from "@/features/course/courseStorage";
 
 export const fallbackTripCoordinates = { lat: 37.5568, lng: 126.9019 };
-const fallbackTripImage =
-  "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80";
 const fallbackApiTripImage =
   "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=720&q=80";
 
@@ -32,31 +28,15 @@ export type CourseHashtagSection = {
 };
 
 type ParsedTrip =
-  | {
-      data: CourseResponse;
-      date: string;
-      daysUntil: number;
-      id: string;
-      isApi: true;
-    }
-  | {
-      data: SavedCourse;
-      date: string;
-      daysUntil: number;
-      id: string;
-      isApi: false;
-    };
+  {
+    data: CourseResponse;
+    date: string;
+    daysUntil: number;
+    id: string;
+  };
 
-export function getCourseCards(
-  apiCourses: CourseResponse[],
-  savedCourses: SavedCourse[],
-) {
-  return [
-    ...apiCourses.map(apiCourseToDiscovery),
-    ...savedCourses
-      .filter((course) => !apiCourses.some((apiCourse) => apiCourse.id === course.id))
-      .map(savedCourseToDiscovery),
-  ];
+export function getCourseCards(apiCourses: CourseResponse[]) {
+  return apiCourses.map(apiCourseToDiscovery);
 }
 
 function parseApiCourseDate(course: CourseResponse): string | undefined {
@@ -92,26 +72,8 @@ function apiCourseToTrip(course: CourseResponse, dateStr: string, daysUntil: num
   };
 }
 
-export function getNextTrip(
-  apiCourses: CourseResponse[],
-  savedCourses: SavedCourse[],
-): UpcomingTrip | null {
+export function getNextTrip(apiCourses: CourseResponse[]): UpcomingTrip | null {
   const parsedTrips: ParsedTrip[] = [];
-
-  savedCourses.forEach((course) => {
-    if (course.date) {
-      const days = getDaysUntil(course.date);
-      if (days >= 0) {
-        parsedTrips.push({
-          id: course.id,
-          date: course.date,
-          daysUntil: days,
-          isApi: false,
-          data: course,
-        });
-      }
-    }
-  });
 
   apiCourses.forEach((course) => {
     const dateStr = parseApiCourseDate(course);
@@ -122,7 +84,6 @@ export function getNextTrip(
           id: course.id,
           date: dateStr,
           daysUntil: days,
-          isApi: true,
           data: course,
         });
       }
@@ -133,17 +94,8 @@ export function getNextTrip(
 
   if (parsedTrips.length > 0) {
     const next = parsedTrips[0];
-    if (next.isApi) {
-      return apiCourseToTrip(next.data, next.date, next.daysUntil);
-    } else {
-      return savedCourseToTrip(next.data, next.daysUntil);
-    }
+    return apiCourseToTrip(next.data, next.date, next.daysUntil);
   }
-
-  const latestSaved = [...savedCourses].sort(
-    (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime(),
-  )[0];
-  if (latestSaved) return savedCourseToTrip(latestSaved, 0);
 
   const latestApi = [...apiCourses].sort(
     (a, b) =>
@@ -215,30 +167,6 @@ export function groupCoursesByHashtag(
         ? section
         : { ...section, courses: courses.slice(0, Math.min(courses.length, 6)) },
     );
-}
-
-function savedCourseToTrip(course: SavedCourse, daysUntil: number): UpcomingTrip {
-  const firstStop = course.stops[0];
-  const date = course.date ? new Date(course.date) : null;
-
-  return {
-    area: course.area || "망원동",
-    coordinates: firstStop
-      ? { lat: firstStop.lat, lng: firstStop.lng }
-      : fallbackTripCoordinates,
-    coverImageUrl: firstStop?.imageUrl || fallbackTripImage,
-    dateLabel: date
-      ? new Intl.DateTimeFormat("ko", {
-          day: "numeric",
-          month: "numeric",
-          weekday: "short",
-        }).format(date)
-      : "일정 미정",
-    daysUntil,
-    daysUntilText: `${daysUntil}일 뒤`,
-    id: course.id,
-    title: course.title,
-  };
 }
 
 function chunkTags(tags: string[]) {

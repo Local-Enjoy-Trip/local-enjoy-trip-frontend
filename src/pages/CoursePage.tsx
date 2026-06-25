@@ -10,7 +10,6 @@ import {
   PlaceCarousel,
 } from "@/features/course/components/CourseRecommendationCarousels";
 import { getCourseFeed, getMyCourses } from "@/features/course/courseApi";
-import { getSavedCourses } from "@/features/course/courseStorage";
 import {
   fallbackTripCoordinates,
   getCourseCards,
@@ -31,7 +30,6 @@ const savedNotes = notes.filter((note) => note.saved);
 
 export function CoursePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [savedCourses, setSavedCourses] = useState(() => getSavedCourses());
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -42,8 +40,8 @@ export function CoursePage() {
   });
   const apiCourses = useMemo(() => myCoursesQuery.data ?? [], [myCoursesQuery.data]);
   const nextTrip = useMemo(
-    () => getNextTrip(apiCourses, savedCourses),
-    [apiCourses, savedCourses],
+    () => getNextTrip(apiCourses),
+    [apiCourses],
   );
   const tripCoordinates = nextTrip?.coordinates ?? fallbackTripCoordinates;
   const tripArea = nextTrip?.area ?? "내 주변";
@@ -84,26 +82,16 @@ export function CoursePage() {
   });
 
   const myCourseCards = useMemo(
-    () => getCourseCards(apiCourses, savedCourses),
-    [apiCourses, savedCourses],
+    () => getCourseCards(apiCourses),
+    [apiCourses],
   );
   const publicCourseCards =
     publicCoursesQuery.data && publicCoursesQuery.data.length > 0
       ? publicCoursesQuery.data.map((course) => ({
-          ...getCourseCards([course], [])[0],
+          ...getCourseCards([course])[0],
         }))
       : myCourseCards;
   const courseSections = groupCoursesByHashtag(publicCourseCards);
-
-  useEffect(() => {
-    const refresh = () => setSavedCourses(getSavedCourses());
-    window.addEventListener("spot:courses-changed", refresh);
-    window.addEventListener("focus", refresh);
-    return () => {
-      window.removeEventListener("spot:courses-changed", refresh);
-      window.removeEventListener("focus", refresh);
-    };
-  }, []);
 
   useEffect(() => {
     if (searchParams.get("create") !== "1") return;

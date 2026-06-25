@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthUser } from "@/features/auth/authStore";
 import { UpcomingTripPanel } from "@/features/course/components/UpcomingTripPanel";
 import { getMyCourses } from "@/features/course/courseApi";
-import { getSavedCourses } from "@/features/course/courseStorage";
 import { getNextTrip } from "@/features/course/lib/coursePageModels";
 import { AiCourseRecommendation } from "@/features/home/components/AiCourseRecommendation";
 import { AiWeatherBriefing } from "@/features/home/components/AiWeatherBriefing";
@@ -84,7 +83,6 @@ export function HomePage() {
   const { data: user } = useAuthUser();
   const currentLocation = useCurrentLocation();
   const routeLocation = useLocation();
-  const [savedCourses, setSavedCourses] = useState(() => getSavedCourses());
   const [isTripPanelOpen, setIsTripPanelOpen] = useState(true);
   const tripPanelAnimationLockRef = useRef(false);
   const tripPanelUnlockTimeoutRef = useRef<number | null>(null);
@@ -124,8 +122,8 @@ export function HomePage() {
   });
   const apiCourses = useMemo(() => myCoursesQuery.data ?? [], [myCoursesQuery.data]);
   const nextTrip = useMemo(
-    () => getNextTrip(apiCourses, savedCourses),
-    [apiCourses, savedCourses],
+    () => getNextTrip(apiCourses),
+    [apiCourses],
   );
   const popularExperiencesQuery = useQuery({
     enabled: locationReady,
@@ -235,16 +233,6 @@ export function HomePage() {
 
     setSelectedLocation(getDefaultHomeLocation());
   }, [currentLocation.status, hasRouteSelectedHomeLocation]);
-
-  useEffect(() => {
-    const refresh = () => setSavedCourses(getSavedCourses());
-    window.addEventListener("spot:courses-changed", refresh);
-    window.addEventListener("focus", refresh);
-    return () => {
-      window.removeEventListener("spot:courses-changed", refresh);
-      window.removeEventListener("focus", refresh);
-    };
-  }, []);
 
   useEffect(() => {
     const requestTripPanelOpen = (nextOpen: boolean) => {

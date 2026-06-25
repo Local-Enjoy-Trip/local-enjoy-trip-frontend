@@ -2,10 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import {
   apiCourseToDiscovery,
   CourseDiscoveryCard,
-  savedCourseToDiscovery,
 } from "@/features/course/components/CourseDiscoveryCard";
 import { getCourseFeed } from "@/features/course/courseApi";
-import { getSavedCourses } from "@/features/course/courseStorage";
 import type { Coordinates } from "@/shared/types/domain";
 import { SectionHeader } from "@/shared/ui/SectionHeader";
 import { Skeleton } from "@/shared/ui/Skeleton";
@@ -28,12 +26,7 @@ export function CourseCurationSection({
     queryKey: ["home-course-feed", location, coordinates.lat, coordinates.lng],
     retry: 1,
   });
-  const courses =
-    courseFeedQuery.data && courseFeedQuery.data.length > 0
-      ? courseFeedQuery.data.map(apiCourseToDiscovery)
-      : getSavedCourses()
-          .filter((course) => course.area.includes(location) || location.includes(course.area))
-          .map(savedCourseToDiscovery);
+  const courses = courseFeedQuery.data?.map(apiCourseToDiscovery) ?? [];
 
   return (
     <section className="mt-8">

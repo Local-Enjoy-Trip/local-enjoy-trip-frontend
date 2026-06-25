@@ -6,7 +6,6 @@ import {
   normalizeCourseTags,
   parseCourseDescriptionTags,
 } from "@/features/course/courseTags";
-import type { SavedCourse } from "@/features/course/courseStorage";
 import { Link } from "react-router-dom";
 
 export type CourseDiscoveryModel = {
@@ -109,24 +108,6 @@ export function apiCourseToDiscovery(course: CourseResponse): CourseDiscoveryMod
     id: course.id,
     sourceCourse: course,
     stops,
-    title: course.title,
-  };
-}
-
-export function savedCourseToDiscovery(course: SavedCourse): CourseDiscoveryModel {
-  return {
-    area: course.area || "동네",
-    coverImageUrl:
-      course.stops.find((stop) => stop.imageUrl?.trim())?.imageUrl ||
-      fallbackImage,
-    hashtags: getCourseHashtags({
-      area: course.area,
-      description: course.styles.join(" "),
-      tags: course.styles,
-      stopCount: course.stops.length,
-    }),
-    id: course.id,
-    stops: course.stops.map((stop) => stop.title),
     title: course.title,
   };
 }

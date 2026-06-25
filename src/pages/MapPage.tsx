@@ -46,11 +46,6 @@ import {
   subscribeNoteSaveOverrides,
 } from "@/features/notes/noteSaveOverrides";
 import { appendCourseItem } from "@/features/course/courseApi";
-import {
-  appendCourseStop,
-  getSavedCourse,
-  type SavedCourseStop,
-} from "@/features/course/courseStorage";
 
 const viewportDebounceMs = 500;
 const targetViewportRadiusMeters = 3_000;
@@ -631,29 +626,21 @@ export function MapPage() {
     const numericId = getNumericPointId(point.id);
 
     try {
-      if (numericId !== null) {
-        await appendCourseItem(targetCourseId, {
-          attractionId: point.kind === "place" ? numericId : undefined,
-          day: 1,
-          itemType: point.kind === "place" ? "ATTRACTION" : "NOTE",
-          memo: point.kind === "spot" ? point.source.body : undefined,
-          noteId: point.kind === "spot" ? numericId : undefined,
-          stayMinutes: 60,
-        });
-      } else {
-        appendCourseStop(targetCourseId, toSavedCourseStop(point));
+      if (numericId === null) {
+        throw new Error("Course item id is missing.");
       }
+      await appendCourseItem(targetCourseId, {
+        attractionId: point.kind === "place" ? numericId : undefined,
+        day: 1,
+        itemType: point.kind === "place" ? "ATTRACTION" : "NOTE",
+        memo: point.kind === "spot" ? point.source.body : undefined,
+        noteId: point.kind === "spot" ? numericId : undefined,
+        stayMinutes: 60,
+      });
 
       showLocationToast(`${point.name}을(를) 코스 맨 뒤에 추가했어요.`);
       window.setTimeout(() => navigate(`/course/${targetCourseId}`), 450);
     } catch {
-      if (getSavedCourse(targetCourseId)) {
-        appendCourseStop(targetCourseId, toSavedCourseStop(point));
-        showLocationToast(`${point.name}을(를) 코스 맨 뒤에 추가했어요.`);
-        window.setTimeout(() => navigate(`/course/${targetCourseId}`), 450);
-        return;
-      }
-
       showLocationToast("코스에 추가하지 못했어요.");
     }
   }
@@ -802,34 +789,6 @@ export function MapPage() {
       ) : null}
     </section>
   );
-}
-
-function toSavedCourseStop(point: MapPoint): SavedCourseStop {
-  const numericId = getNumericPointId(point.id);
-
-  if (point.kind === "place") {
-    return {
-      attractionId: numericId ?? undefined,
-      category: point.source.tags[0] ?? "장소",
-      description: point.source.summary,
-      id: 1,
-      imageUrl: point.source.imageUrl,
-      lat: point.coordinates.lat,
-      lng: point.coordinates.lng,
-      title: point.name,
-    };
-  }
-
-  return {
-    category: "쪽지",
-    description: point.source.body,
-    id: 1,
-    imageUrl: point.source.imageUrl ?? "",
-    lat: point.coordinates.lat,
-    lng: point.coordinates.lng,
-    noteId: numericId ?? undefined,
-    title: point.source.placeName || point.name,
-  };
 }
 
 function getNumericPointId(id: string) {
