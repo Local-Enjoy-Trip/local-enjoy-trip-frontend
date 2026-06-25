@@ -42,7 +42,7 @@ import { NoteCard } from "@/features/notes/components/NoteCard";
 import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
 import type { Coordinates } from "@/shared/types/domain";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckSquare,
@@ -1128,6 +1128,7 @@ export function CourseDetailPage() {
   const [isRouteEditing, setIsRouteEditing] = useState(false);
   const [backupCourse, setBackupCourse] = useState<CourseResponse | null>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const location = useLocation();
   const { courseId = "course-1" } = useParams();
   const [searchParams] = useSearchParams();
@@ -1594,7 +1595,15 @@ export function CourseDetailPage() {
         const course = await createCourse(request);
         setCopyOpen(false);
         showNotice("새 내 코스로 담았어요.");
-        navigate(`/course/${course.id}`, { replace: true });
+        queryClient.setQueryData<CourseResponse[]>(["courses", "me"], (courses) =>
+          courses
+            ? [course, ...courses.filter((item) => item.id !== course.id)]
+            : [course],
+        );
+        navigate(`/course/${course.id}`, {
+          replace: true,
+          state: { createdAsMyCourse: true, createdCourseId: course.id },
+        });
         return;
       }
     } catch {

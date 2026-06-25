@@ -211,6 +211,9 @@ function toPlace(place: PlaceMapPinResponse): Place {
 }
 
 function toLocalNote(note: NoteMapPinResponse): LocalNote {
+  const rawId = String(note.id);
+  const normalizedId = rawId.startsWith("note-") ? rawId : `note-${rawId}`;
+
   return {
     authorAvatarUrl: note.authorProfileImageUrl ?? undefined,
     authorName: note.authorNickname || note.authorUserId,
@@ -219,7 +222,7 @@ function toLocalNote(note: NoteMapPinResponse): LocalNote {
     coordinates: { lat: note.latitude, lng: note.longitude },
     createdAt: note.createdAt,
     favoriteCount: getFavoriteCount(note),
-    id: `note-${note.id}`,
+    id: normalizedId,
     imageUrl: resolveNoteImageSrc(note),
     placeName: note.regionName,
     relationshipToViewer: note.relationshipToViewer.toLowerCase() as ViewerRelationship,

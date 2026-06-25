@@ -1,6 +1,7 @@
-import { createCourse } from "@/features/course/courseApi";
+import { createCourse, type CourseResponse } from "@/features/course/courseApi";
 import { normalizeCourseTags } from "@/features/course/courseTags";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CalendarCheck,
   CalendarDays,
@@ -48,6 +49,7 @@ export function CourseCreateSheet({
   tripArea: string;
 }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [createMode, setCreateMode] = useState<CreateMode>("choice");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDate, setDraftDate] = useState("");
@@ -90,7 +92,14 @@ export function CourseCreateSheet({
       setDateUndecided(false);
       setCalendarMonth(startOfMonth(new Date()));
       closeSheet();
-      navigate(`/course/${createdCourse.id}`);
+      queryClient.setQueryData<CourseResponse[]>(["courses", "me"], (courses) =>
+        courses
+          ? [createdCourse, ...courses.filter((item) => item.id !== createdCourse.id)]
+          : [createdCourse],
+      );
+      navigate(`/course/${createdCourse.id}`, {
+        state: { createdAsMyCourse: true, createdCourseId: createdCourse.id },
+      });
     } catch {
       setCreateError("코스를 서버에 저장하지 못했어요. 로그인 상태를 확인해 주세요.");
     } finally {

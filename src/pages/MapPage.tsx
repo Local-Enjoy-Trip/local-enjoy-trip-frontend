@@ -792,8 +792,9 @@ export function MapPage() {
 }
 
 function getNumericPointId(id: string) {
-  const value = Number(id.replace(/^(place|note)-/, ""));
-  return Number.isFinite(value) ? value : null;
+  const match = id.match(/\d+$/);
+  const value = match ? Number(match[0]) : null;
+  return value !== null && Number.isFinite(value) ? value : null;
 }
 
 function toApiFilter(filter: MapFilter): MapApiFilter {

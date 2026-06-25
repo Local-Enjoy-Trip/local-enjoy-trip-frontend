@@ -1,10 +1,10 @@
 import { getAttractionDetail } from "@/features/attractions/attractionApi";
-import { createCourse, type CourseItemRequest } from "@/features/course/courseApi";
+import { createCourse, type CourseItemRequest, type CourseResponse } from "@/features/course/courseApi";
 import { normalizeCourseTags } from "@/features/course/courseTags";
 import { getNote } from "@/features/notes/noteApi";
 import { resolveNoteImageSrc } from "@/features/notes/noteImage";
 import { courses } from "@/shared/data/mockData";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -66,6 +66,7 @@ export function MapVisibleDrawer({
   visiblePoints: MapPoint[];
 }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const drawerRef = useRef<HTMLElement>(null);
   const pointCardRefs = useRef(new Map<string, HTMLDivElement>());
   const lastAutoFocusedPointIdRef = useRef<string | null>(null);
@@ -436,7 +437,14 @@ export function MapVisibleDrawer({
     setCourseTarget(null);
     setIsCreatingCourse(false);
     setNewCourseTitle("");
-    navigate(`/course/${createdCourse.id}`);
+    queryClient.setQueryData<CourseResponse[]>(["courses", "me"], (courses) =>
+      courses
+        ? [createdCourse, ...courses.filter((item) => item.id !== createdCourse.id)]
+        : [createdCourse],
+    );
+    navigate(`/course/${createdCourse.id}`, {
+      state: { createdAsMyCourse: true, createdCourseId: createdCourse.id },
+    });
   }
 
   const drawerStyle = {
@@ -1063,8 +1071,9 @@ function getCourseArea(point: MapPoint) {
 }
 
 function getNumericPointId(id: string) {
-  const value = Number(id.replace(/^(place|note)-/, ""));
-  return Number.isFinite(value) ? value : null;
+  const match = id.match(/\d+$/);
+  const value = match ? Number(match[0]) : null;
+  return value !== null && Number.isFinite(value) ? value : null;
 }
 
 function startOfMonth(date: Date) {
