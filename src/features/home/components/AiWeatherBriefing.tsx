@@ -243,7 +243,10 @@ export function AiWeatherBriefing({
 
             <div className="relative mt-6 grid grid-cols-6 gap-1">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div className="grid min-w-0 justify-items-center gap-2" key={index}>
+                <div
+                  className="grid min-w-0 justify-items-center gap-2"
+                  key={index}
+                >
                   <Skeleton className="h-2.5 w-8 rounded-full bg-white/42" />
                   <Skeleton className="size-6 rounded-full bg-white/55" />
                   <Skeleton className="h-3 w-7 rounded-full bg-white/44" />
