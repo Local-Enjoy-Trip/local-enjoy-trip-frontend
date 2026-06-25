@@ -116,10 +116,7 @@ export function CoursePage() {
 
   return (
     <section className="min-h-[calc(100dvh-72px)] overflow-x-hidden bg-white pb-28 text-[#111]">
-      <CoursePageHeader
-        onCreate={() => setIsCreateOpen(true)}
-        onOpenMenu={() => setIsMenuOpen(true)}
-      />
+      <CoursePageHeader />
 
       <div className="px-5 pt-10">
         <p className="m-0 text-sm font-extrabold text-[#202020]">

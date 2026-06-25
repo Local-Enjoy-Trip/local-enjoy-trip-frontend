@@ -39,3 +39,20 @@ export function saveAttraction(id: number) {
 export function unsaveAttraction(id: number) {
   return apiDelete<void>(`/api/attractions/${id}/save`);
 }
+
+export type AttractionDetailResponse = {
+  id: number;
+  title: string;
+  address?: string | null;
+  addressDetail?: string | null;
+  imageUrl?: string | null;
+  latitude: number;
+  longitude: number;
+  contentTypeId?: string | null;
+  overview?: string | null;
+  saved?: boolean | null;
+};
+
+export function getAttractionDetail(id: number) {
+  return apiGet<AttractionDetailResponse>(`/api/attractions/${id}`);
+}

@@ -4,8 +4,12 @@ import {
 } from "@/features/course/courseStorage";
 import {
   createCourse,
+  generateAiCourse,
   type CourseCreateRequest,
   type CourseItemRequest,
+  type AiCourseCompanion,
+  type AiCourseTheme,
+  type AiCoursePace,
 } from "@/features/course/courseApi";
 import {
   ArrowLeft,
@@ -183,16 +187,105 @@ function AiCourseCreator() {
   const [version, setVersion] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState("");
-  const recommendation = useMemo(
-    () => makeRecommendation(area, companion, styles, pace, version),
-    [area, companion, pace, styles, version],
-  );
+  const [recommendation, setRecommendation] = useState<SavedCourse | null>(null);
 
   useEffect(() => {
     if (phase !== "loading") return;
-    const timer = window.setTimeout(() => setPhase("result"), 1800);
-    return () => window.clearTimeout(timer);
-  }, [phase, version]);
+
+    let cancelled = false;
+
+    async function fetchAiCourse() {
+      const neighborhoodToGugunCode: Record<string, number> = {
+        "망원동": 14,
+        "성수동": 4,
+        "연남동": 14,
+        "서촌": 1,
+        "을지로": 2,
+        "익선동": 1,
+        "해방촌": 3,
+        "잠실": 24,
+      };
+
+      const companionMap: Record<string, AiCourseCompanion> = {
+        "혼자": "ALONE",
+        "친구와": "WITH_FRIEND",
+        "연인과": "WITH_PARTNER",
+        "아이와": "WITH_CHILD",
+        "부모님과": "WITH_PARENTS",
+        "반려동물과": "WITH_PET",
+      };
+
+      const themeMap: Record<string, AiCourseTheme> = {
+        "동네 맛집": "FOOD",
+        "감성 카페": "CAFE",
+        "로컬 산책": "WALK",
+        "문화·전시": "CULTURE",
+        "자연 속 휴식": "NATURE",
+        "사진 명소": "PHOTO",
+        "시장·골목": "MARKET",
+        "쇼핑": "SHOPPING",
+      };
+
+      const paceMap: Record<string, AiCoursePace> = {
+        "여유롭게": "RELAXED",
+        "알맞게": "MODERATE",
+        "알차게": "PACKED",
+      };
+
+      const gugun = neighborhoodToGugunCode[area];
+      const comp = companionMap[companion] ?? "ALONE";
+      const selectedThemes = styles.map((s) => themeMap[s]).filter(Boolean) as AiCourseTheme[];
+      const selectedPace = paceMap[pace] ?? "MODERATE";
+
+      try {
+        setSaveNotice("");
+        const response = await generateAiCourse({
+          sidoCode: 1, // Seoul
+          gugunCode: gugun,
+          companion: comp,
+          themes: selectedThemes.length > 0 ? selectedThemes : ["WALK"],
+          pace: selectedPace,
+        });
+
+        if (cancelled) return;
+
+        const stops: SavedCourseStop[] = response.stops.map((stop, index) => ({
+          id: index + 1,
+          attractionId: stop.attractionId,
+          title: stop.title,
+          category: stop.addr1 ? stop.addr1.split(" ").slice(0, 2).join(" ") : "관광지",
+          description: stop.addr1 ?? "",
+          imageUrl: stop.firstImage || "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80",
+          lat: 0,
+          lng: 0,
+        }));
+
+        setRecommendation({
+          id: `ai-${Date.now()}-${version}`,
+          title: response.title || `${area} AI 추천 코스`,
+          area,
+          companion,
+          styles,
+          pace,
+          savedAt: new Date().toISOString(),
+          collaborators: [],
+          stops,
+        });
+        setPhase("result");
+      } catch (error) {
+        if (cancelled) return;
+        console.error("AI course generation failed", error);
+        setSaveNotice("AI 코스 생성에 실패했습니다. 다시 시도해 주세요.");
+        setPhase("questions");
+      }
+    }
+
+    fetchAiCourse();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, version, area, companion, styles, pace]);
 
   const selections = [Boolean(area), Boolean(companion), styles.length > 0, Boolean(pace)];
   const stepContent = [
@@ -223,11 +316,12 @@ function AiCourseCreator() {
     setPace("");
     setVersion(0);
     setStep(0);
+    setRecommendation(null);
     setPhase("questions");
   }
 
   async function saveRecommendation() {
-    if (isSaving) return;
+    if (isSaving || !recommendation) return;
 
     setIsSaving(true);
     setSaveNotice("");
@@ -289,6 +383,7 @@ function AiCourseCreator() {
   }
 
   if (phase === "result") {
+    if (!recommendation) return null;
     return (
       <section className="fixed inset-0 z-50 mx-auto w-full max-w-[430px] overflow-y-auto bg-[#F7F5F0] pb-[calc(28px+env(safe-area-inset-bottom))] text-[#171717]">
         <header className="flex items-center justify-between px-5 pt-[calc(18px+env(safe-area-inset-top))]">

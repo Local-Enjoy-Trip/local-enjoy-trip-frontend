@@ -203,7 +203,7 @@ export function CourseCreateSheet({
   );
 }
 
-function CourseDraftCalendar({
+export function CourseDraftCalendar({
   month,
   onMonthChange,
   onSelectDate,
@@ -283,8 +283,7 @@ function CourseDraftCalendar({
                     : today
                       ? "bg-[#EEF4EF] text-[#1F3D35] ring-1 ring-[#BFD0C2]"
                       : "bg-transparent text-[#2E2A25] hover:bg-[#F4EFE7]"
-                } ${undecided ? "opacity-45" : ""}`}
-                disabled={undecided}
+                }`}
                 key={dateValue}
                 onClick={() => onSelectDate(dateValue)}
                 type="button"

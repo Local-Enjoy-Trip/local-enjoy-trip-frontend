@@ -1,27 +1,4 @@
-import {
-  ArrowLeft,
-  CheckSquare,
-  ChevronRight,
-  Download,
-  Map as MapIcon,
-  Plus,
-  Star,
-  UserPlus,
-  WandSparkles,
-  X,
-} from "lucide-react";
-import { motion } from "motion/react";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
-import type {
-  TouchEvent as ReactTouchEvent,
-  WheelEvent as ReactWheelEvent,
-} from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuthUser } from "@/features/auth/authStore";
-import type { Coordinates } from "@/shared/types/domain";
 import {
   appendCourseItem,
   createCourse,
@@ -41,26 +18,60 @@ import {
   getSavedCourse,
   getSavedCourses,
   saveCourse,
-  type SavedCourse,
-  type SavedCourseStop,
   updateCourseCollaborators,
   updateCourseDetails,
+  type SavedCourse,
+  type SavedCourseStop,
 } from "@/features/course/courseStorage";
+import { CourseDraftCalendar } from "@/features/course/components/CourseCreatePanel";
+import {
+  getAttractionDetail,
+  type AttractionDetailResponse,
+} from "@/features/attractions/attractionApi";
 import { getFriends as getServiceFriends } from "@/features/friends/friendApi";
-import { BottomSheet } from "@/shared/ui/BottomSheet";
-import { mapCenter } from "@/features/map/constants";
-import { MapSearchBar } from "@/features/map/components/MapSearchBar";
+import { LocationConsentDialog } from "@/features/map/components/LocationConsentDialog";
 import { getNeighborhoodLabel } from "@/features/map/components/MapListCard";
+import { MapSearchBar } from "@/features/map/components/MapSearchBar";
+import { mapCenter } from "@/features/map/constants";
 import { loadKakaoMap } from "@/features/map/lib/kakaoMap";
+import {
+  readLocationConsent,
+  saveLocationConsent,
+} from "@/features/map/lib/locationConsent";
 import { getFallbackPosition, toMapPoints } from "@/features/map/lib/mapPoints";
-import { getMapExplore, searchMap } from "@/features/map/mapApi";
-import { NoteCard } from "@/features/notes/components/NoteCard";
+import { searchMap } from "@/features/map/mapApi";
 import type {
   KakaoCustomOverlay,
   KakaoMapInstance,
   KakaoPolyline,
   MapPoint,
 } from "@/features/map/types";
+import { NoteCard } from "@/features/notes/components/NoteCard";
+import { useCurrentLocation } from "@/shared/hooks/useCurrentLocation";
+import type { Coordinates } from "@/shared/types/domain";
+import { BottomSheet } from "@/shared/ui/BottomSheet";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CheckSquare,
+  ChevronRight,
+  Crosshair,
+  Download,
+  Map as MapIcon,
+  Plus,
+  Star,
+  UserPlus,
+  WandSparkles,
+  X,
+  ChevronUp,
+  ChevronDown,
+  GripVertical,
+  Pencil,
+} from "lucide-react";
+import { motion } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 type CourseStop = {
   id: number;
@@ -75,7 +86,7 @@ type CourseStop = {
   title: string;
 };
 
-const HEADER_EXPANDED_HEIGHT = 307;
+const HEADER_EXPANDED_HEIGHT = 255;
 const HEADER_COMPACT_HEIGHT = 74;
 const HEADER_COLLAPSE_DISTANCE = HEADER_EXPANDED_HEIGHT - HEADER_COMPACT_HEIGHT;
 const DRAWER_COLLAPSED_TOP = 236;
@@ -468,6 +479,17 @@ function CourseRouteDrawer({
   setHeaderOffset,
   routeStops,
   onOptimize,
+  onReorderStops,
+  isRouteEditing,
+  setIsRouteEditing,
+  hasBackup,
+  onRestore,
+  clearBackup,
+  hasApiCourse,
+  onDirectOptimize,
+  isOptimizing,
+  drawerCollapsedTop,
+  headerCollapseDistance,
 }: {
   activeStopId: number;
   canEdit: boolean;
@@ -479,6 +501,17 @@ function CourseRouteDrawer({
   setHeaderOffset: Dispatch<SetStateAction<number>>;
   routeStops: CourseStop[];
   onOptimize: () => void;
+  onReorderStops?: (startIndex: number, endIndex: number) => void;
+  isRouteEditing: boolean;
+  setIsRouteEditing: Dispatch<SetStateAction<boolean>>;
+  hasBackup: boolean;
+  onRestore: () => void;
+  clearBackup: () => void;
+  hasApiCourse: boolean;
+  onDirectOptimize: () => void;
+  isOptimizing: boolean;
+  drawerCollapsedTop: number;
+  headerCollapseDistance: number;
 }) {
   const dragRef = useRef<{
     currentOffset: number;
@@ -490,7 +523,7 @@ function CourseRouteDrawer({
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const isExpanded = drawerTop === 0;
-  const isHeaderCollapsed = headerOffset >= HEADER_COLLAPSE_DISTANCE;
+  const isHeaderCollapsed = headerOffset >= headerCollapseDistance;
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -499,7 +532,7 @@ function CourseRouteDrawer({
 
       const delta = event.clientY - dragState.startY;
       const nextOffset = Math.min(
-        DRAWER_COLLAPSED_TOP,
+        drawerCollapsedTop,
         Math.max(0, dragState.startOffset - delta),
       );
 
@@ -514,9 +547,9 @@ function CourseRouteDrawer({
 
       ignoreClickRef.current = dragState.moved;
       setDrawerCoverOffset(
-        dragState.currentOffset < DRAWER_COLLAPSED_TOP / 2
+        dragState.currentOffset < drawerCollapsedTop / 2
           ? 0
-          : DRAWER_COLLAPSED_TOP,
+          : drawerCollapsedTop,
       );
       dragRef.current = null;
 
@@ -555,13 +588,13 @@ function CourseRouteDrawer({
 
     if (
       isMovingTowardLowerContent &&
-      headerOffset < HEADER_COLLAPSE_DISTANCE
+      headerOffset < headerCollapseDistance
     ) {
-      const remainingCollapse = HEADER_COLLAPSE_DISTANCE - headerOffset;
+      const remainingCollapse = headerCollapseDistance - headerOffset;
       const collapseDelta = Math.min(remainingCollapse, deltaY);
 
       setHeaderOffset((current) =>
-        Math.min(HEADER_COLLAPSE_DISTANCE, current + collapseDelta),
+        Math.min(headerCollapseDistance, current + collapseDelta),
       );
 
       return true;
@@ -631,6 +664,59 @@ function CourseRouteDrawer({
     if (closestStopId) setActiveStopId(closestStopId);
   }
 
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  function handleDragStart(index: number) {
+    setDraggedIndex(index);
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }
+
+  function handleDrop(index: number) {
+    if (draggedIndex === null || draggedIndex === index) return;
+    onReorderStops?.(draggedIndex, index);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }
+
+  function handleDragEnd() {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }
+
+  function handleTouchStart(index: number) {
+    if (!isRouteEditing) return;
+    setDraggedIndex(index);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (draggedIndex === null) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    const itemEl = element?.closest("[data-stop-id]");
+    if (itemEl) {
+      const stopId = Number(itemEl.getAttribute("data-stop-id"));
+      const targetIndex = routeStops.findIndex((s) => s.id === stopId);
+      if (targetIndex !== -1 && targetIndex !== dragOverIndex) {
+        setDragOverIndex(targetIndex);
+      }
+    }
+  }
+
+  function handleTouchEnd() {
+    if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
+      onReorderStops?.(draggedIndex, dragOverIndex);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }
+
   return (
     <motion.section
       aria-label="day 1 경로"
@@ -651,7 +737,7 @@ function CourseRouteDrawer({
           onClick={() => {
             if (ignoreClickRef.current) return;
             setDrawerCoverOffset((current) =>
-              current >= DRAWER_COLLAPSED_TOP ? 0 : DRAWER_COLLAPSED_TOP,
+              current >= drawerCollapsedTop ? 0 : drawerCollapsedTop,
             );
           }}
           onPointerDown={beginDrag}
@@ -672,18 +758,56 @@ function CourseRouteDrawer({
         onWheel={handleListWheel}
         ref={scrollerRef}
       >
-        {canEdit && routeStops.length > 1 ? (
-          <button
-            className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#DCE7DF] bg-[#EDF5EF] text-sm font-black text-[#1F3D35]"
-            onClick={onOptimize}
-            type="button"
-          >
-            <WandSparkles size={18} />
-            AI로 걷기 좋은 순서 정리
-          </button>
-        ) : null}
         <div className="mb-3 flex items-center justify-between">
           <h2 className="m-0 text-lg font-black text-[#272727]">여행지 리스트</h2>
+          {canEdit && routeStops.length > 1 && (
+            <div className="flex items-center gap-2">
+              {isRouteEditing ? (
+                <>
+                  {hasBackup && (
+                    <button
+                      className="text-xs font-black text-[#FD4003] border border-[#FCDAD0] bg-[#FFF0EC] rounded-full px-2.5 py-1"
+                      onClick={onRestore}
+                      type="button"
+                    >
+                      복구하기
+                    </button>
+                  )}
+                  {hasApiCourse && (
+                    <button
+                      className="grid size-7 place-items-center rounded-full bg-[#EEF4EF] text-[#1F3D35] border border-[#DCE7DF] hover:bg-[#DCE7DF] disabled:opacity-50"
+                      onClick={onDirectOptimize}
+                      disabled={isOptimizing}
+                      title="AI로 걷기 좋은 순서 정리"
+                      type="button"
+                    >
+                      <WandSparkles size={13} className={isOptimizing ? "animate-pulse" : ""} />
+                    </button>
+                  )}
+                  <button
+                    className="inline-flex h-7 items-center justify-center rounded-full bg-[#FD4003] px-3.5 text-xs font-black text-white shadow-[0_4px_10px_rgba(253,64,3,0.12)]"
+                    onClick={() => {
+                      setIsRouteEditing(false);
+                      clearBackup();
+                    }}
+                    type="button"
+                  >
+                    완료
+                  </button>
+                </>
+              ) : (
+                <button
+                  aria-label="경로 순서 편집"
+                  className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white shadow-[0_4px_10px_rgba(31,61,53,0.12)] hover:bg-[#162B25] transition"
+                  onClick={() => setIsRouteEditing(true)}
+                  title="일정 편집"
+                  type="button"
+                >
+                  <Pencil size={13} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {routeStops.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#D8D4CC] bg-white p-5 text-center">
@@ -701,6 +825,19 @@ function CourseRouteDrawer({
             onSelect={() => setActiveStopId(stop.id)}
             order={index + 1}
             stop={stop}
+            isRouteEditing={isRouteEditing}
+            onMoveUp={() => onReorderStops?.(index, index - 1)}
+            onMoveDown={() => onReorderStops?.(index, index + 1)}
+            isLast={index === routeStops.length - 1}
+            draggable={isRouteEditing}
+            onDragStart={() => handleDragStart(index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={() => handleDrop(index)}
+            onDragEnd={handleDragEnd}
+            isDragOver={dragOverIndex === index}
+            onTouchStart={() => handleTouchStart(index)}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           />
         ))}
       </div>
@@ -713,25 +850,63 @@ function StopTimelineItem({
   onSelect,
   order,
   stop,
+  isRouteEditing,
+  onMoveUp,
+  onMoveDown,
+  isLast,
+  draggable,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  isDragOver,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
 }: {
   isActive: boolean;
   onSelect: () => void;
   order: number;
   stop: CourseStop;
+  isRouteEditing?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isLast?: boolean;
+  draggable?: boolean;
+  onDragStart?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: () => void;
+  onDragEnd?: () => void;
+  isDragOver?: boolean;
+  onTouchStart?: () => void;
+  onTouchMove?: (e: React.TouchEvent) => void;
+  onTouchEnd?: () => void;
 }) {
   return (
     <div
-      className="w-full cursor-pointer"
+      className={`w-full ${isRouteEditing ? "cursor-grab touch-none" : "cursor-pointer"}`}
       data-stop-id={stop.id}
-      onClick={onSelect}
+      draggable={draggable}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDragStart={onDragStart}
+      onDrop={onDrop}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onClick={() => {
+        if (isRouteEditing) return;
+        onSelect();
+      }}
       onKeyDown={(event) => {
+        if (isRouteEditing) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onSelect();
         }
       }}
       role="button"
-      tabIndex={0}
+      tabIndex={isRouteEditing ? -1 : 0}
     >
       {stop.distanceFromPrevious ? (
         <div className="mb-2 flex items-center justify-center gap-2 text-[0.7rem] font-black text-[#8B857C]">
@@ -745,9 +920,40 @@ function StopTimelineItem({
       <article
         className={`mb-5 rounded-[22px] bg-white p-3.5 shadow-[0_12px_28px_rgba(31,38,35,0.07)] transition ${
           isActive ? "ring-2 ring-[#FD4003]/20" : ""
-        }`}
+        } ${isDragOver ? "ring-2 ring-[#FD4003] bg-orange-50/30" : ""}`}
       >
         <div className="flex items-center gap-4">
+          {isRouteEditing && (
+            <div className="flex flex-col items-center gap-2 mr-0.5">
+              <button
+                aria-label="위로 이동"
+                className="grid size-6 place-items-center rounded bg-[#F4F3EF] hover:bg-[#EBEBE6] disabled:opacity-30 disabled:hover:bg-[#F4F3EF]"
+                disabled={order === 1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveUp?.();
+                }}
+                type="button"
+              >
+                <ChevronUp size={14} strokeWidth={2.5} className="text-[#514D47]" />
+              </button>
+              <div className="text-[#C8C5BD] p-0.5 cursor-grab active:cursor-grabbing">
+                <GripVertical size={16} />
+              </div>
+              <button
+                aria-label="아래로 이동"
+                className="grid size-6 place-items-center rounded bg-[#F4F3EF] hover:bg-[#EBEBE6] disabled:opacity-30 disabled:hover:bg-[#F4F3EF]"
+                disabled={isLast}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveDown?.();
+                }}
+                type="button"
+              >
+                <ChevronDown size={14} strokeWidth={2.5} className="text-[#514D47]" />
+              </button>
+            </div>
+          )}
           <img
             alt=""
             className="size-[86px] flex-none rounded-[18px] object-cover"
@@ -755,29 +961,21 @@ function StopTimelineItem({
             src={stop.imageUrl}
           />
           <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-9 flex-none place-items-center rounded-full bg-[#FD4003] text-base font-black text-white">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="grid size-7 flex-none place-items-center rounded-full bg-[#FD4003] text-[0.8rem] font-black text-white">
                 {order}
               </span>
-              <h3 className="m-0 truncate text-[1.15rem] font-black text-[#111111]">
+              <h3 className="m-0 truncate text-[1rem] font-black text-[#111111]">
                 {stop.title}
               </h3>
             </div>
-            <p className="mt-2 mb-0 truncate text-sm font-black text-[#807A73]">
+            <p className="mt-1.5 mb-0 truncate text-xs font-black text-[#807A73]">
               {stop.category}
             </p>
-            <p className="mt-1.5 mb-0 line-clamp-2 text-sm leading-snug font-bold text-[#716C65]">
+            <p className="mt-1 mb-0 line-clamp-2 text-xs leading-normal font-bold text-[#716C65]">
               {stop.description}
             </p>
           </div>
-          <button
-            aria-label={`${stop.title} 리뷰`}
-            className="grid size-8 flex-none place-items-center rounded-full border-0 bg-transparent text-[#D7D4CF]"
-            onClick={(event) => event.stopPropagation()}
-            type="button"
-          >
-            <Star size={20} fill="currentColor" />
-          </button>
         </div>
       </article>
     </div>
@@ -788,7 +986,10 @@ function sortedCourseItems(course: CourseResponse) {
   return [...course.items].sort((a, b) => a.position - b.position);
 }
 
-function toDisplayRouteStops(course: CourseResponse): CourseStop[] {
+function toDisplayRouteStops(
+  course: CourseResponse,
+  details: Record<number, AttractionDetailResponse>,
+): CourseStop[] {
   const items = sortedCourseItems(course);
   const base = course.startLocation
     ? { lat: course.startLocation.latitude, lng: course.startLocation.longitude }
@@ -796,22 +997,26 @@ function toDisplayRouteStops(course: CourseResponse): CourseStop[] {
 
   return items.map((item, index) => {
     const fallbackStop = defaultStops[index % defaultStops.length];
-    const segment = course.segments.find(
+    const segment = course.segments?.find(
       (candidate) => candidate.toPosition === item.position,
     );
+    const detail = item.attractionId ? details[item.attractionId] : undefined;
 
     return {
       id: item.position || index + 1,
       accent: (["violet", "coral", "mint"] as const)[index % 3],
-      category: `${getCourseItemTypeLabel(item)} · ${
-        course.regionName ?? "코스"
-      }`,
-      coordinates: {
-        lat: base.lat + index * 0.0018 + (index % 2) * 0.001,
-        lng: base.lng + index * 0.0022 - (index % 2) * 0.001,
-      },
+      category: detail
+        ? `${getAttractionCategoryLabel(detail.contentTypeId)} · ${course.regionName ?? "코스"}`
+        : `${getCourseItemTypeLabel(item)} · ${course.regionName ?? "코스"}`,
+      coordinates: detail
+        ? { lat: detail.latitude, lng: detail.longitude }
+        : {
+            lat: base.lat + index * 0.0018 + (index % 2) * 0.001,
+            lng: base.lng + index * 0.0022 - (index % 2) * 0.001,
+          },
       description:
         item.memo?.trim() ||
+        detail?.overview?.trim() ||
         course.description?.trim() ||
         `${course.regionName ?? "이 동네"}에서 이어지는 추천 코스예요.`,
       distanceFromPrevious:
@@ -820,12 +1025,27 @@ function toDisplayRouteStops(course: CourseResponse): CourseStop[] {
           : segment
             ? `${Math.max(1, Math.round(segment.distanceMeters))}m`
             : `${320 + index * 110}m`,
-      imageUrl: course.coverImageUrl || fallbackStop.imageUrl || fallbackCourseImage,
+      imageUrl: detail?.imageUrl || course.coverImageUrl || fallbackStop.imageUrl || fallbackCourseImage,
       location: course.regionName ?? fallbackStop.location,
       sourceItem: item,
-      title: item.title?.trim() || `${getCourseItemTypeLabel(item)} ${index + 1}`,
+      title: item.title?.trim() || detail?.title || `${getCourseItemTypeLabel(item)} ${index + 1}`,
     };
   });
+}
+
+function getAttractionCategoryLabel(contentTypeId?: string | null) {
+  if (!contentTypeId) return "장소";
+  const mapping: Record<string, string> = {
+    "12": "관광지",
+    "14": "문화시설",
+    "15": "축제공연행사",
+    "25": "여행코스",
+    "28": "레포츠",
+    "32": "숙박",
+    "38": "쇼핑",
+    "39": "음식점",
+  };
+  return mapping[contentTypeId] || "장소";
 }
 
 function getCourseItemTypeLabel(item: CourseItemResponse) {
@@ -855,6 +1075,8 @@ function toCourseUpdateRequest(course: CourseResponse) {
 }
 
 export function CourseDetailPage() {
+  const [isRouteEditing, setIsRouteEditing] = useState(false);
+  const [backupCourse, setBackupCourse] = useState<CourseResponse | null>(null);
   const navigate = useNavigate();
   const { courseId = "course-1" } = useParams();
   const [searchParams] = useSearchParams();
@@ -866,18 +1088,28 @@ export function CourseDetailPage() {
   const [apiCourse, setApiCourse] = useState<CourseResponse | null>(
     () => getCachedApiCourse(courseId) ?? null,
   );
+  const [attractionDetails, setAttractionDetails] = useState<
+    Record<number, AttractionDetailResponse>
+  >({});
+  const myCoursesQuery = useQuery({
+    enabled: !!userId,
+    queryFn: getMyCourses,
+    queryKey: ["courses", "me"],
+    retry: 1,
+  });
+  const isMyApiCourse = useMemo(() => {
+    if (!apiCourse) return false;
+    return myCoursesQuery.data?.some((c) => c.id === apiCourse.id) ?? false;
+  }, [apiCourse, myCoursesQuery.data]);
+
   const isReadOnly =
     searchParams.get("view") === "1" ||
-    (!savedCourse &&
-      Boolean(apiCourse?.ownerUserId) &&
-      apiCourse?.ownerUserId !== userId) ||
-    (!savedCourse && apiCourse?.visibility === "PUBLIC" && apiCourse.ownerUserId !== userId) ||
-    (!savedCourse && !apiCourse);
+    (!savedCourse && (!apiCourse || (myCoursesQuery.isSuccess && !isMyApiCourse)));
   const canEditCourse = !isReadOnly;
   const routeStops = useMemo<CourseStop[]>(
     () =>
       apiCourse
-        ? toDisplayRouteStops(apiCourse)
+        ? toDisplayRouteStops(apiCourse, attractionDetails)
         : savedCourse?.stops.map((stop, index) => ({
         id: stop.id,
         accent: (["violet", "coral", "mint"] as const)[index % 3],
@@ -889,8 +1121,43 @@ export function CourseDetailPage() {
         location: savedCourse.area,
         title: stop.title,
       })) ?? [],
-    [apiCourse, savedCourse],
+    [apiCourse, savedCourse, attractionDetails],
   );
+
+  useEffect(() => {
+    if (!apiCourse) return;
+    const ids = apiCourse.items
+      .map((item) => item.attractionId)
+      .filter(
+        (id): id is number =>
+          typeof id === "number" && !attractionDetails[id],
+      );
+
+    if (ids.length === 0) return;
+
+    async function fetchDetails() {
+      try {
+        const results = await Promise.all(
+          ids.map((id) => getAttractionDetail(id).catch(() => null)),
+        );
+        const nextMap = { ...attractionDetails };
+        let updated = false;
+        results.forEach((res) => {
+          if (res) {
+            nextMap[res.id] = res;
+            updated = true;
+          }
+        });
+        if (updated) {
+          setAttractionDetails(nextMap);
+        }
+      } catch {
+        // Silently ignore
+      }
+    }
+
+    void fetchDetails();
+  }, [apiCourse, attractionDetails]);
   const courseTitle = apiCourse?.title ?? savedCourse?.title ?? "망원 하루 코스";
   const companion = savedCourse?.companion ?? "내 일정";
   const apiDate = apiCourse?.description?.match(/^\d{4}-\d{2}-\d{2}$/)
@@ -922,6 +1189,11 @@ export function CourseDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(courseTitle);
   const [editDate, setEditDate] = useState(savedCourse?.date ?? apiDate ?? "");
+  const [calendarMonth, setCalendarMonth] = useState(() =>
+    startOfMonth(new Date()),
+  );
+  const [editStops, setEditStops] = useState<CourseStop[]>([]);
+  const [newStopName, setNewStopName] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isAddingPoint, setIsAddingPoint] = useState(false);
   const [isCopyingCourse, setIsCopyingCourse] = useState(false);
@@ -936,12 +1208,6 @@ export function CourseDetailPage() {
     enabled: friendsOpen,
     queryFn: getServiceFriends,
     queryKey: ["friends"],
-  });
-  const myCoursesQuery = useQuery({
-    enabled: copyOpen,
-    queryFn: getMyCourses,
-    queryKey: ["courses", "me", "copy-targets"],
-    retry: 1,
   });
   const copyTargets = useMemo(() => {
     const apiTargets = (myCoursesQuery.data ?? [])
@@ -965,8 +1231,12 @@ export function CourseDetailPage() {
 
     return [...apiTargets, ...localTargets];
   }, [apiCourse?.id, copySavedCourses, myCoursesQuery.data, savedCourse?.id]);
-  const headerHeight = HEADER_EXPANDED_HEIGHT - headerOffset;
-  const drawerTop = DRAWER_COLLAPSED_TOP - drawerCoverOffset;
+  const expandedHeaderHeight = 255;
+  const drawerCollapsedTop = 236;
+  const headerCollapseDistance = expandedHeaderHeight - HEADER_COMPACT_HEIGHT;
+
+  const headerHeight = expandedHeaderHeight - headerOffset;
+  const drawerTop = drawerCollapsedTop - drawerCoverOffset;
   const isHeaderCompact = headerOffset > 0;
 
   useEffect(() => {
@@ -1011,9 +1281,15 @@ export function CourseDetailPage() {
   }, [activeStopId, routeStops]);
 
   useEffect(() => {
-    setEditTitle(courseTitle);
-    setEditDate(savedCourse?.date ?? apiDate ?? "");
-  }, [apiDate, courseTitle, savedCourse?.date]);
+    if (editOpen) {
+      setEditTitle(courseTitle);
+      const initialDate = savedCourse?.date ?? apiDate ?? "";
+      setEditDate(initialDate);
+      setCalendarMonth(startOfMonth(initialDate ? new Date(initialDate) : new Date()));
+      setEditStops(routeStops);
+      setNewStopName("");
+    }
+  }, [editOpen, routeStops, courseTitle, savedCourse?.date, apiDate]);
 
   useEffect(() => {
     if (!copyOpen) return;
@@ -1040,16 +1316,25 @@ export function CourseDetailPage() {
     setIsSavingEdit(true);
     try {
       if (apiCourse) {
+        const nextItems = editStops.flatMap((stop, index) => {
+          const item = toCourseItemRequest(stop, index);
+          return item ? [item] : [];
+        });
+
         const updated = await updateCourse(apiCourse.id, {
           ...toCourseUpdateRequest(apiCourse),
           description: editDate || undefined,
+          items: nextItems,
           title,
         });
         setApiCourse(updated);
       } else if (savedCourse) {
-        updateCourseDetails(savedCourse.id, {
+        const updatedStops = toSavedStops(editStops);
+        saveCourse({
+          ...savedCourse,
           date: editDate || undefined,
           title,
+          stops: updatedStops,
         });
         setSavedCourse(getSavedCourse(savedCourse.id));
       }
@@ -1060,6 +1345,29 @@ export function CourseDetailPage() {
     } finally {
       setIsSavingEdit(false);
     }
+  }
+
+  function addEditStop() {
+    const name = newStopName.trim();
+    if (!name) return;
+
+    const newStop: CourseStop = {
+      id: Date.now(),
+      accent: (["violet", "coral", "mint"] as const)[editStops.length % 3],
+      category: "직접 추가한 장소",
+      coordinates: routeStops[0]?.coordinates ?? { lat: 37.5567, lng: 126.9057 },
+      description: "코스 정보 편집에서 직접 추가한 장소입니다.",
+      imageUrl: fallbackCourseImage,
+      location: apiCourse?.regionName ?? savedCourse?.area ?? "망원",
+      title: name,
+    };
+
+    setEditStops((current) => [...current, newStop]);
+    setNewStopName("");
+  }
+
+  function removeEditStop(id: number) {
+    setEditStops((current) => current.filter((stop) => stop.id !== id));
   }
 
   async function saveAsImage() {
@@ -1176,35 +1484,65 @@ export function CourseDetailPage() {
     );
   }
 
-  async function addPointToCourse(point: MapPoint) {
-    if (!canEditCourse || isAddingPoint) return;
+  async function addPointsToCourse(points: MapPoint[]) {
+    if (!canEditCourse || isAddingPoint || points.length === 0) return;
 
     setIsAddingPoint(true);
     try {
       if (apiCourse) {
-        const numericId = getNumericPointId(point.id);
-        const updated = await appendCourseItem(apiCourse.id, {
-          attractionId: point.kind === "place" ? numericId ?? undefined : undefined,
-          day: 1,
-          itemType: point.kind === "place" ? "ATTRACTION" : "NOTE",
-          memo: point.kind === "spot" ? point.source.body : undefined,
-          noteId: point.kind === "spot" ? numericId ?? undefined : undefined,
-          stayMinutes: 60,
+        const currentItems = sortedCourseItems(apiCourse).map((item) => ({
+          attractionId: item.attractionId ?? undefined,
+          day: item.day,
+          itemType: item.itemType,
+          memo: item.memo ?? undefined,
+          noteId: item.noteId ?? undefined,
+          position: item.position,
+          stayMinutes: item.stayMinutes ?? undefined,
+        }));
+        const startPosition = currentItems.reduce(
+          (max, item) => Math.max(max, item.position ?? 0),
+          0,
+        );
+        const newItems = points.map((point, index) => {
+          const numericId = getNumericPointId(point.id);
+          return {
+            attractionId: point.kind === "place" ? numericId ?? undefined : undefined,
+            day: 1,
+            itemType: point.kind === "place" ? "ATTRACTION" : "NOTE",
+            memo: point.kind === "spot" ? point.source.body : undefined,
+            noteId: point.kind === "spot" ? numericId ?? undefined : undefined,
+            position: startPosition + index + 1,
+            stayMinutes: 60,
+          };
+        });
+
+        const updated = await updateCourse(apiCourse.id, {
+          coverImageUrl: apiCourse.coverImageUrl ?? undefined,
+          description: apiCourse.description ?? undefined,
+          items: [...currentItems, ...newItems],
+          regionName: apiCourse.regionName ?? undefined,
+          status: apiCourse.status,
+          title: apiCourse.title,
+          visibility: apiCourse.visibility,
         });
         setApiCourse(updated);
       } else if (savedCourse) {
-        appendCourseStop(savedCourse.id, toSavedCourseStop(point));
+        for (const point of points) {
+          appendCourseStop(savedCourse.id, toSavedCourseStop(point));
+        }
         setSavedCourse(getSavedCourse(savedCourse.id));
       }
 
       setPlacePickerOpen(false);
-      showNotice(`${point.name}을(를) 코스 맨 뒤에 추가했어요.`);
+      showNotice(`${points.length}개의 장소를 코스 맨 뒤에 추가했어요.`);
     } catch {
       if (savedCourse) {
-        appendCourseStop(savedCourse.id, toSavedCourseStop(point));
+        for (const point of points) {
+          appendCourseStop(savedCourse.id, toSavedCourseStop(point));
+        }
         setSavedCourse(getSavedCourse(savedCourse.id));
         setPlacePickerOpen(false);
-        showNotice(`${point.name}을(를) 코스 맨 뒤에 추가했어요.`);
+        showNotice(`${points.length}개의 장소를 코스 맨 뒤에 추가했어요.`);
         return;
       }
 
@@ -1327,6 +1665,97 @@ export function CourseDetailPage() {
     }
   }
 
+  async function handleDirectOptimize() {
+    if (!canEditCourse || !apiCourse || isOptimizing) return;
+
+    setIsOptimizing(true);
+    try {
+      setBackupCourse(apiCourse);
+      const recommended = await recommendCourseOrder(apiCourse.id);
+      const updated = await updateCourse(
+        apiCourse.id,
+        toCourseUpdateRequest(recommended),
+      );
+      setApiCourse(updated);
+      showNotice("AI 추천 동선으로 정리했어요.");
+    } catch {
+      showNotice("AI 동선 추천을 불러오지 못했어요.");
+      setBackupCourse(null);
+    } finally {
+      setIsOptimizing(false);
+    }
+  }
+
+  async function handleRestore() {
+    if (!canEditCourse || !backupCourse || !apiCourse) return;
+
+    try {
+      const restored = await updateCourse(
+        apiCourse.id,
+        toCourseUpdateRequest(backupCourse),
+      );
+      setApiCourse(restored);
+      setBackupCourse(null);
+      showNotice("원래 순서로 복구했어요.");
+    } catch {
+      showNotice("원래 순서로 복구하지 못했어요.");
+    }
+  }
+
+  async function handleReorderStops(startIndex: number, endIndex: number) {
+    if (!canEditCourse) return;
+
+    if (apiCourse) {
+      const newItems = [...apiCourse.items].sort((a, b) => a.position - b.position);
+      const [removed] = newItems.splice(startIndex, 1);
+      newItems.splice(endIndex, 0, removed);
+
+      const reorderedItems = newItems.map((item, idx) => ({
+        ...item,
+        position: idx + 1,
+      }));
+
+      const updatedCourse = {
+        ...apiCourse,
+        items: reorderedItems,
+      };
+
+      if (!backupCourse) {
+        setBackupCourse(apiCourse);
+      }
+
+      setApiCourse(updatedCourse);
+
+      try {
+        const updated = await updateCourse(
+          apiCourse.id,
+          toCourseUpdateRequest(updatedCourse),
+        );
+        setApiCourse(updated);
+      } catch (err) {
+        showNotice("순서 변경을 저장하지 못했어요.");
+        if (backupCourse) {
+          setApiCourse(backupCourse);
+        } else {
+          setApiCourse(apiCourse);
+        }
+      }
+    } else if (savedCourse) {
+      const newStops = [...savedCourse.stops];
+      const [removed] = newStops.splice(startIndex, 1);
+      newStops.splice(endIndex, 0, removed);
+
+      const updatedCourse = {
+        ...savedCourse,
+        stops: newStops,
+      };
+
+      saveCourse(updatedCourse);
+      setSavedCourse(updatedCourse);
+      window.dispatchEvent(new CustomEvent("spot:courses-changed"));
+    }
+  }
+
   const actionButtons = (
     <div className="flex items-center gap-1">
       <button aria-label="일정 이미지 저장" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setShareOpen(true)} type="button"><Download size={23} /></button>
@@ -1344,17 +1773,17 @@ export function CourseDetailPage() {
               {actionButtons}
             </header>
             <div className="mt-5">
-              <div className="flex items-end gap-2"><h1 className="m-0 truncate text-[1.85rem] leading-tight font-black text-[#333]">{courseTitle}</h1>{canEditCourse ? <button className="mb-1 border-0 bg-transparent p-0 text-base font-black text-[#9A958E]" onClick={() => setEditOpen(true)} type="button">편집</button> : null}</div>
-              <p className="mt-1.5 mb-0 text-lg font-black text-[#777]">{dateLabel}</p>
+              <div className="flex items-end gap-2"><h1 className="m-0 truncate text-2xl leading-tight font-black text-[#202020]">{courseTitle}</h1>{canEditCourse ? <button className="mb-1 border-0 bg-transparent p-1 text-[#9A958E] hover:text-[#FD4003] transition-colors" onClick={() => setEditOpen(true)} aria-label="코스 정보 수정" type="button"><Pencil size={15} strokeWidth={2.8} /></button> : null}</div>
+              <p className="mt-1.5 mb-0 text-base font-extrabold text-[#777]">{dateLabel}</p>
               <p className="mt-1.5 mb-0 truncate text-base font-bold text-[#777]">{companion} | {styleLabel}</p>
             </div>
             {canEditCourse ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white" onClick={() => setPlacePickerOpen(true)} type="button"><Plus size={20} />장소 추가하기</button>
-              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full border border-[#D9E5DC] bg-[#EDF5EF] px-4 text-sm font-black text-[#1F3D35]" onClick={() => setFriendsOpen(true)} type="button"><UserPlus size={18} />일행과 함께 일정 짜기</button>
-            </div> : apiCourse?.visibility === "PUBLIC" ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white" onClick={() => setCopyOpen(true)} type="button"><Plus size={18} />내 코스에 추가</button>
-              <span className="inline-flex h-10 flex-none items-center rounded-full bg-[#F3F3F3] px-3 text-xs font-black text-[#777]">탐색한 코스</span>
-            </div> : <div className="mt-5 inline-flex rounded-full bg-[#F3F3F3] px-3 py-2 text-xs font-black text-[#777]">보기 전용 일정</div>}
+              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-extrabold text-white" onClick={() => setPlacePickerOpen(true)} type="button"><Plus size={20} />장소 추가하기</button>
+              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full border border-[#D9E5DC] bg-[#EDF5EF] px-4 text-sm font-extrabold text-[#1F3D35]" onClick={() => setFriendsOpen(true)} type="button"><UserPlus size={18} />일행과 함께 일정 짜기</button>
+            </div> : apiCourse ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-extrabold text-white" onClick={() => setCopyOpen(true)} type="button"><Plus size={18} />내 코스에 추가</button>
+              <span className="inline-flex h-10 flex-none items-center rounded-full bg-[#F3F3F3] px-3 text-xs font-extrabold text-[#777]">탐색한 코스</span>
+            </div> : <div className="mt-5 inline-flex rounded-full bg-[#F3F3F3] px-3 py-2 text-xs font-extrabold text-[#777]">보기 전용 일정</div>}
           </div>
 
           <div className="absolute inset-x-0 top-0 z-10 bg-white px-5 pt-[calc(10px+env(safe-area-inset-top))] pb-3" style={{ opacity: isHeaderCompact ? 1 : 0, pointerEvents: isHeaderCompact ? "auto" : "none" }}>
@@ -1364,7 +1793,29 @@ export function CourseDetailPage() {
 
         <div className="relative min-h-0 flex-1 overflow-hidden bg-[#E7F0E8]" data-testid="course-route-stage">
           <CourseRouteMap activeStopId={activeStopId} className="h-[278px]" routeStops={routeStops} />
-          <CourseRouteDrawer activeStopId={activeStopId} canEdit={canEditCourse} drawerCoverOffset={drawerCoverOffset} drawerTop={drawerTop} headerOffset={headerOffset} onOptimize={openOptimizeSheet} routeStops={routeStops} setActiveStopId={setActiveStopId} setDrawerCoverOffset={setDrawerCoverOffset} setHeaderOffset={setHeaderOffset} />
+          <CourseRouteDrawer
+            activeStopId={activeStopId}
+            canEdit={canEditCourse}
+            drawerCoverOffset={drawerCoverOffset}
+            drawerTop={drawerTop}
+            headerOffset={headerOffset}
+            onOptimize={openOptimizeSheet}
+            routeStops={routeStops}
+            setActiveStopId={setActiveStopId}
+            setDrawerCoverOffset={setDrawerCoverOffset}
+            setHeaderOffset={setHeaderOffset}
+            isRouteEditing={isRouteEditing}
+            setIsRouteEditing={setIsRouteEditing}
+            hasBackup={backupCourse !== null}
+            onRestore={handleRestore}
+            clearBackup={() => setBackupCourse(null)}
+            hasApiCourse={apiCourse !== null}
+            onDirectOptimize={handleDirectOptimize}
+            isOptimizing={isOptimizing}
+            drawerCollapsedTop={drawerCollapsedTop}
+            headerCollapseDistance={headerCollapseDistance}
+            onReorderStops={handleReorderStops}
+          />
         </div>
       </section>
 
@@ -1378,7 +1829,7 @@ export function CourseDetailPage() {
         <CoursePlacePickerOverlay
           isAdding={isAddingPoint}
           onClose={() => setPlacePickerOpen(false)}
-          onConfirm={addPointToCourse}
+          onConfirm={addPointsToCourse}
         />
       ) : null}
 
@@ -1467,15 +1918,58 @@ export function CourseDetailPage() {
         </div>
       </BottomSheet>
 
-      <BottomSheet isOpen={shareOpen} onClose={() => setShareOpen(false)} title="일정 저장하기"><div className="grid gap-3"><button className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#E9E5DE] bg-white px-4 text-left" onClick={saveAsImage} type="button"><span className="grid size-11 place-items-center rounded-xl bg-[#EEF4EF] text-[#1F3D35]"><Download size={21} /></span><span><strong className="block text-sm font-black">긴 일정 이미지로 저장하기</strong><span className="mt-1 block text-xs font-bold text-[#8B857C]">AI 코스 추천 결과처럼 전체 리스트를 세로 이미지로 저장해요</span></span></button></div></BottomSheet>
+      <BottomSheet isOpen={shareOpen} onClose={() => setShareOpen(false)} title="일정 저장하기"><div className="grid gap-3"><button className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#E9E5DE] bg-white px-4 text-left" onClick={saveAsImage} type="button"><span className="grid size-11 place-items-center rounded-xl bg-[#EEF4EF] text-[#1F3D35]"><Download size={21} /></span><span><strong className="block text-sm font-black">긴 일정 이미지로 저장하기</strong><span className="mt-1 block text-xs font-bold text-[#8B857C]">전체 리스트를 세로 이미지로 저장해요</span></span></button></div></BottomSheet>
 
-      <BottomSheet isOpen={editOpen} onClose={() => setEditOpen(false)} title="코스 정보 편집"><div className="grid gap-4"><label className="grid gap-2 text-sm font-black text-[#24211E]">코스 제목<input className="min-h-13 rounded-2xl border border-[#E5E1DA] px-4 font-semibold outline-none focus:border-[#1F3D35]" maxLength={30} onChange={(event) => setEditTitle(event.target.value)} value={editTitle} /></label><label className="grid gap-2 text-sm font-black text-[#24211E]">날짜<input className="min-h-13 rounded-2xl border border-[#E5E1DA] px-4 font-semibold outline-none focus:border-[#1F3D35]" onChange={(event) => setEditDate(event.target.value)} type="date" value={editDate} /></label><button className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={isSavingEdit || !editTitle.trim()} onClick={saveCourseEdit} type="button">{isSavingEdit ? "저장 중..." : "저장하기"}</button></div></BottomSheet>
+      <BottomSheet isOpen={editOpen} onClose={() => setEditOpen(false)} title="코스 정보 편집">
+        <div className="grid gap-5">
+          <label className="grid gap-2 text-sm font-black text-[#24211E]">
+            코스 제목
+            <input
+              className="min-h-13 rounded-2xl border border-[#E5E1DA] px-4 font-semibold outline-none focus:border-[#1F3D35]"
+              maxLength={30}
+              onChange={(event) => setEditTitle(event.target.value)}
+              value={editTitle}
+            />
+          </label>
+          <div className="grid gap-2 text-sm font-black text-[#24211E]">
+            <div className="flex items-center justify-between gap-3">
+              <span>여행 날짜</span>
+              <label className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#E4DED3] bg-[#FAF8F4] px-3 text-xs font-black text-[#5F5A54]">
+                <input
+                  checked={!editDate}
+                  className="size-4 accent-[#1F3D35]"
+                  onChange={(event) => {
+                    setEditDate(event.target.checked ? "" : new Date().toISOString().split("T")[0]);
+                  }}
+                  type="checkbox"
+                />
+                미정
+              </label>
+            </div>
+            <CourseDraftCalendar
+              month={calendarMonth}
+              onMonthChange={setCalendarMonth}
+              onSelectDate={setEditDate}
+              selectedDate={editDate}
+              undecided={!editDate}
+            />
+          </div>
+          <button
+            className="min-h-14 rounded-2xl border-0 bg-[#FD4003] font-black text-white disabled:bg-[#F1C4B3] shadow-[0_6px_16px_rgba(253,64,3,0.16)]"
+            disabled={isSavingEdit || !editTitle.trim()}
+            onClick={saveCourseEdit}
+            type="button"
+          >
+            {isSavingEdit ? "저장 중..." : "저장하기"}
+          </button>
+        </div>
+      </BottomSheet>
 
       <BottomSheet isOpen={friendsOpen} onClose={() => setFriendsOpen(false)} title="친구에게 코스 공유"><p className="mt-0 text-sm font-bold text-[#8B857C]">서비스 안에서 이미 친구가 된 사람에게만 공유 요청을 보낼 수 있어요. 친구가 알림에서 수락해야 코스를 볼 수 있고, 수락 후에도 수정은 코스장인 나만 할 수 있어요.</p><div className="mt-4 grid gap-2">{friendsQuery.isLoading ? <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">친구 목록을 불러오는 중이에요.</p> : (friendsQuery.data ?? []).length === 0 ? <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">아직 공유할 수 있는 친구가 없어요.</p> : (friendsQuery.data ?? []).map((friend) => { const selected = selectedFriends.includes(friend.userId); return <button className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left ${selected ? "border-[#1F3D35] bg-[#F0F5F1]" : "border-[#EBE7E0] bg-white"}`} key={friend.userId} onClick={() => setSelectedFriends((current) => selected ? current.filter((userId) => userId !== friend.userId) : [...current, friend.userId])} type="button"><span className="grid size-11 place-items-center rounded-full bg-[#DDEADB] text-sm font-black text-[#1F3D35]">{friend.displayName.slice(0, 1).toUpperCase() || "?"}</span><span className="min-w-0 flex-1"><strong className="block truncate font-black">{friend.displayName}</strong><span className="mt-1 block truncate text-xs font-bold text-[#928C84]">{friend.email ?? "서비스 친구"} · 수락 후 보기 전용</span></span>{selected ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><CheckSquare size={15} /></span> : null}</button>; })}</div><button className="mt-5 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={friendsQuery.isLoading} onClick={saveFriends} type="button">{selectedFriends.length > 0 ? `${selectedFriends.length}명에게 공유 요청 보내기` : "공유하지 않기"}</button></BottomSheet>
 
       <BottomSheet isOpen={optimizeOpen} onClose={() => setOptimizeOpen(false)} title="AI 동선 정리"><div className="rounded-2xl bg-[#EEF4EF] p-4"><div className="flex items-center gap-2 text-[#1F3D35]"><WandSparkles size={21} /><strong className="font-black">{isOptimizing ? "AI가 동선을 계산하고 있어요" : apiCourse ? "서버 추천 동선을 불러왔어요" : "걷는 시간을 약 18분 줄일 수 있어요"}</strong></div><p className="mt-2 mb-0 text-sm leading-relaxed font-semibold text-[#667069]">{apiCourse ? "적용하면 추천 순서를 내 코스에 저장해요." : "가까운 장소끼리 묶고 마지막 장소가 대중교통과 이어지도록 순서를 정리했어요."}</p></div><div className="mt-4 flex flex-wrap items-center gap-2">{(optimizedCourse ? toDisplayRouteStops(optimizedCourse) : routeStops).map((stop, index) => <span className="inline-flex items-center gap-1 text-xs font-black text-[#5D5852]" key={stop.id}><span className="grid size-6 place-items-center rounded-full bg-[#FD4003] text-white">{index + 1}</span>{stop.title}{index < routeStops.length - 1 ? <ChevronRight size={14} className="text-[#AAA49B]" /> : null}</span>)}</div><button className="mt-6 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={isOptimizing} onClick={applyOptimizedOrder} type="button">{isOptimizing ? "추천 받는 중..." : "이 순서로 적용하기"}</button></BottomSheet>
 
-      {notice ? <div className="fixed inset-x-5 bottom-[calc(24px+env(safe-area-inset-bottom))] z-[90] mx-auto max-w-[390px] rounded-2xl bg-[#171717] px-4 py-3 text-center text-sm font-black text-white shadow-xl">{notice}</div> : null}
+      {notice ? <div className="fixed inset-x-5 bottom-[calc(24px+env(safe-area-inset-bottom))] z-90 mx-auto max-w-[390px] rounded-2xl bg-[#171717] px-4 py-3 text-center text-sm font-black text-white shadow-xl">{notice}</div> : null}
     </>
   );
 }
@@ -1626,12 +2120,12 @@ function CoursePlacePickerOverlay({
 }: {
   isAdding: boolean;
   onClose: () => void;
-  onConfirm: (point: MapPoint) => void;
+  onConfirm: (points: MapPoint[]) => void;
 }) {
   type PickerTab = "place" | "note";
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
-  const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
+  const [selectedPoints, setSelectedPoints] = useState<MapPoint[]>([]);
   const [activeTab, setActiveTab] = useState<PickerTab>("place");
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
@@ -1639,18 +2133,75 @@ function CoursePlacePickerOverlay({
   const [mapStatus, setMapStatus] = useState<
     "loading" | "ready" | "missing-key" | "error"
   >("loading");
+
+  const location = useCurrentLocation();
+  const requestLocation = location.requestLocation;
+  const currentLocation =
+    location.status === "success" ? location.coordinates : null;
+  const [locationToast, setLocationToast] = useState<string | null>(null);
+  const locationToastTimerRef = useRef<number | null>(null);
+  const manualLocationRequestRef = useRef(false);
+  const [locationConsent, setLocationConsent] = useState(readLocationConsent);
+
+  const showLocationToast = useCallback((message: string) => {
+    if (locationToastTimerRef.current) {
+      window.clearTimeout(locationToastTimerRef.current);
+    }
+
+    setLocationToast(message);
+    locationToastTimerRef.current = window.setTimeout(() => {
+      setLocationToast(null);
+      locationToastTimerRef.current = null;
+    }, 2500);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (locationToastTimerRef.current) {
+        window.clearTimeout(locationToastTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (locationConsent === "granted") {
+      requestLocation();
+    }
+  }, [locationConsent, requestLocation]);
+
+  useEffect(() => {
+    if (location.status === "error" && manualLocationRequestRef.current) {
+      manualLocationRequestRef.current = false;
+      showLocationToast(location.error);
+    }
+  }, [location.error, location.status, showLocationToast]);
+
+  const allowCurrentLocation = () => {
+    saveLocationConsent("granted");
+    setLocationConsent("granted");
+  };
+
+  const requestCurrentLocation = () => {
+    if (!window.isSecureContext) {
+      showLocationToast(
+        "현재 위치를 사용하려면 HTTPS 연결이 필요해요.",
+      );
+      return;
+    }
+
+    manualLocationRequestRef.current = true;
+
+    if (locationConsent !== "granted" || location.status === "error") {
+      setLocationConsent("pending");
+      return;
+    }
+
+    requestLocation();
+  };
+
   const trimmedQuery = query.trim();
   const isSearching = submittedQuery.length > 0;
-  const exploreQuery = useQuery({
-    queryFn: () =>
-      getMapExplore({
-        coordinates: mapCenter,
-        filter: "ALL",
-        radiusMeters: seoulMapRadiusMeters,
-      }),
-    queryKey: ["course-add-map-explore"],
-    staleTime: 30_000,
-  });
   const searchQuery = useQuery({
     enabled: isSearching,
     queryFn: () =>
@@ -1663,10 +2214,11 @@ function CoursePlacePickerOverlay({
     queryKey: ["course-add-map-search", submittedQuery],
   });
   const points = useMemo(() => {
-    const data = isSearching ? searchQuery.data : exploreQuery.data;
+    if (!isSearching) return [];
+    const data = searchQuery.data;
     if (!data) return [];
     return toMapPoints(data.places, data.notes);
-  }, [exploreQuery.data, isSearching, searchQuery.data]);
+  }, [isSearching, searchQuery.data]);
   const placePoints = useMemo(
     () =>
       points.filter(
@@ -1684,7 +2236,7 @@ function CoursePlacePickerOverlay({
     [points],
   );
   const activePoints = activeTab === "place" ? placePoints : notePoints;
-  const isLoading = isSearching ? searchQuery.isLoading : exploreQuery.isLoading;
+  const isLoading = isSearching ? searchQuery.isLoading : false;
 
   useEffect(() => {
     if (activeTab === "place" && placePoints.length === 0 && notePoints.length > 0) {
@@ -1717,6 +2269,7 @@ function CoursePlacePickerOverlay({
           center: new kakaoMaps.LatLng(mapCenter.lat, mapCenter.lng),
           level: 5,
         });
+        map.setMaxLevel(5);
 
         mapRef.current = map;
         window.requestAnimationFrame(() => {
@@ -1735,6 +2288,17 @@ function CoursePlacePickerOverlay({
     };
   }, []);
 
+  const handleTogglePoint = useCallback((point: MapPoint) => {
+    setSelectedPoints((prev) => {
+      const exists = prev.some((p) => p.id === point.id);
+      if (exists) {
+        return prev.filter((p) => p.id !== point.id);
+      } else {
+        return [...prev, point];
+      }
+    });
+  }, []);
+
   useEffect(() => {
     const kakaoMaps = window.kakao?.maps;
     const map = mapRef.current;
@@ -1745,7 +2309,7 @@ function CoursePlacePickerOverlay({
     markerOverlaysRef.current = [];
 
     points.slice(0, 80).forEach((point) => {
-      const selected = selectedPoint?.id === point.id;
+      const selected = selectedPoints.some((p) => p.id === point.id);
       const marker = document.createElement("button");
       marker.type = "button";
       marker.setAttribute("aria-label", `${point.name} 선택`);
@@ -1767,7 +2331,7 @@ function CoursePlacePickerOverlay({
             : "bg-[#7957F2]",
       ].join(" ");
       marker.textContent = selected ? "✓" : point.kind === "place" ? "장소" : "쪽지";
-      marker.addEventListener("click", () => setSelectedPoint(point));
+      marker.addEventListener("click", () => handleTogglePoint(point));
 
       const overlay = new kakaoMaps.CustomOverlay({
         content: marker,
@@ -1782,8 +2346,25 @@ function CoursePlacePickerOverlay({
       markerOverlaysRef.current.push(overlay);
     });
 
+    if (currentLocation) {
+      const content = document.createElement("div");
+      content.className = "current-location-marker";
+
+      const overlay = new kakaoMaps.CustomOverlay({
+        position: new kakaoMaps.LatLng(
+          currentLocation.lat,
+          currentLocation.lng,
+        ),
+        content,
+        yAnchor: 0.5,
+        zIndex: 35,
+      });
+      overlay.setMap(map);
+      markerOverlaysRef.current.push(overlay);
+    }
+
     if (points[0]) {
-      const centerPoint = selectedPoint ?? points[0];
+      const centerPoint = selectedPoints[selectedPoints.length - 1] ?? points[0];
       map.panTo(
         new kakaoMaps.LatLng(
           centerPoint.coordinates.lat,
@@ -1796,25 +2377,40 @@ function CoursePlacePickerOverlay({
       markerOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
       markerOverlaysRef.current = [];
     };
-  }, [mapStatus, points, selectedPoint]);
+  }, [mapStatus, points, selectedPoints, currentLocation, handleTogglePoint]);
+
+  useEffect(() => {
+    const kakaoMaps = window.kakao?.maps;
+    const map = mapRef.current;
+    const lastSelected = selectedPoints[selectedPoints.length - 1];
+
+    if (mapStatus !== "ready" || !kakaoMaps || !map || !lastSelected) return;
+
+    map.panTo(
+      new kakaoMaps.LatLng(
+        lastSelected.coordinates.lat,
+        lastSelected.coordinates.lng,
+      ),
+    );
+  }, [mapStatus, selectedPoints]);
 
   useEffect(() => {
     const kakaoMaps = window.kakao?.maps;
     const map = mapRef.current;
 
-    if (mapStatus !== "ready" || !kakaoMaps || !map || !selectedPoint) return;
+    if (mapStatus !== "ready" || !kakaoMaps || !map || !currentLocation) return;
 
     map.panTo(
       new kakaoMaps.LatLng(
-        selectedPoint.coordinates.lat,
-        selectedPoint.coordinates.lng,
+        currentLocation.lat,
+        currentLocation.lng,
       ),
     );
-  }, [mapStatus, selectedPoint]);
+  }, [mapStatus, currentLocation]);
 
   function submitSearch() {
     setSubmittedQuery(trimmedQuery);
-    setSelectedPoint(null);
+    setSelectedPoints([]);
   }
 
   return (
@@ -1853,7 +2449,7 @@ function CoursePlacePickerOverlay({
               <div className="absolute left-[20%] top-[60%] h-1 w-[64%] rotate-[8deg] rounded-full bg-[#D2D7DF]" />
               {points.slice(0, 24).map((point) => {
                 const position = getFallbackPosition(point.coordinates);
-                const selected = selectedPoint?.id === point.id;
+                const selected = selectedPoints.some((p) => p.id === point.id);
 
                 return (
                   <button
@@ -1866,7 +2462,7 @@ function CoursePlacePickerOverlay({
                           : "border-white bg-[#7957F2] text-white"
                     }`}
                     key={point.id}
-                    onClick={() => setSelectedPoint(point)}
+                    onClick={() => handleTogglePoint(point)}
                     style={position}
                     type="button"
                   >
@@ -1888,7 +2484,37 @@ function CoursePlacePickerOverlay({
             </div>
           ) : null}
         </div>
+
+        {/* GPS 현위치 탐색 버튼 */}
+        <div className="absolute bottom-4 right-4 z-20">
+          <button
+            className="grid size-10 touch-manipulation select-none place-items-center rounded-full border border-black/5 bg-white text-[#1e2a26] shadow-[0_6px_15px_rgba(17,17,17,0.16)]"
+            onClick={requestCurrentLocation}
+            type="button"
+            aria-label="현재 위치"
+          >
+            <Crosshair size={18} strokeWidth={2.4} />
+          </button>
+        </div>
+
+        {/* 위치 권한 및 에러 관련 Toast */}
+        {locationToast ? (
+          <p className="absolute right-4 left-4 bottom-16 z-30 m-0 rounded-xl bg-white/95 px-3 py-2.5 text-sm font-extrabold text-[#24463d] shadow-[0_10px_24px_rgba(17,17,17,0.12)]">
+            {locationToast}
+          </p>
+        ) : null}
       </div>
+
+      {locationConsent === "pending" ? (
+        <LocationConsentDialog
+          onAllow={allowCurrentLocation}
+          onSkip={() => {
+            manualLocationRequestRef.current = false;
+            saveLocationConsent("declined");
+            setLocationConsent("declined");
+          }}
+        />
+      ) : null}
 
       <div className="flex max-h-[46dvh] flex-none flex-col rounded-t-[22px] bg-white px-4 pt-3 pb-[calc(18px+env(safe-area-inset-bottom))] shadow-[0_-14px_34px_rgba(17,17,17,0.18)]">
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -1896,12 +2522,16 @@ function CoursePlacePickerOverlay({
             {isSearching ? `"${submittedQuery}" 검색 결과` : "주변 장소와 쪽지"}
           </strong>
           <button
-            className="h-10 rounded-full border-0 bg-[#1F3D35] px-4 text-sm font-black text-white disabled:bg-[#D8D4CC]"
-            disabled={!selectedPoint || isAdding}
-            onClick={() => selectedPoint && onConfirm(selectedPoint)}
+            className="h-10 rounded-full border-0 bg-[#1F3D35] px-4 text-sm font-extrabold text-white disabled:bg-[#D8D4CC]"
+            disabled={selectedPoints.length === 0 || isAdding}
+            onClick={() => onConfirm(selectedPoints)}
             type="button"
           >
-            {isAdding ? "추가 중..." : "체크한 항목 추가"}
+            {isAdding
+              ? "추가 중..."
+              : selectedPoints.length > 0
+                ? `${selectedPoints.length}개 추가하기`
+                : "체크한 항목 추가"}
           </button>
         </div>
         <div
@@ -1944,9 +2574,9 @@ function CoursePlacePickerOverlay({
                 {notePoints.map((point) => (
                   <CoursePickerNoteCard
                     key={point.id}
-                    onSelect={() => setSelectedPoint(point)}
+                    onSelect={() => handleTogglePoint(point)}
                     point={point}
-                    selected={selectedPoint?.id === point.id}
+                    selected={selectedPoints.some((p) => p.id === point.id)}
                   />
                 ))}
               </div>
@@ -1956,9 +2586,9 @@ function CoursePlacePickerOverlay({
               {placePoints.map((point) => (
                 <CoursePickerPlaceCard
                   key={point.id}
-                  onSelect={() => setSelectedPoint(point)}
+                  onSelect={() => handleTogglePoint(point)}
                   point={point}
-                  selected={selectedPoint?.id === point.id}
+                  selected={selectedPoints.some((p) => p.id === point.id)}
                 />
               ))}
             </div>
@@ -2133,7 +2763,13 @@ function toCourseItemRequest(
     };
   }
 
-  return null;
+  return {
+    day: 1,
+    itemType: "ATTRACTION",
+    memo: stop.title,
+    position: index + 1,
+    stayMinutes: 60,
+  };
 }
 
 function appendStopsToCourseRequest(
@@ -2211,4 +2847,12 @@ function toSavedStops(stops: CourseStop[]): SavedCourseStop[] {
 function getNumericPointId(id: string) {
   const value = Number(id.replace(/^(place|note)-/, ""));
   return Number.isFinite(value) ? value : null;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date: Date, months: number) {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
 }

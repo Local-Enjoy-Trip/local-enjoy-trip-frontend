@@ -44,6 +44,48 @@ export type CourseFeedRequest = {
   radius?: number;
 };
 
+export type AiCourseCompanion =
+  | "ALONE"
+  | "WITH_FRIEND"
+  | "WITH_PARTNER"
+  | "WITH_CHILD"
+  | "WITH_PARENTS"
+  | "WITH_PET";
+
+export type AiCourseTheme =
+  | "FOOD"
+  | "CAFE"
+  | "WALK"
+  | "CULTURE"
+  | "NATURE"
+  | "PHOTO"
+  | "MARKET"
+  | "SHOPPING";
+
+export type AiCoursePace = "RELAXED" | "MODERATE" | "PACKED";
+
+export type AiCourseGenerateRequest = {
+  sidoCode?: number;
+  gugunCode?: number;
+  companion: AiCourseCompanion;
+  themes: AiCourseTheme[];
+  pace: AiCoursePace;
+};
+
+export type StopPreview = {
+  attractionId: number;
+  title: string;
+  addr1?: string;
+  firstImage?: string;
+};
+
+export type AiCoursePreviewResponse = {
+  title: string;
+  reason?: string;
+  stops: StopPreview[];
+};
+
+
 export type CourseItemResponse = {
   attractionId?: number | null;
   day: number;
@@ -131,6 +173,11 @@ export function getCourseFeed(request: CourseFeedRequest) {
     (response) => response.courses,
   );
 }
+
+export function generateAiCourse(request: AiCourseGenerateRequest) {
+  return apiPost<AiCoursePreviewResponse>("/api/courses/ai-generate", request);
+}
+
 
 export function createCourse(request: CourseCreateRequest) {
   return apiPost<CourseResponse>("/api/courses", request).then((course) => {
