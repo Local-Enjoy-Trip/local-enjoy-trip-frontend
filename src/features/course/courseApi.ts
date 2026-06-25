@@ -143,7 +143,7 @@ export type CourseResponse = {
   segments: CourseSegmentResponse[];
   startLocation?: CourseStartLocationResponse | null;
   status: CourseStatus;
-  tags?: string[] | null;
+  tags?: unknown;
   title: string;
   updatedAt?: string | null;
   visibility: CourseVisibility;
@@ -234,7 +234,7 @@ export async function appendCourseItem(
     regionName: course.regionName ?? undefined,
     status: course.status,
     tags: normalizeCourseTags(
-      [...(course.tags ?? []), ...parseCourseDescriptionTags(course.description), course.regionName],
+      [course.tags, parseCourseDescriptionTags(course.description), course.regionName],
       course.regionName ?? "로컬",
     ),
     title: course.title,

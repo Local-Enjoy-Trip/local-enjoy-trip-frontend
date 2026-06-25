@@ -129,13 +129,13 @@ function getCourseHashtags({
 }: {
   area?: string | null;
   description?: string | null;
-  tags?: string[] | null;
+  tags?: unknown;
   stopCount: number;
 }) {
   return normalizeCourseTags([
     area?.replace(/\s+/g, ""),
     stopCount <= 3 ? "가볍게" : "알찬하루",
-    ...(courseTags ?? []),
-    ...parseCourseDescriptionTags(description),
+    courseTags,
+    parseCourseDescriptionTags(description),
   ]);
 }

@@ -1096,8 +1096,8 @@ function toCourseUpdateRequest(course: CourseResponse) {
 function getCourseResponseTags(course: CourseResponse) {
   return normalizeCourseTags(
     [
-      ...(course.tags ?? []),
-      ...parseCourseDescriptionTags(course.description),
+      course.tags,
+      parseCourseDescriptionTags(course.description),
       course.regionName,
     ],
     course.regionName ?? "로컬",
