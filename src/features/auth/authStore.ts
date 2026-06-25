@@ -67,6 +67,17 @@ type UsersResponse = {
   users: UserResponse[];
 };
 
+type EmailCheckResponse =
+  | boolean
+  | {
+      available?: boolean;
+      duplicate?: boolean;
+      duplicated?: boolean;
+      exists?: boolean;
+      isAvailable?: boolean;
+      isDuplicate?: boolean;
+    };
+
 type ProfileImagePresignedUploadResponse = {
   expiresAt: string;
   objectKey: string;
@@ -212,12 +223,20 @@ export async function findMemberByEmail(email: string) {
 
 export async function checkEmailAvailability(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
-  const users = await getMembers();
-  const exists = users.some(
-    (user) => user.email.trim().toLowerCase() === normalizedEmail,
+  const response = await apiGet<EmailCheckResponse>(
+    `/api/members/check-email?email=${encodeURIComponent(normalizedEmail)}`,
   );
 
-  return { available: !exists };
+  if (typeof response === "boolean") return { available: response };
+  if (typeof response.available === "boolean") return { available: response.available };
+  if (typeof response.isAvailable === "boolean") {
+    return { available: response.isAvailable };
+  }
+
+  const duplicated =
+    response.duplicated ?? response.duplicate ?? response.isDuplicate ?? response.exists;
+
+  return { available: duplicated === undefined ? false : !duplicated };
 }
 
 export function createSignupUserId(email: string) {

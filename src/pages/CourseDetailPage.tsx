@@ -1,6 +1,5 @@
 import { useAuthUser } from "@/features/auth/authStore";
 import {
-  appendCourseItem,
   createCourse,
   getCachedApiCourse,
   getMyCourses,
@@ -19,7 +18,6 @@ import {
   getSavedCourses,
   saveCourse,
   updateCourseCollaborators,
-  updateCourseDetails,
   type SavedCourse,
   type SavedCourseStop,
 } from "@/features/course/courseStorage";
@@ -53,24 +51,31 @@ import { BottomSheet } from "@/shared/ui/BottomSheet";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  CalendarDays,
   CheckSquare,
   ChevronRight,
   Crosshair,
   Download,
   Map as MapIcon,
   Plus,
-  Star,
   UserPlus,
   WandSparkles,
   X,
-  ChevronUp,
-  ChevronDown,
   GripVertical,
   Pencil,
 } from "lucide-react";
 import { motion, Reorder } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type PointerEvent as ReactPointerEvent,
+  type SetStateAction,
+  type TouchEvent as ReactTouchEvent,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 type CourseStop = {
@@ -88,8 +93,6 @@ type CourseStop = {
 
 const HEADER_EXPANDED_HEIGHT = 255;
 const HEADER_COMPACT_HEIGHT = 74;
-const HEADER_COLLAPSE_DISTANCE = HEADER_EXPANDED_HEIGHT - HEADER_COMPACT_HEIGHT;
-const DRAWER_COLLAPSED_TOP = 236;
 
 const defaultStops: CourseStop[] = [
   {
@@ -283,14 +286,20 @@ function CourseRouteMap({
   const [status, setStatus] = useState<"loading" | "ready" | "missing-key" | "error">(
     "loading",
   );
+  const routeCenter = useMemo(
+    () => (routeStops.length > 0 ? getRouteCenter(routeStops) : null),
+    [routeStops],
+  );
 
   useEffect(() => {
     let cancelled = false;
 
-    if (routeStops.length === 0) {
+    if (!routeCenter) {
       setStatus("ready");
       return;
     }
+
+    setStatus((current) => (current === "ready" ? current : "loading"));
 
     loadKakaoMap().then((nextStatus) => {
       if (cancelled) return;
@@ -307,9 +316,22 @@ function CourseRouteMap({
 
       try {
         const kakaoMaps = window.kakao.maps;
-        const center = getRouteCenter(routeStops);
+
+        if (mapRef.current) {
+          const map = mapRef.current;
+          const relayout = () => {
+            map.relayout();
+            map.setCenter(new kakaoMaps.LatLng(routeCenter.lat, routeCenter.lng));
+          };
+
+          setStatus("ready");
+          window.requestAnimationFrame(relayout);
+          window.setTimeout(relayout, 120);
+          return;
+        }
+
         const map = new kakaoMaps.Map(containerRef.current, {
-          center: new kakaoMaps.LatLng(center.lat, center.lng),
+          center: new kakaoMaps.LatLng(routeCenter.lat, routeCenter.lng),
           level: 5,
         });
 
@@ -318,7 +340,7 @@ function CourseRouteMap({
 
         const relayout = () => {
           map.relayout();
-          map.setCenter(new kakaoMaps.LatLng(center.lat, center.lng));
+          map.setCenter(new kakaoMaps.LatLng(routeCenter.lat, routeCenter.lng));
         };
 
         window.requestAnimationFrame(relayout);
@@ -331,10 +353,20 @@ function CourseRouteMap({
 
     return () => {
       cancelled = true;
+    };
+  }, [routeCenter]);
+
+  useEffect(
+    () => () => {
       overlaysRef.current.forEach((overlay) => overlay.setMap(null));
       polylineRef.current?.setMap(null);
-    };
-  }, [routeStops]);
+      overlaysRef.current = [];
+      overlaysByStopIdRef.current.clear();
+      markerElementsRef.current.clear();
+      mapRef.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     const kakaoMaps = window.kakao?.maps;
@@ -478,9 +510,7 @@ function CourseRouteDrawer({
   setDrawerCoverOffset,
   setHeaderOffset,
   routeStops,
-  onOptimize,
-  onUpdateStopsOrder,
-  onSaveReorderedStops,
+  onCommitStopsOrder,
   isRouteEditing,
   setIsRouteEditing,
   hasBackup,
@@ -501,9 +531,7 @@ function CourseRouteDrawer({
   setDrawerCoverOffset: Dispatch<SetStateAction<number>>;
   setHeaderOffset: Dispatch<SetStateAction<number>>;
   routeStops: CourseStop[];
-  onOptimize: () => void;
-  onUpdateStopsOrder?: (newStops: CourseStop[], saveToApi?: boolean) => void;
-  onSaveReorderedStops?: () => void;
+  onCommitStopsOrder?: (newStops: CourseStop[]) => void;
   isRouteEditing: boolean;
   setIsRouteEditing: Dispatch<SetStateAction<boolean>>;
   hasBackup: boolean;
@@ -524,8 +552,16 @@ function CourseRouteDrawer({
   const ignoreClickRef = useRef(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
+  const [draftStops, setDraftStops] = useState(routeStops);
   const isExpanded = drawerTop === 0;
   const isHeaderCollapsed = headerOffset >= headerCollapseDistance;
+  const displayedStops = isRouteEditing ? draftStops : routeStops;
+
+  useEffect(() => {
+    if (!isRouteEditing) {
+      setDraftStops(routeStops);
+    }
+  }, [isRouteEditing, routeStops]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -569,7 +605,7 @@ function CourseRouteDrawer({
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, [setDrawerCoverOffset]);
+  }, [drawerCollapsedTop, setDrawerCoverOffset]);
 
   function beginDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -738,6 +774,7 @@ function CourseRouteDrawer({
                   <button
                     className="inline-flex h-7 items-center justify-center rounded-full bg-[#FD4003] px-3.5 text-xs font-black text-white shadow-[0_4px_10px_rgba(253,64,3,0.12)]"
                     onClick={() => {
+                      onCommitStopsOrder?.(draftStops);
                       setIsRouteEditing(false);
                       clearBackup();
                     }}
@@ -760,7 +797,7 @@ function CourseRouteDrawer({
             </div>
           )}
         </div>
-        {routeStops.length === 0 ? (
+        {displayedStops.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#D8D4CC] bg-white p-5 text-center">
             <p className="m-0 text-sm font-black text-[#514D47]">
               아직 추가한 장소가 없어요.
@@ -772,16 +809,16 @@ function CourseRouteDrawer({
         ) : (
           <Reorder.Group
             axis="y"
-            values={routeStops.map((stop) => stop.id)}
+            values={displayedStops.map((stop) => stop.id)}
             onReorder={(newStopIds) => {
               const newStops = newStopIds
-                .map((id) => routeStops.find((stop) => stop.id === id))
+                .map((id) => displayedStops.find((stop) => stop.id === id))
                 .filter((stop): stop is CourseStop => !!stop);
-              onUpdateStopsOrder?.(newStops, false);
+              setDraftStops(newStops);
             }}
             className="flex flex-col gap-4"
           >
-            {routeStops.map((stop, index) => (
+            {displayedStops.map((stop, index) => (
               <Reorder.Item
                 key={stop.id}
                 value={stop.id}
@@ -791,9 +828,6 @@ function CourseRouteDrawer({
                   boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
                 }}
                 className={`relative ${isRouteEditing ? "z-50" : "z-0"}`}
-                onDragEnd={() => {
-                  onSaveReorderedStops?.();
-                }}
               >
                 <StopTimelineItem
                   isActive={stop.id === activeStopId}
@@ -801,7 +835,6 @@ function CourseRouteDrawer({
                   order={index + 1}
                   stop={stop}
                   isRouteEditing={isRouteEditing}
-                  isLast={index === routeStops.length - 1}
                 />
               </Reorder.Item>
             ))}
@@ -818,14 +851,12 @@ function StopTimelineItem({
   order,
   stop,
   isRouteEditing,
-  isLast,
 }: {
   isActive: boolean;
   onSelect: () => void;
   order: number;
   stop: CourseStop;
   isRouteEditing?: boolean;
-  isLast?: boolean;
 }) {
   return (
     <div
@@ -1104,9 +1135,7 @@ export function CourseDetailPage() {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [optimizeOpen, setOptimizeOpen] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [optimizedCourse, setOptimizedCourse] = useState<CourseResponse | null>(
-    null,
-  );
+  const [optimizedCourse] = useState<CourseResponse | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [placePickerOpen, setPlacePickerOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -1116,7 +1145,6 @@ export function CourseDetailPage() {
     startOfMonth(new Date()),
   );
   const [editStops, setEditStops] = useState<CourseStop[]>([]);
-  const [newStopName, setNewStopName] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isAddingPoint, setIsAddingPoint] = useState(false);
   const [isCopyingCourse, setIsCopyingCourse] = useState(false);
@@ -1154,7 +1182,7 @@ export function CourseDetailPage() {
 
     return [...apiTargets, ...localTargets];
   }, [apiCourse?.id, copySavedCourses, myCoursesQuery.data, savedCourse?.id]);
-  const expandedHeaderHeight = 255;
+  const expandedHeaderHeight = HEADER_EXPANDED_HEIGHT;
   const drawerCollapsedTop = 236;
   const headerCollapseDistance = expandedHeaderHeight - HEADER_COMPACT_HEIGHT;
 
@@ -1210,7 +1238,6 @@ export function CourseDetailPage() {
       setEditDate(initialDate);
       setCalendarMonth(startOfMonth(initialDate ? new Date(initialDate) : new Date()));
       setEditStops(routeStops);
-      setNewStopName("");
       setEditTags(savedCourse ? [...(savedCourse.styles ?? [])] : [...apiTags]);
     }
   }, [editOpen, routeStops, courseTitle, savedCourse, apiDate, apiTags]);
@@ -1275,29 +1302,6 @@ export function CourseDetailPage() {
     } finally {
       setIsSavingEdit(false);
     }
-  }
-
-  function addEditStop() {
-    const name = newStopName.trim();
-    if (!name) return;
-
-    const newStop: CourseStop = {
-      id: Date.now(),
-      accent: (["violet", "coral", "mint"] as const)[editStops.length % 3],
-      category: "직접 추가한 장소",
-      coordinates: routeStops[0]?.coordinates ?? { lat: 37.5567, lng: 126.9057 },
-      description: "코스 정보 편집에서 직접 추가한 장소입니다.",
-      imageUrl: fallbackCourseImage,
-      location: apiCourse?.regionName ?? savedCourse?.area ?? "망원",
-      title: name,
-    };
-
-    setEditStops((current) => [...current, newStop]);
-    setNewStopName("");
-  }
-
-  function removeEditStop(id: number) {
-    setEditStops((current) => current.filter((stop) => stop.id !== id));
   }
 
   async function saveAsImage() {
@@ -1556,24 +1560,6 @@ export function CourseDetailPage() {
     setIsCopyingCourse(false);
   }
 
-  async function openOptimizeSheet() {
-    if (!canEditCourse) return;
-    setOptimizeOpen(true);
-    setOptimizedCourse(null);
-
-    if (!apiCourse) return;
-
-    setIsOptimizing(true);
-    try {
-      const recommended = await recommendCourseOrder(apiCourse.id);
-      setOptimizedCourse(recommended);
-    } catch {
-      showNotice("AI 동선 추천을 불러오지 못했어요.");
-    } finally {
-      setIsOptimizing(false);
-    }
-  }
-
   async function applyOptimizedOrder() {
     if (!canEditCourse) return;
     if (!apiCourse || !optimizedCourse) {
@@ -1632,43 +1618,17 @@ export function CourseDetailPage() {
     }
   }
 
-  async function handleSaveReorderedStops() {
-    if (apiCourse) {
-      try {
-        const updated = await updateCourse(
-          apiCourse.id,
-          toCourseUpdateRequest(apiCourse),
-        );
-        setApiCourse(updated);
-      } catch (err) {
-        showNotice("순서 변경을 저장하지 못했어요.");
-        if (backupCourse) {
-          setApiCourse(backupCourse);
-        }
-      }
-    } else if (savedCourse) {
-      saveCourse(savedCourse);
-      window.dispatchEvent(new CustomEvent("spot:courses-changed"));
-    }
-  }
-
-  async function handleUpdateStopsOrder(newStops: CourseStop[], saveToApi = true) {
+  async function handleCommitStopsOrder(newStops: CourseStop[]) {
     if (!canEditCourse) return;
 
     if (apiCourse) {
       const newItems = newStops.map((stop, index) => {
-        const originalItem = apiCourse.items.find((item) => {
-          if (item.attractionId && stop.attractionId === item.attractionId) return true;
-          if (item.noteId && stop.noteId === item.noteId) return true;
-          return false;
-        });
-
-        if (!originalItem) {
+        if (!stop.sourceItem) {
           throw new Error("Matching item not found during reorder");
         }
 
         return {
-          ...originalItem,
+          ...stop.sourceItem,
           position: index + 1,
         };
       });
@@ -1684,15 +1644,14 @@ export function CourseDetailPage() {
 
       setApiCourse(updatedCourse);
 
-      if (!saveToApi) return;
-
       try {
         const updated = await updateCourse(
           apiCourse.id,
           toCourseUpdateRequest(updatedCourse),
         );
         setApiCourse(updated);
-      } catch (err) {
+        showNotice("순서를 저장했어요.");
+      } catch {
         showNotice("순서 변경을 저장하지 못했어요.");
         if (backupCourse) {
           setApiCourse(backupCourse);
@@ -1703,15 +1662,13 @@ export function CourseDetailPage() {
     } else if (savedCourse) {
       const updatedCourse = {
         ...savedCourse,
-        stops: newStops,
+        stops: toSavedStops(newStops),
       };
 
       setSavedCourse(updatedCourse);
-
-      if (saveToApi) {
-        saveCourse(updatedCourse);
-        window.dispatchEvent(new CustomEvent("spot:courses-changed"));
-      }
+      saveCourse(updatedCourse);
+      window.dispatchEvent(new CustomEvent("spot:courses-changed"));
+      showNotice("순서를 저장했어요.");
     }
   }
 
@@ -1758,7 +1715,6 @@ export function CourseDetailPage() {
             drawerCoverOffset={drawerCoverOffset}
             drawerTop={drawerTop}
             headerOffset={headerOffset}
-            onOptimize={openOptimizeSheet}
             routeStops={routeStops}
             setActiveStopId={setActiveStopId}
             setDrawerCoverOffset={setDrawerCoverOffset}
@@ -1773,8 +1729,7 @@ export function CourseDetailPage() {
             isOptimizing={isOptimizing}
             drawerCollapsedTop={drawerCollapsedTop}
             headerCollapseDistance={headerCollapseDistance}
-            onUpdateStopsOrder={handleUpdateStopsOrder}
-            onSaveReorderedStops={handleSaveReorderedStops}
+            onCommitStopsOrder={handleCommitStopsOrder}
           />
         </div>
       </section>
@@ -1969,7 +1924,7 @@ export function CourseDetailPage() {
 
       <BottomSheet isOpen={friendsOpen} onClose={() => setFriendsOpen(false)} title="친구에게 코스 공유"><p className="mt-0 text-sm font-bold text-[#8B857C]">서비스 안에서 이미 친구가 된 사람에게만 공유 요청을 보낼 수 있어요. 친구가 알림에서 수락해야 코스를 볼 수 있고, 수락 후에도 수정은 코스장인 나만 할 수 있어요.</p><div className="mt-4 grid gap-2">{friendsQuery.isLoading ? <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">친구 목록을 불러오는 중이에요.</p> : (friendsQuery.data ?? []).length === 0 ? <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">아직 공유할 수 있는 친구가 없어요.</p> : (friendsQuery.data ?? []).map((friend) => { const selected = selectedFriends.includes(friend.userId); return <button className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left ${selected ? "border-[#1F3D35] bg-[#F0F5F1]" : "border-[#EBE7E0] bg-white"}`} key={friend.userId} onClick={() => setSelectedFriends((current) => selected ? current.filter((userId) => userId !== friend.userId) : [...current, friend.userId])} type="button"><span className="grid size-11 place-items-center rounded-full bg-[#DDEADB] text-sm font-black text-[#1F3D35]">{friend.displayName.slice(0, 1).toUpperCase() || "?"}</span><span className="min-w-0 flex-1"><strong className="block truncate font-black">{friend.displayName}</strong><span className="mt-1 block truncate text-xs font-bold text-[#928C84]">{friend.email ?? "서비스 친구"} · 수락 후 보기 전용</span></span>{selected ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><CheckSquare size={15} /></span> : null}</button>; })}</div><button className="mt-5 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={friendsQuery.isLoading} onClick={saveFriends} type="button">{selectedFriends.length > 0 ? `${selectedFriends.length}명에게 공유 요청 보내기` : "공유하지 않기"}</button></BottomSheet>
 
-      <BottomSheet isOpen={optimizeOpen} onClose={() => setOptimizeOpen(false)} title="AI 동선 정리"><div className="rounded-2xl bg-[#EEF4EF] p-4"><div className="flex items-center gap-2 text-[#1F3D35]"><WandSparkles size={21} /><strong className="font-black">{isOptimizing ? "AI가 동선을 계산하고 있어요" : apiCourse ? "서버 추천 동선을 불러왔어요" : "걷는 시간을 약 18분 줄일 수 있어요"}</strong></div><p className="mt-2 mb-0 text-sm leading-relaxed font-semibold text-[#667069]">{apiCourse ? "적용하면 추천 순서를 내 코스에 저장해요." : "가까운 장소끼리 묶고 마지막 장소가 대중교통과 이어지도록 순서를 정리했어요."}</p></div><div className="mt-4 flex flex-wrap items-center gap-2">{(optimizedCourse ? toDisplayRouteStops(optimizedCourse) : routeStops).map((stop, index) => <span className="inline-flex items-center gap-1 text-xs font-black text-[#5D5852]" key={stop.id}><span className="grid size-6 place-items-center rounded-full bg-[#FD4003] text-white">{index + 1}</span>{stop.title}{index < routeStops.length - 1 ? <ChevronRight size={14} className="text-[#AAA49B]" /> : null}</span>)}</div><button className="mt-6 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={isOptimizing} onClick={applyOptimizedOrder} type="button">{isOptimizing ? "추천 받는 중..." : "이 순서로 적용하기"}</button></BottomSheet>
+      <BottomSheet isOpen={optimizeOpen} onClose={() => setOptimizeOpen(false)} title="AI 동선 정리"><div className="rounded-2xl bg-[#EEF4EF] p-4"><div className="flex items-center gap-2 text-[#1F3D35]"><WandSparkles size={21} /><strong className="font-black">{isOptimizing ? "AI가 동선을 계산하고 있어요" : apiCourse ? "서버 추천 동선을 불러왔어요" : "걷는 시간을 약 18분 줄일 수 있어요"}</strong></div><p className="mt-2 mb-0 text-sm leading-relaxed font-semibold text-[#667069]">{apiCourse ? "적용하면 추천 순서를 내 코스에 저장해요." : "가까운 장소끼리 묶고 마지막 장소가 대중교통과 이어지도록 순서를 정리했어요."}</p></div><div className="mt-4 flex flex-wrap items-center gap-2">{(optimizedCourse ? toDisplayRouteStops(optimizedCourse, attractionDetails) : routeStops).map((stop, index) => <span className="inline-flex items-center gap-1 text-xs font-black text-[#5D5852]" key={stop.id}><span className="grid size-6 place-items-center rounded-full bg-[#FD4003] text-white">{index + 1}</span>{stop.title}{index < routeStops.length - 1 ? <ChevronRight size={14} className="text-[#AAA49B]" /> : null}</span>)}</div><button className="mt-6 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={isOptimizing} onClick={applyOptimizedOrder} type="button">{isOptimizing ? "추천 받는 중..." : "이 순서로 적용하기"}</button></BottomSheet>
 
       {notice ? <div className="fixed inset-x-5 bottom-[calc(24px+env(safe-area-inset-bottom))] z-90 mx-auto max-w-[390px] rounded-2xl bg-[#171717] px-4 py-3 text-center text-sm font-black text-white shadow-xl">{notice}</div> : null}
     </>
@@ -2853,8 +2808,4 @@ function getNumericPointId(id: string) {
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function addMonths(date: Date, months: number) {
-  return new Date(date.getFullYear(), date.getMonth() + months, 1);
 }
