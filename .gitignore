@@ -9,3 +9,5 @@ vite.config.js
 vite.config.d.ts
 .omx/
 .ai/logs/*.jsonl
+.vercel
+.env*

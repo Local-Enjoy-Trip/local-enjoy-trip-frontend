@@ -1040,12 +1040,17 @@ export function CourseDetailPage() {
   });
   const isMyApiCourse = useMemo(() => {
     if (!apiCourse) return false;
-    return myCoursesQuery.data?.some((c) => c.id === apiCourse.id) ?? false;
-  }, [apiCourse, myCoursesQuery.data]);
+    if (apiCourse.ownerUserId && userId && apiCourse.ownerUserId === userId) {
+      return true;
+    }
+    return myCoursesQuery.data?.some((course) => course.id === apiCourse.id) ?? false;
+  }, [apiCourse, myCoursesQuery.data, userId]);
 
   const isReadOnly =
     searchParams.get("view") === "1" ||
-    (!savedCourse && (!apiCourse || (myCoursesQuery.isSuccess && !isMyApiCourse)));
+    (!savedCourse &&
+      (!apiCourse ||
+        (!isMyApiCourse && !myCoursesQuery.isLoading && !myCoursesQuery.isError)));
   const canEditCourse = !isReadOnly;
   const routeStops = useMemo<CourseStop[]>(
     () =>
