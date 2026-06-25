@@ -70,6 +70,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type Dispatch,
   type PointerEvent as ReactPointerEvent,
   type SetStateAction,
@@ -93,6 +94,8 @@ type CourseStop = {
 
 const HEADER_EXPANDED_HEIGHT = 255;
 const HEADER_COMPACT_HEIGHT = 74;
+const COURSE_MAP_HEIGHT = 232;
+const DRAWER_COLLAPSED_TOP = 214;
 
 const defaultStops: CourseStop[] = [
   {
@@ -272,10 +275,12 @@ function CourseRouteMap({
   activeStopId,
   className = "",
   routeStops,
+  style,
 }: {
   activeStopId: number;
   className?: string;
   routeStops: CourseStop[];
+  style?: CSSProperties;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
@@ -472,6 +477,7 @@ function CourseRouteMap({
     <section
       className={`relative overflow-hidden bg-[#DDF0E3] ${className}`}
       data-testid="course-route-map"
+      style={style}
     >
       {routeStops.length === 0 ? (
         <div className="absolute inset-0 grid place-items-center bg-[#E7F0E8] px-6 text-center">
@@ -675,31 +681,23 @@ function CourseRouteDrawer({
     if (!scroller) return;
 
     const scrollerRect = scroller.getBoundingClientRect();
-    const targetY = scrollerRect.top + 10;
+    const targetY = scrollerRect.top + 24;
     const stopElements = Array.from(
       scroller.querySelectorAll<HTMLElement>("[data-stop-id]"),
     );
 
-    const closestStopId = stopElements.reduce<number | null>(
-      (closestId, element) => {
-        const currentDistance = Math.abs(
-          element.getBoundingClientRect().top - targetY,
-        );
-        const closestElement = closestId
-          ? scroller.querySelector<HTMLElement>(`[data-stop-id="${closestId}"]`)
-          : null;
-        const closestDistance = closestElement
-          ? Math.abs(closestElement.getBoundingClientRect().top - targetY)
-          : Number.POSITIVE_INFINITY;
+    const firstVisibleStop =
+      stopElements.find((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.top <= targetY && rect.bottom > targetY;
+      }) ??
+      stopElements.find(
+        (element) => element.getBoundingClientRect().top > targetY,
+      );
 
-        return currentDistance < closestDistance
-          ? Number(element.dataset.stopId)
-          : closestId;
-      },
-      null,
-    );
+    const firstVisibleStopId = Number(firstVisibleStop?.dataset.stopId);
 
-    if (closestStopId) setActiveStopId(closestStopId);
+    if (firstVisibleStopId) setActiveStopId(firstVisibleStopId);
   }
 
 
@@ -708,7 +706,7 @@ function CourseRouteDrawer({
     <motion.section
       aria-label="day 1 경로"
       className="absolute inset-x-0 bottom-[-96px] z-20 flex flex-col bg-[#F2F2F0] shadow-[0_-14px_32px_rgba(17,17,17,0.12)]"
-      initial={{ top: 278 }}
+      initial={{ top: drawerCollapsedTop }}
       animate={{
         borderTopLeftRadius: isExpanded ? 0 : 28,
         borderTopRightRadius: isExpanded ? 0 : 28,
@@ -822,6 +820,7 @@ function CourseRouteDrawer({
               <Reorder.Item
                 key={stop.id}
                 value={stop.id}
+                data-stop-id={stop.id}
                 drag={isRouteEditing ? "y" : false}
                 whileDrag={{
                   scale: 1.03,
@@ -1188,7 +1187,7 @@ export function CourseDetailPage() {
     return [...apiTargets, ...localTargets];
   }, [apiCourse?.id, copySavedCourses, myCoursesQuery.data, savedCourse?.id]);
   const expandedHeaderHeight = HEADER_EXPANDED_HEIGHT;
-  const drawerCollapsedTop = 236;
+  const drawerCollapsedTop = DRAWER_COLLAPSED_TOP;
   const headerCollapseDistance = expandedHeaderHeight - HEADER_COMPACT_HEIGHT;
 
   const headerHeight = expandedHeaderHeight - headerOffset;
@@ -1713,7 +1712,11 @@ export function CourseDetailPage() {
         </motion.div>
 
         <div className="relative min-h-0 flex-1 overflow-hidden bg-[#E7F0E8]" data-testid="course-route-stage">
-          <CourseRouteMap activeStopId={activeStopId} className="h-[278px]" routeStops={routeStops} />
+          <CourseRouteMap
+            activeStopId={activeStopId}
+            routeStops={routeStops}
+            style={{ height: COURSE_MAP_HEIGHT }}
+          />
           <CourseRouteDrawer
             activeStopId={activeStopId}
             canEdit={canEditCourse}

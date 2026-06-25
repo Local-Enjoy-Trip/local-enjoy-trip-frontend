@@ -163,6 +163,8 @@ export function MapPage() {
   const locationToastTimerRef = useRef<number | null>(null);
   const manualLocationRequestRef = useRef(false);
   const initializedTargetIdRef = useRef<string | null>(null);
+  const lastAutoDataCenterKeyRef = useRef<string | null>(null);
+  const lastAutoLocationCenterKeyRef = useRef<string | null>(null);
   const [locationToast, setLocationToast] = useState<string | null>(null);
   const [pointOverrides, setPointOverrides] = useState<
     Record<string, { favoriteCount: number; saved: boolean }>
@@ -440,19 +442,31 @@ export function MapPage() {
 
   useEffect(() => {
     if (
-      hasRequestedTarget ||
-      requestedFilter ||
-      requestedViewport ||
       kakao.status !== "ready" ||
       !data
     ) {
       return;
     }
 
+    const dataCenterKey = toCoordinateKey(data.center.coordinates);
+    if (
+      isSearching ||
+      hasRequestedTarget ||
+      requestedFilter ||
+      requestedViewport
+    ) {
+      lastAutoDataCenterKeyRef.current = dataCenterKey;
+      return;
+    }
+
+    if (lastAutoDataCenterKeyRef.current === dataCenterKey) return;
+
+    lastAutoDataCenterKeyRef.current = dataCenterKey;
     recenterMapTo(data.center.coordinates);
   }, [
     data,
     hasRequestedTarget,
+    isSearching,
     kakao.status,
     recenterMapTo,
     requestedFilter,
@@ -460,10 +474,45 @@ export function MapPage() {
   ]);
 
   useEffect(() => {
-    if (location.status === "success" && kakao.status === "ready") {
-      recenterMapTo(location.coordinates);
+    if (location.status !== "success" || kakao.status !== "ready") {
+      return;
     }
-  }, [kakao.status, location.coordinates, location.status, recenterMapTo]);
+
+    const locationKey = toCoordinateKey(location.coordinates);
+
+    if (manualLocationRequestRef.current) {
+      manualLocationRequestRef.current = false;
+      lastAutoLocationCenterKeyRef.current = locationKey;
+      recenterMapTo(location.coordinates);
+      return;
+    }
+
+    if (
+      isSearching ||
+      hasRequestedTarget ||
+      requestedFilter ||
+      requestedViewport ||
+      selectedPinId
+    ) {
+      lastAutoLocationCenterKeyRef.current = locationKey;
+      return;
+    }
+
+    if (lastAutoLocationCenterKeyRef.current === locationKey) return;
+
+    lastAutoLocationCenterKeyRef.current = locationKey;
+    recenterMapTo(location.coordinates);
+  }, [
+    hasRequestedTarget,
+    isSearching,
+    kakao.status,
+    location.coordinates,
+    location.status,
+    recenterMapTo,
+    requestedFilter,
+    requestedViewport,
+    selectedPinId,
+  ]);
 
   useEffect(() => {
     if (locationConsent === "granted") {
@@ -812,6 +861,10 @@ function normalizeViewport(viewport: MapViewport): MapViewport {
       Math.ceil((viewport.radiusMeters * 1.15) / 100) * 100,
     ),
   };
+}
+
+function toCoordinateKey(coordinates: MapViewport["center"]) {
+  return `${coordinates.lat.toFixed(6)},${coordinates.lng.toFixed(6)}`;
 }
 
 function isSameViewport(
