@@ -56,7 +56,6 @@ export type SignupRequest = {
   name: string;
   nickname: string;
   password: string;
-  userId: string;
 };
 
 type MeResponse = {
@@ -238,28 +237,6 @@ export async function checkEmailAvailability(email: string) {
 
   return { available: duplicated === undefined ? false : !duplicated };
 }
-
-export function createSignupUserId(email: string) {
-  const [localPart = "user"] = email.trim().toLowerCase().split("@");
-  const base =
-    localPart
-      .replace(/[^a-z0-9_]/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 12) || "user";
-  const paddedBase = base.length >= 4 ? base : `${base}${"user".slice(base.length)}`;
-  let hash = 0;
-
-  for (const char of email.trim().toLowerCase()) {
-    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  }
-
-  return `${paddedBase.slice(0, 13)}_${hash.toString(36).slice(0, 6)}`.slice(
-    0,
-    20,
-  );
-}
-
 
 export async function completeGoogleSignup(request: {
   name: string;

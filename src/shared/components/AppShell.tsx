@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { PageTransition } from "@/shared/ui/PageTransition";
+import { PwaInstallPrompt } from "@/shared/components/PwaInstallPrompt";
 import { ScrollToTop } from "@/shared/ui/ScrollToTop";
 
 function HomeNavIcon({ isActive }: { isActive: boolean }) {
@@ -285,6 +286,7 @@ export function AppShell() {
           <Outlet />
         </PageTransition>
       </main>
+      {isLoginPage || isNoteLocationPage ? null : <PwaInstallPrompt />}
       {isLoginPage || isNoteLocationPage ? null : (
       <nav
         className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[430px] grid-cols-5 border-t border-black/10 bg-white/90 px-2 pt-2 pb-[calc(10px+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(17,17,17,0.04)] backdrop-blur-xl sm:border-x"

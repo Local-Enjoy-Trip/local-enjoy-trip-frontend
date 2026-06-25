@@ -5,7 +5,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   authUserQueryKey,
   checkEmailAvailability,
-  createSignupUserId,
   getAuthErrorMessage,
   signupWithEmail,
 } from "@/features/auth/authStore";
@@ -75,7 +74,6 @@ export function SignupPage() {
       name: name.trim(),
       nickname: nickname.trim(),
       password,
-      userId: createSignupUserId(normalizedEmail),
     });
   }
 
