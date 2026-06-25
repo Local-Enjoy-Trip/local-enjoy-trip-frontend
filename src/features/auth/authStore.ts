@@ -290,7 +290,10 @@ export function getAuthErrorMessage(error: unknown) {
 export function startGoogleLogin(returnTo?: string) {
   if (returnTo) window.sessionStorage.setItem("oauth-return-to", returnTo);
 
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? window.location.origin;
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+  if (!apiBaseUrl) return false;
+
   window.location.assign(
     new URL("/oauth2/authorization/google", apiBaseUrl).toString(),
   );
