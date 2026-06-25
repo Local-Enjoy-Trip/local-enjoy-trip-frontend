@@ -36,8 +36,8 @@ export type AuthUser = {
 };
 
 type LoginRequest = {
+  email: string;
   password: string;
-  userId: string;
 };
 
 type EmailLoginRequest = {
@@ -150,7 +150,10 @@ export function hasAuthSession() {
 }
 
 export async function loginWithEmail(request: LoginRequest) {
-  const response = await apiPost<LoginResponse>("/api/members/login", request);
+  const response = await apiPost<LoginResponse>("/api/members/login", {
+    email: request.email.trim().toLowerCase(),
+    password: request.password,
+  });
   storeSession(
     response.accessToken,
     response.expiresIn,
@@ -161,15 +164,9 @@ export async function loginWithEmail(request: LoginRequest) {
 }
 
 export async function loginWithEmailAddress(request: EmailLoginRequest) {
-  const member = await findMemberByEmail(request.email);
-
-  if (!member) {
-    throw new ApiError("가입된 이메일을 찾을 수 없어요.", 404);
-  }
-
   return loginWithEmail({
+    email: request.email,
     password: request.password,
-    userId: member.userId,
   });
 }
 
