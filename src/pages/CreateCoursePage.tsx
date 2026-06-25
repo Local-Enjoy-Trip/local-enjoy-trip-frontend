@@ -10,14 +10,14 @@ import {
   type AiCourseCompanion,
   type AiCourseTheme,
   type AiCoursePace,
+  type CourseResponse,
 } from "@/features/course/courseApi";
+import { getAttractionDetail } from "@/features/attractions/attractionApi";
 import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
   Check,
-  LoaderCircle,
-  MapPin,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -25,9 +25,10 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Skeleton } from "@/shared/ui/Skeleton";
+import { useQueryClient } from "@tanstack/react-query";
+import { SpotLogo } from "@/shared/ui/SpotLogo";
 
 type DirectStop = { id: number; name: string };
 
@@ -127,8 +128,101 @@ function ChoiceButton({
   );
 }
 
+function AiRoutePreviewMap({
+  area,
+  stops,
+}: {
+  area: string;
+  stops: SavedCourseStop[];
+}) {
+  const validStops = stops.filter(
+    (stop) =>
+      Number.isFinite(stop.lat) &&
+      Number.isFinite(stop.lng) &&
+      stop.lat !== 0 &&
+      stop.lng !== 0,
+  );
+  const hasCoordinates = validStops.length >= 2;
+  const sourceStops = hasCoordinates ? validStops : stops;
+  const fallbackPoints = [
+    { x: 18, y: 63 },
+    { x: 34, y: 38 },
+    { x: 52, y: 55 },
+    { x: 67, y: 30 },
+    { x: 82, y: 48 },
+  ];
+  const lngValues = validStops.map((stop) => stop.lng);
+  const latValues = validStops.map((stop) => stop.lat);
+  const minLng = Math.min(...lngValues);
+  const maxLng = Math.max(...lngValues);
+  const minLat = Math.min(...latValues);
+  const maxLat = Math.max(...latValues);
+  const lngRange = Math.max(maxLng - minLng, 0.0001);
+  const latRange = Math.max(maxLat - minLat, 0.0001);
+  const points = sourceStops.map((stop, index) => {
+    if (!hasCoordinates) {
+      return fallbackPoints[index % fallbackPoints.length];
+    }
+
+    return {
+      x: 16 + ((stop.lng - minLng) / lngRange) * 68,
+      y: 76 - ((stop.lat - minLat) / latRange) * 52,
+    };
+  });
+  const routePath = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+
+  return (
+    <div className="relative mx-5 mt-7 h-48 overflow-hidden rounded-[24px] bg-[#DCE9DF] shadow-[0_14px_34px_rgba(31,38,35,0.08)]">
+      <div
+        className="absolute inset-0 opacity-70"
+        style={{
+          backgroundImage:
+            "linear-gradient(90deg, rgba(255,255,255,0.45) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.45) 1px, transparent 1px)",
+          backgroundSize: "34px 34px",
+        }}
+      />
+      <div className="absolute -top-10 -right-8 size-32 rounded-full bg-[#BFD8C4]" />
+      <div className="absolute -bottom-14 -left-10 size-40 rounded-full bg-[#EAF1DC]" />
+      <svg
+        aria-hidden="true"
+        className="absolute inset-0 size-full"
+        preserveAspectRatio="none"
+        viewBox="0 0 100 100"
+      >
+        <path
+          d={routePath}
+          fill="none"
+          stroke="#1F3D35"
+          strokeDasharray="4 4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.5"
+        />
+      </svg>
+      {points.map((point, index) => (
+        <span
+          className="absolute grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-4 border-white bg-[#FD4003] text-xs font-black text-white shadow-[0_8px_18px_rgba(253,64,3,0.25)]"
+          key={`${sourceStops[index]?.id ?? index}-${index}`}
+          style={{ left: `${point.x}%`, top: `${point.y}%` }}
+        >
+          {index + 1}
+        </span>
+      ))}
+      <span className="absolute bottom-3 left-4 rounded-full bg-white/95 px-3 py-1.5 text-xs font-black text-[#4E5D53] shadow-sm">
+        {area} 하루 동선
+      </span>
+      <span className="absolute right-4 bottom-3 rounded-full bg-[#1F3D35] px-3 py-1.5 text-xs font-black text-white shadow-sm">
+        {hasCoordinates ? "위치 기반" : "추천 순서"}
+      </span>
+    </div>
+  );
+}
+
 function AiCourseCreator() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [area, setArea] = useState("");
   const [companion, setCompanion] = useState("");
@@ -138,8 +232,25 @@ function AiCourseCreator() {
   const [version, setVersion] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState("");
+  const [loadingProgress, setLoadingProgress] = useState(8);
   const [recommendation, setRecommendation] = useState<SavedCourse | null>(null);
   const aiRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    if (phase !== "loading") return;
+
+    setLoadingProgress(8);
+    const intervalId = window.setInterval(() => {
+      setLoadingProgress((current) => {
+        if (current < 52) return current + 6;
+        if (current < 82) return current + 3;
+        if (current < 96) return current + 1;
+        return current;
+      });
+    }, 260);
+
+    return () => window.clearInterval(intervalId);
+  }, [phase]);
 
   async function requestAiCourse(requestVersion: number) {
     const requestId = aiRequestIdRef.current + 1;
@@ -189,16 +300,31 @@ function AiCourseCreator() {
 
       if (aiRequestIdRef.current !== requestId) return;
 
-      const stops: SavedCourseStop[] = response.stops.map((stop, index) => ({
-        id: index + 1,
-        attractionId: stop.attractionId,
-        title: stop.title,
-        category: stop.addr1 ? stop.addr1.split(" ").slice(0, 2).join(" ") : "관광지",
-        description: stop.addr1 ?? "",
-        imageUrl: stop.firstImage || "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80",
-        lat: 0,
-        lng: 0,
-      }));
+      const details = await Promise.all(
+        response.stops.map((stop) =>
+          getAttractionDetail(stop.attractionId).catch(() => null),
+        ),
+      );
+
+      if (aiRequestIdRef.current !== requestId) return;
+
+      const stops: SavedCourseStop[] = response.stops.map((stop, index) => {
+        const detail = details[index];
+        const address = detail?.address || stop.addr1 || "";
+
+        return {
+          id: index + 1,
+          attractionId: stop.attractionId,
+          title: detail?.title || stop.title,
+          category: address ? address.split(" ").slice(0, 2).join(" ") : "관광지",
+          description: address || detail?.overview || "",
+          imageUrl: detail?.imageUrl || stop.firstImage || "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80",
+          lat: detail?.latitude ?? 0,
+          lng: detail?.longitude ?? 0,
+        };
+      });
+
+      setLoadingProgress(100);
 
       setRecommendation({
         id: `ai-${Date.now()}-${requestVersion}`,
@@ -269,7 +395,14 @@ function AiCourseCreator() {
 
     try {
       const course = await createCourse(request);
-      navigate(`/course/${course.id}`);
+      queryClient.setQueryData<CourseResponse[]>(["courses", "me"], (courses) =>
+        courses
+          ? [course, ...courses.filter((item) => item.id !== course.id)]
+          : [course],
+      );
+      navigate(`/course/${course.id}`, {
+        state: { createdAsMyCourse: true, createdCourseId: course.id },
+      });
     } catch {
       setSaveNotice("코스를 서버에 저장하지 못했어요. 로그인 상태를 확인해 주세요.");
       setIsSaving(false);
@@ -279,37 +412,32 @@ function AiCourseCreator() {
   if (phase === "loading") {
     return (
       <section className="fixed inset-0 z-50 mx-auto w-full max-w-[430px] overflow-hidden bg-[#F8F6F1] px-5 text-center text-[#171717]">
-        <div className="pt-[calc(54px+env(safe-area-inset-top))]">
-          <div className="relative mx-auto grid size-28 place-items-center rounded-full bg-white shadow-[0_18px_50px_rgba(31,61,53,0.12)]">
-            <LoaderCircle className="animate-spin text-[#1F3D35]" size={58} strokeWidth={1.7} />
-            <MapPin className="absolute text-[#FD4003]" size={26} fill="#FD4003" />
+        <div className="pt-[calc(82px+env(safe-area-inset-top))]">
+          <div className="relative mx-auto grid size-32 place-items-center rounded-[32px] bg-white shadow-[0_18px_50px_rgba(31,61,53,0.12)]">
+            <SpotLogo className="w-[74px]" />
           </div>
           <h1 className="mt-8 mb-0 text-3xl font-black tracking-tighter">추천 코스를 만들고 있어요</h1>
           <p className="mt-3 text-sm leading-relaxed font-bold text-[#817B73]">
             {area}의 장소들을 살펴보고<br />{companion} 걷기 좋은 순서로 정리하는 중이에요.
           </p>
-          <div className="mx-auto mt-8 h-1.5 w-48 overflow-hidden rounded-full bg-[#E7E2D9]">
-            <div className="h-full w-2/3 animate-pulse rounded-full bg-[#FD4003]" />
-          </div>
-        </div>
-        <div className="mt-10 rounded-[26px] bg-white p-4 text-left shadow-[0_14px_34px_rgba(31,38,35,0.08)]">
-          <Skeleton className="h-5 w-36 rounded-full" />
-          <div className="relative mt-4 h-36 overflow-hidden rounded-[22px] bg-[#DCE9DF]">
-            <Skeleton className="absolute top-6 left-6 size-9 rounded-full bg-white/70" />
-            <Skeleton className="absolute top-1/2 left-1/3 h-2 w-28 rounded-full bg-white/60" />
-            <Skeleton className="absolute right-8 bottom-8 size-9 rounded-full bg-white/70" />
-          </div>
-          <div className="mt-4 grid gap-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div className="flex items-center gap-3" key={index}>
-                <Skeleton className="size-16 flex-none rounded-xl" />
-                <span className="min-w-0 flex-1">
-                  <Skeleton className="h-4 w-3/4 rounded-full" />
-                  <Skeleton className="mt-2 h-3 w-full rounded-full" />
-                  <Skeleton className="mt-2 h-3 w-2/3 rounded-full" />
-                </span>
+          <div className="mx-auto mt-8 w-full max-w-[280px]">
+            <div className="mb-2 flex items-center justify-between text-xs font-black text-[#817B73]">
+              <span>AI route building</span>
+              <span className="text-[#FD4003]">{loadingProgress}%</span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-[#E7E2D9]">
+              <div
+                className="relative h-full overflow-hidden rounded-full bg-[#FD4003] transition-[width] duration-300 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              >
+                <span className="absolute inset-y-0 left-0 w-16 animate-[pulse_1.1s_ease-in-out_infinite] bg-white/30" />
               </div>
-            ))}
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-[11px] font-black text-[#928C84]">
+              <span className="rounded-full bg-white px-2 py-1.5">취향 분석</span>
+              <span className="rounded-full bg-white px-2 py-1.5">장소 확인</span>
+              <span className="rounded-full bg-white px-2 py-1.5">동선 정리</span>
+            </div>
           </div>
         </div>
       </section>
@@ -320,6 +448,24 @@ function AiCourseCreator() {
     if (!recommendation) return null;
     return (
       <section className="fixed inset-0 z-50 mx-auto w-full max-w-[430px] overflow-y-auto bg-[#F7F5F0] pb-[calc(28px+env(safe-area-inset-bottom))] text-[#171717]">
+        {isSaving ? (
+          <div className="fixed inset-0 z-60 mx-auto grid w-full max-w-[430px] place-items-center bg-[#F8F6F1]/95 px-6 text-center backdrop-blur-sm">
+            <div className="w-full">
+              <div className="mx-auto grid size-28 place-items-center rounded-[30px] bg-white shadow-[0_18px_50px_rgba(31,61,53,0.12)]">
+                <SpotLogo className="w-[68px]" />
+              </div>
+              <h2 className="mt-7 mb-0 text-2xl font-black tracking-tighter">
+                내 코스로 담고 있어요
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed font-bold text-[#817B73]">
+                AI 추천 결과를 저장한 뒤<br />바로 내 코스 상세로 이동할게요.
+              </p>
+              <div className="mx-auto mt-7 h-2 w-full max-w-[240px] overflow-hidden rounded-full bg-[#E7E2D9]">
+                <div className="h-full w-3/4 animate-pulse rounded-full bg-[#FD4003]" />
+              </div>
+            </div>
+          </div>
+        ) : null}
         <header className="flex items-center justify-between px-5 pt-[calc(18px+env(safe-area-inset-top))]">
           <button aria-label="닫기" className="grid size-10 place-items-center rounded-full border-0 bg-white" onClick={() => navigate("/course")} type="button"><X size={22} /></button>
           <span className="rounded-full bg-[#EAF2EC] px-3 py-1.5 text-xs font-black text-[#1F3D35]">AI 추천 완성</span>
@@ -333,14 +479,7 @@ function AiCourseCreator() {
           <p className="mt-2 text-sm font-bold text-[#817B73]">지금의 취향으로 고른 {recommendation.stops.length}곳을 소개할게요.</p>
         </div>
 
-        <div className="relative mx-5 mt-7 h-44 overflow-hidden rounded-[24px] bg-[#DCE9DF]">
-          <div className="absolute inset-0 opacity-70" style={{ backgroundImage: "linear-gradient(32deg, transparent 46%, white 47%, white 51%, transparent 52%), linear-gradient(145deg, transparent 42%, #B8D4C0 43%, #B8D4C0 48%, transparent 49%)", backgroundSize: "90px 90px, 130px 130px" }} />
-          <div className="absolute inset-x-8 top-1/2 border-t-2 border-dashed border-[#75877A]" />
-          {recommendation.stops.map((stop, index) => (
-            <span className="absolute grid size-9 place-items-center rounded-full border-4 border-white bg-[#FD4003] text-xs font-black text-white shadow-md" key={stop.id} style={{ left: `${12 + index * (72 / Math.max(recommendation.stops.length - 1, 1))}%`, top: `${index % 2 === 0 ? 36 : 57}%` }}>{index + 1}</span>
-          ))}
-          <span className="absolute bottom-3 left-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-black text-[#4E5D53]">{area} 하루 동선</span>
-        </div>
+        <AiRoutePreviewMap area={area} stops={recommendation.stops} />
 
         <div className="mx-5 mt-4 grid gap-3">
           {recommendation.stops.map((stop, index) => (
@@ -400,6 +539,7 @@ function AiCourseCreator() {
 
 function DirectCourseCreator() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const initialPlace = searchParams.get("place")?.trim() ?? "";
   const [title, setTitle] = useState("");
@@ -433,7 +573,14 @@ function DirectCourseCreator() {
         title: trimmedTitle,
         visibility: "PRIVATE",
       });
-      navigate(`/course/${course.id}`);
+      queryClient.setQueryData<CourseResponse[]>(["courses", "me"], (courses) =>
+        courses
+          ? [course, ...courses.filter((item) => item.id !== course.id)]
+          : [course],
+      );
+      navigate(`/course/${course.id}`, {
+        state: { createdAsMyCourse: true, createdCourseId: course.id },
+      });
     } catch {
       setSaveError("코스를 서버에 저장하지 못했어요. 로그인 상태를 확인해 주세요.");
     } finally {

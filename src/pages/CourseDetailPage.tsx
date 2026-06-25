@@ -55,6 +55,7 @@ import {
   ChevronRight,
   Crosshair,
   Download,
+  List,
   Map as MapIcon,
   Plus,
   UserPlus,
@@ -63,7 +64,7 @@ import {
   GripVertical,
   Pencil,
 } from "lucide-react";
-import { motion, Reorder } from "motion/react";
+import { motion, Reorder, useDragControls } from "motion/react";
 import {
   useCallback,
   useEffect,
@@ -77,7 +78,12 @@ import {
   type TouchEvent as ReactTouchEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 
 type CourseStop = {
   id: number;
@@ -569,6 +575,23 @@ function CourseRouteDrawer({
     }
   }, [isRouteEditing, routeStops]);
 
+  function startRouteEditing() {
+    setDraftStops(routeStops);
+    setIsRouteEditing(true);
+    setDrawerCoverOffset(0);
+    setHeaderOffset(headerCollapseDistance);
+  }
+
+  function showMapWhileEditing() {
+    setDrawerCoverOffset(drawerCollapsedTop);
+    setHeaderOffset(0);
+  }
+
+  function showListWhileEditing() {
+    setDrawerCoverOffset(0);
+    setHeaderOffset(headerCollapseDistance);
+  }
+
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
       const dragState = dragRef.current;
@@ -614,6 +637,7 @@ function CourseRouteDrawer({
   }, [drawerCollapsedTop, setDrawerCoverOffset]);
 
   function beginDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (isRouteEditing) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {
@@ -653,16 +677,19 @@ function CourseRouteDrawer({
   }
 
   function handleListWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    if (isRouteEditing) return;
     if (moveHeaderFromRouteScroll(event.deltaY)) {
       event.preventDefault();
     }
   }
 
   function handleListTouchStart(event: ReactTouchEvent<HTMLDivElement>) {
+    if (isRouteEditing) return;
     touchStartYRef.current = event.touches[0]?.clientY ?? null;
   }
 
   function handleListTouchMove(event: ReactTouchEvent<HTMLDivElement>) {
+    if (isRouteEditing) return;
     const previousY = touchStartYRef.current;
     const currentY = event.touches[0]?.clientY;
 
@@ -717,9 +744,15 @@ function CourseRouteDrawer({
       <div className="flex-none">
         <button
           aria-label={isExpanded ? "경로 드로어 내리기" : "경로 드로어 올리기"}
-          className="grid h-11 w-full cursor-grab place-items-center border-0 bg-transparent p-0 touch-none active:cursor-grabbing"
+          className={`grid h-11 w-full place-items-center border-0 bg-transparent p-0 touch-none ${
+            isRouteEditing
+              ? "cursor-default"
+              : "cursor-grab active:cursor-grabbing"
+          }`}
           data-testid="course-route-drawer-handle"
+          disabled={isRouteEditing}
           onClick={() => {
+            if (isRouteEditing) return;
             if (ignoreClickRef.current) return;
             setDrawerCoverOffset((current) =>
               current >= drawerCollapsedTop ? 0 : drawerCollapsedTop,
@@ -758,6 +791,14 @@ function CourseRouteDrawer({
                       복구하기
                     </button>
                   )}
+                  <button
+                    className="inline-flex h-7 items-center justify-center gap-1 rounded-full border border-[#DCE7DF] bg-[#EEF4EF] px-2.5 text-xs font-black text-[#1F3D35]"
+                    onClick={isExpanded ? showMapWhileEditing : showListWhileEditing}
+                    type="button"
+                  >
+                    {isExpanded ? <MapIcon size={13} /> : <List size={13} />}
+                    {isExpanded ? "지도 보기" : "리스트 보기"}
+                  </button>
                   {hasApiCourse && (
                     <button
                       className="grid size-7 place-items-center rounded-full bg-[#EEF4EF] text-[#1F3D35] border border-[#DCE7DF] hover:bg-[#DCE7DF] disabled:opacity-50"
@@ -774,6 +815,8 @@ function CourseRouteDrawer({
                     onClick={() => {
                       onCommitStopsOrder?.(draftStops);
                       setIsRouteEditing(false);
+                      setDrawerCoverOffset(drawerCollapsedTop);
+                      setHeaderOffset(0);
                       clearBackup();
                     }}
                     type="button"
@@ -785,7 +828,7 @@ function CourseRouteDrawer({
                 <button
                   aria-label="경로 순서 편집"
                   className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white shadow-[0_4px_10px_rgba(31,61,53,0.12)] hover:bg-[#162B25] transition"
-                  onClick={() => setIsRouteEditing(true)}
+                  onClick={startRouteEditing}
                   title="일정 편집"
                   type="button"
                 >
@@ -817,25 +860,14 @@ function CourseRouteDrawer({
             className="flex flex-col gap-4"
           >
             {displayedStops.map((stop, index) => (
-              <Reorder.Item
+              <DraggableStopTimelineItem
                 key={stop.id}
-                value={stop.id}
-                data-stop-id={stop.id}
-                drag={isRouteEditing ? "y" : false}
-                whileDrag={{
-                  scale: 1.03,
-                  boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
-                }}
-                className={`relative ${isRouteEditing ? "z-50" : "z-0"}`}
-              >
-                <StopTimelineItem
-                  isActive={stop.id === activeStopId}
-                  onSelect={() => setActiveStopId(stop.id)}
-                  order={index + 1}
-                  stop={stop}
-                  isRouteEditing={isRouteEditing}
-                />
-              </Reorder.Item>
+                isActive={stop.id === activeStopId}
+                isRouteEditing={isRouteEditing}
+                onSelect={() => setActiveStopId(stop.id)}
+                order={index + 1}
+                stop={stop}
+              />
             ))}
           </Reorder.Group>
         )}
@@ -844,13 +876,56 @@ function CourseRouteDrawer({
   );
 }
 
+function DraggableStopTimelineItem({
+  isActive,
+  isRouteEditing,
+  onSelect,
+  order,
+  stop,
+}: {
+  isActive: boolean;
+  isRouteEditing: boolean;
+  onSelect: () => void;
+  order: number;
+  stop: CourseStop;
+}) {
+  const dragControls = useDragControls();
+
+  return (
+    <Reorder.Item
+      className={`relative ${isRouteEditing ? "z-50" : "z-0"}`}
+      data-stop-id={stop.id}
+      drag={isRouteEditing ? "y" : false}
+      dragControls={dragControls}
+      dragListener={false}
+      value={stop.id}
+      whileDrag={{
+        boxShadow:
+          "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+        scale: 1.03,
+      }}
+    >
+      <StopTimelineItem
+        dragControls={dragControls}
+        isActive={isActive}
+        isRouteEditing={isRouteEditing}
+        onSelect={onSelect}
+        order={order}
+        stop={stop}
+      />
+    </Reorder.Item>
+  );
+}
+
 function StopTimelineItem({
+  dragControls,
   isActive,
   onSelect,
   order,
   stop,
   isRouteEditing,
 }: {
+  dragControls: ReturnType<typeof useDragControls>;
   isActive: boolean;
   onSelect: () => void;
   order: number;
@@ -859,7 +934,7 @@ function StopTimelineItem({
 }) {
   return (
     <div
-      className={`w-full ${isRouteEditing ? "cursor-grab touch-none" : "cursor-pointer"}`}
+      className={`w-full ${isRouteEditing ? "cursor-default" : "cursor-pointer"}`}
       onClick={() => {
         if (isRouteEditing) return;
         onSelect();
@@ -912,9 +987,18 @@ function StopTimelineItem({
             </p>
           </div>
           {isRouteEditing && (
-            <div className="text-[#C8C5BD] p-1 flex-none cursor-grab active:cursor-grabbing">
+            <button
+              aria-label={`${stop.title} 순서 변경`}
+              className="grid size-9 flex-none touch-none place-items-center rounded-full border border-[#ECE8E1] bg-[#FAF9F7] p-0 text-[#9C978F] cursor-grab active:cursor-grabbing"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                dragControls.start(event);
+              }}
+              type="button"
+            >
               <GripVertical size={18} />
-            </div>
+            </button>
           )}
         </div>
       </article>
@@ -1036,8 +1120,15 @@ export function CourseDetailPage() {
   const [isRouteEditing, setIsRouteEditing] = useState(false);
   const [backupCourse, setBackupCourse] = useState<CourseResponse | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { courseId = "course-1" } = useParams();
   const [searchParams] = useSearchParams();
+  const locationState = location.state as
+    | { createdAsMyCourse?: boolean; createdCourseId?: string }
+    | null;
+  const createdAsMyCourse =
+    locationState?.createdAsMyCourse === true &&
+    locationState.createdCourseId === courseId;
   const authUserQuery = useAuthUser();
   const userId = authUserQuery.data?.id;
   const [savedCourse, setSavedCourse] = useState<SavedCourse | undefined>(() =>
@@ -1056,12 +1147,13 @@ export function CourseDetailPage() {
     retry: 1,
   });
   const isMyApiCourse = useMemo(() => {
+    if (createdAsMyCourse) return true;
     if (!apiCourse) return false;
     if (apiCourse.ownerUserId && userId && apiCourse.ownerUserId === userId) {
       return true;
     }
     return myCoursesQuery.data?.some((course) => course.id === apiCourse.id) ?? false;
-  }, [apiCourse, myCoursesQuery.data, userId]);
+  }, [apiCourse, createdAsMyCourse, myCoursesQuery.data, userId]);
 
   const isReadOnly =
     searchParams.get("view") === "1" ||
