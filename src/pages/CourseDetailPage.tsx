@@ -69,7 +69,7 @@ import {
   GripVertical,
   Pencil,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, Reorder } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
@@ -479,7 +479,8 @@ function CourseRouteDrawer({
   setHeaderOffset,
   routeStops,
   onOptimize,
-  onReorderStops,
+  onUpdateStopsOrder,
+  onSaveReorderedStops,
   isRouteEditing,
   setIsRouteEditing,
   hasBackup,
@@ -501,7 +502,8 @@ function CourseRouteDrawer({
   setHeaderOffset: Dispatch<SetStateAction<number>>;
   routeStops: CourseStop[];
   onOptimize: () => void;
-  onReorderStops?: (startIndex: number, endIndex: number) => void;
+  onUpdateStopsOrder?: (newStops: CourseStop[], saveToApi?: boolean) => void;
+  onSaveReorderedStops?: () => void;
   isRouteEditing: boolean;
   setIsRouteEditing: Dispatch<SetStateAction<boolean>>;
   hasBackup: boolean;
@@ -664,58 +666,7 @@ function CourseRouteDrawer({
     if (closestStopId) setActiveStopId(closestStopId);
   }
 
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  function handleDragStart(index: number) {
-    setDraggedIndex(index);
-  }
-
-  function handleDragOver(e: React.DragEvent, index: number) {
-    e.preventDefault();
-    setDragOverIndex(index);
-  }
-
-  function handleDrop(index: number) {
-    if (draggedIndex === null || draggedIndex === index) return;
-    onReorderStops?.(draggedIndex, index);
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  }
-
-  function handleDragEnd() {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  }
-
-  function handleTouchStart(index: number) {
-    if (!isRouteEditing) return;
-    setDraggedIndex(index);
-  }
-
-  function handleTouchMove(e: React.TouchEvent) {
-    if (draggedIndex === null) return;
-    const touch = e.touches[0];
-    if (!touch) return;
-
-    const element = document.elementFromPoint(touch.clientX, touch.clientY);
-    const itemEl = element?.closest("[data-stop-id]");
-    if (itemEl) {
-      const stopId = Number(itemEl.getAttribute("data-stop-id"));
-      const targetIndex = routeStops.findIndex((s) => s.id === stopId);
-      if (targetIndex !== -1 && targetIndex !== dragOverIndex) {
-        setDragOverIndex(targetIndex);
-      }
-    }
-  }
-
-  function handleTouchEnd() {
-    if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
-      onReorderStops?.(draggedIndex, dragOverIndex);
-    }
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  }
 
   return (
     <motion.section
@@ -818,28 +769,44 @@ function CourseRouteDrawer({
               상세 페이지에서 저장한 장소와 쪽지를 차례로 담아보세요.
             </p>
           </div>
-        ) : routeStops.map((stop, index) => (
-          <StopTimelineItem
-            isActive={stop.id === activeStopId}
-            key={stop.id}
-            onSelect={() => setActiveStopId(stop.id)}
-            order={index + 1}
-            stop={stop}
-            isRouteEditing={isRouteEditing}
-            onMoveUp={() => onReorderStops?.(index, index - 1)}
-            onMoveDown={() => onReorderStops?.(index, index + 1)}
-            isLast={index === routeStops.length - 1}
-            draggable={isRouteEditing}
-            onDragStart={() => handleDragStart(index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDrop={() => handleDrop(index)}
-            onDragEnd={handleDragEnd}
-            isDragOver={dragOverIndex === index}
-            onTouchStart={() => handleTouchStart(index)}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          />
-        ))}
+        ) : (
+          <Reorder.Group
+            axis="y"
+            values={routeStops.map((stop) => stop.id)}
+            onReorder={(newStopIds) => {
+              const newStops = newStopIds
+                .map((id) => routeStops.find((stop) => stop.id === id))
+                .filter((stop): stop is CourseStop => !!stop);
+              onUpdateStopsOrder?.(newStops, false);
+            }}
+            className="flex flex-col gap-4"
+          >
+            {routeStops.map((stop, index) => (
+              <Reorder.Item
+                key={stop.id}
+                value={stop.id}
+                drag={isRouteEditing ? "y" : false}
+                whileDrag={{
+                  scale: 1.03,
+                  boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+                }}
+                className={`relative ${isRouteEditing ? "z-50" : "z-0"}`}
+                onDragEnd={() => {
+                  onSaveReorderedStops?.();
+                }}
+              >
+                <StopTimelineItem
+                  isActive={stop.id === activeStopId}
+                  onSelect={() => setActiveStopId(stop.id)}
+                  order={index + 1}
+                  stop={stop}
+                  isRouteEditing={isRouteEditing}
+                  isLast={index === routeStops.length - 1}
+                />
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+        )}
       </div>
     </motion.section>
   );
@@ -851,49 +818,18 @@ function StopTimelineItem({
   order,
   stop,
   isRouteEditing,
-  onMoveUp,
-  onMoveDown,
   isLast,
-  draggable,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  onDragEnd,
-  isDragOver,
-  onTouchStart,
-  onTouchMove,
-  onTouchEnd,
 }: {
   isActive: boolean;
   onSelect: () => void;
   order: number;
   stop: CourseStop;
   isRouteEditing?: boolean;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
   isLast?: boolean;
-  draggable?: boolean;
-  onDragStart?: () => void;
-  onDragOver?: (e: React.DragEvent) => void;
-  onDrop?: () => void;
-  onDragEnd?: () => void;
-  isDragOver?: boolean;
-  onTouchStart?: () => void;
-  onTouchMove?: (e: React.TouchEvent) => void;
-  onTouchEnd?: () => void;
 }) {
   return (
     <div
       className={`w-full ${isRouteEditing ? "cursor-grab touch-none" : "cursor-pointer"}`}
-      data-stop-id={stop.id}
-      draggable={draggable}
-      onDragEnd={onDragEnd}
-      onDragOver={onDragOver}
-      onDragStart={onDragStart}
-      onDrop={onDrop}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
       onClick={() => {
         if (isRouteEditing) return;
         onSelect();
@@ -908,7 +844,7 @@ function StopTimelineItem({
       role="button"
       tabIndex={isRouteEditing ? -1 : 0}
     >
-      {stop.distanceFromPrevious ? (
+      {!isRouteEditing && stop.distanceFromPrevious ? (
         <div className="mb-2 flex items-center justify-center gap-2 text-[0.7rem] font-black text-[#8B857C]">
           <span className="h-px w-10 bg-[#DEDAD2]" />
           <span className="rounded-full bg-white px-2.5 py-1 shadow-[0_4px_12px_rgba(31,38,35,0.04)]">
@@ -920,40 +856,9 @@ function StopTimelineItem({
       <article
         className={`mb-5 rounded-[22px] bg-white p-3.5 shadow-[0_12px_28px_rgba(31,38,35,0.07)] transition ${
           isActive ? "ring-2 ring-[#FD4003]/20" : ""
-        } ${isDragOver ? "ring-2 ring-[#FD4003] bg-orange-50/30" : ""}`}
+        }`}
       >
         <div className="flex items-center gap-4">
-          {isRouteEditing && (
-            <div className="flex flex-col items-center gap-2 mr-0.5">
-              <button
-                aria-label="위로 이동"
-                className="grid size-6 place-items-center rounded bg-[#F4F3EF] hover:bg-[#EBEBE6] disabled:opacity-30 disabled:hover:bg-[#F4F3EF]"
-                disabled={order === 1}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMoveUp?.();
-                }}
-                type="button"
-              >
-                <ChevronUp size={14} strokeWidth={2.5} className="text-[#514D47]" />
-              </button>
-              <div className="text-[#C8C5BD] p-0.5 cursor-grab active:cursor-grabbing">
-                <GripVertical size={16} />
-              </div>
-              <button
-                aria-label="아래로 이동"
-                className="grid size-6 place-items-center rounded bg-[#F4F3EF] hover:bg-[#EBEBE6] disabled:opacity-30 disabled:hover:bg-[#F4F3EF]"
-                disabled={isLast}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMoveDown?.();
-                }}
-                type="button"
-              >
-                <ChevronDown size={14} strokeWidth={2.5} className="text-[#514D47]" />
-              </button>
-            </div>
-          )}
           <img
             alt=""
             className="size-[86px] flex-none rounded-[18px] object-cover"
@@ -976,6 +881,11 @@ function StopTimelineItem({
               {stop.description}
             </p>
           </div>
+          {isRouteEditing && (
+            <div className="text-[#C8C5BD] p-1 flex-none cursor-grab active:cursor-grabbing">
+              <GripVertical size={18} />
+            </div>
+          )}
         </div>
       </article>
     </div>
@@ -1160,20 +1070,33 @@ export function CourseDetailPage() {
   }, [apiCourse, attractionDetails]);
   const courseTitle = apiCourse?.title ?? savedCourse?.title ?? "망원 하루 코스";
   const companion = savedCourse?.companion ?? "내 일정";
-  const apiDate = apiCourse?.description?.match(/^\d{4}-\d{2}-\d{2}$/)
-    ? apiCourse.description
-    : undefined;
+  const descParts = apiCourse?.description?.split("|") ?? [];
+  const apiDate = descParts[0]?.match(/^\d{4}-\d{2}-\d{2}$/)
+    ? descParts[0]
+    : (apiCourse?.description?.match(/^\d{4}-\d{2}-\d{2}$/) ? apiCourse.description : undefined);
+
+  const apiTags = useMemo<string[]>(() => {
+    if (!apiCourse?.description) return [];
+    if (apiCourse.description.includes("|")) {
+      const parts = apiCourse.description.split("|");
+      return parts[1] ? parts[1].split(",").map((t) => t.trim()).filter(Boolean) : [];
+    }
+    if (apiCourse.description.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return [];
+    }
+    return apiCourse.description.split(/[·,\s]+/).map((t) => t.trim()).filter(Boolean);
+  }, [apiCourse?.description]);
+
   const dateLabel = savedCourse?.date || apiDate
     ? (savedCourse?.date ?? apiDate ?? "").replace(/-/g, ".")
     : "날짜 미정";
+
   const styleLabel =
-    (apiCourse?.description?.match(/^\d{4}-\d{2}-\d{2}$/)
-      ? ""
-      : apiCourse?.description?.trim()) ||
+    (savedCourse ? savedCourse.styles.join(" · ") : apiTags.join(" · ")) ||
     apiCourse?.regionName ||
-    savedCourse?.styles.join(" · ") ||
     "로컬 산책";
   const [activeStopId, setActiveStopId] = useState(routeStops[0]?.id ?? 1);
+  const [editTags, setEditTags] = useState<string[]>([]);
   const [drawerCoverOffset, setDrawerCoverOffset] = useState(0);
   const [headerOffset, setHeaderOffset] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
@@ -1288,8 +1211,9 @@ export function CourseDetailPage() {
       setCalendarMonth(startOfMonth(initialDate ? new Date(initialDate) : new Date()));
       setEditStops(routeStops);
       setNewStopName("");
+      setEditTags(savedCourse ? [...(savedCourse.styles ?? [])] : [...apiTags]);
     }
-  }, [editOpen, routeStops, courseTitle, savedCourse?.date, apiDate]);
+  }, [editOpen, routeStops, courseTitle, savedCourse, apiDate, apiTags]);
 
   useEffect(() => {
     if (!copyOpen) return;
@@ -1315,15 +1239,20 @@ export function CourseDetailPage() {
 
     setIsSavingEdit(true);
     try {
+      const trimmedTags = editTags.map((tag) => tag.trim()).filter(Boolean);
       if (apiCourse) {
         const nextItems = editStops.flatMap((stop, index) => {
           const item = toCourseItemRequest(stop, index);
           return item ? [item] : [];
         });
 
+        const descriptionPayload = trimmedTags.length > 0 
+          ? `${editDate || ""}|${trimmedTags.join(",")}`
+          : (editDate || "");
+
         const updated = await updateCourse(apiCourse.id, {
           ...toCourseUpdateRequest(apiCourse),
-          description: editDate || undefined,
+          description: descriptionPayload || undefined,
           items: nextItems,
           title,
         });
@@ -1335,6 +1264,7 @@ export function CourseDetailPage() {
           date: editDate || undefined,
           title,
           stops: updatedStops,
+          styles: trimmedTags,
         });
         setSavedCourse(getSavedCourse(savedCourse.id));
       }
@@ -1702,22 +1632,50 @@ export function CourseDetailPage() {
     }
   }
 
-  async function handleReorderStops(startIndex: number, endIndex: number) {
+  async function handleSaveReorderedStops() {
+    if (apiCourse) {
+      try {
+        const updated = await updateCourse(
+          apiCourse.id,
+          toCourseUpdateRequest(apiCourse),
+        );
+        setApiCourse(updated);
+      } catch (err) {
+        showNotice("순서 변경을 저장하지 못했어요.");
+        if (backupCourse) {
+          setApiCourse(backupCourse);
+        }
+      }
+    } else if (savedCourse) {
+      saveCourse(savedCourse);
+      window.dispatchEvent(new CustomEvent("spot:courses-changed"));
+    }
+  }
+
+  async function handleUpdateStopsOrder(newStops: CourseStop[], saveToApi = true) {
     if (!canEditCourse) return;
 
     if (apiCourse) {
-      const newItems = [...apiCourse.items].sort((a, b) => a.position - b.position);
-      const [removed] = newItems.splice(startIndex, 1);
-      newItems.splice(endIndex, 0, removed);
+      const newItems = newStops.map((stop, index) => {
+        const originalItem = apiCourse.items.find((item) => {
+          if (item.attractionId && stop.attractionId === item.attractionId) return true;
+          if (item.noteId && stop.noteId === item.noteId) return true;
+          return false;
+        });
 
-      const reorderedItems = newItems.map((item, idx) => ({
-        ...item,
-        position: idx + 1,
-      }));
+        if (!originalItem) {
+          throw new Error("Matching item not found during reorder");
+        }
+
+        return {
+          ...originalItem,
+          position: index + 1,
+        };
+      });
 
       const updatedCourse = {
         ...apiCourse,
-        items: reorderedItems,
+        items: newItems,
       };
 
       if (!backupCourse) {
@@ -1725,6 +1683,8 @@ export function CourseDetailPage() {
       }
 
       setApiCourse(updatedCourse);
+
+      if (!saveToApi) return;
 
       try {
         const updated = await updateCourse(
@@ -1741,18 +1701,17 @@ export function CourseDetailPage() {
         }
       }
     } else if (savedCourse) {
-      const newStops = [...savedCourse.stops];
-      const [removed] = newStops.splice(startIndex, 1);
-      newStops.splice(endIndex, 0, removed);
-
       const updatedCourse = {
         ...savedCourse,
         stops: newStops,
       };
 
-      saveCourse(updatedCourse);
       setSavedCourse(updatedCourse);
-      window.dispatchEvent(new CustomEvent("spot:courses-changed"));
+
+      if (saveToApi) {
+        saveCourse(updatedCourse);
+        window.dispatchEvent(new CustomEvent("spot:courses-changed"));
+      }
     }
   }
 
@@ -1814,7 +1773,8 @@ export function CourseDetailPage() {
             isOptimizing={isOptimizing}
             drawerCollapsedTop={drawerCollapsedTop}
             headerCollapseDistance={headerCollapseDistance}
-            onReorderStops={handleReorderStops}
+            onUpdateStopsOrder={handleUpdateStopsOrder}
+            onSaveReorderedStops={handleSaveReorderedStops}
           />
         </div>
       </section>
@@ -1953,6 +1913,48 @@ export function CourseDetailPage() {
               selectedDate={editDate}
               undecided={!editDate}
             />
+          </div>
+          <div className="grid grid-cols-[42px_1fr] items-center gap-2 text-sm font-black text-[#24211E]">
+            <h3 className="m-0 text-sm font-extrabold">태그</h3>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden">
+                {editTags.map((tag, index) => (
+                  <label
+                    className="inline-flex h-8 min-w-0 flex-none items-center gap-1 rounded-none bg-[#F5F5F5] px-2 text-xs font-bold text-[#4A4641]"
+                    key={index}
+                  >
+                    <span className="font-black text-[#FD4003]">#</span>
+                    <input
+                      className="w-10 min-w-0 border-0 bg-transparent text-xs font-bold text-[#4A4641] outline-none"
+                      maxLength={6}
+                      onChange={(event) => {
+                        const newTags = [...editTags];
+                        newTags[index] = event.target.value.replace(/^#/, "");
+                        setEditTags(newTags);
+                      }}
+                      placeholder="태그"
+                      value={tag}
+                    />
+                    <button
+                      aria-label={`${tag || "태그"} 태그 삭제`}
+                      className="text-[#A8A8A8]"
+                      onClick={() => setEditTags(editTags.filter((_, i) => i !== index))}
+                      type="button"
+                    >
+                      <X size={11} strokeWidth={2.6} />
+                    </button>
+                  </label>
+                ))}
+                <button
+                  aria-label="태그 추가"
+                  className="grid size-8 flex-none place-items-center bg-[#F5F5F5] text-[#A8A8A8] transition-colors hover:text-[#FD4003]"
+                  onClick={() => setEditTags([...editTags, ""])}
+                  type="button"
+                >
+                  <Plus size={15} strokeWidth={2.8} />
+                </button>
+              </div>
+            </div>
           </div>
           <button
             className="min-h-14 rounded-2xl border-0 bg-[#FD4003] font-black text-white disabled:bg-[#F1C4B3] shadow-[0_6px_16px_rgba(253,64,3,0.16)]"

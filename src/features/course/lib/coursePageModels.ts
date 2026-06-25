@@ -43,21 +43,85 @@ export function getCourseCards(
   ];
 }
 
+function parseApiCourseDate(course: CourseResponse): string | undefined {
+  if (!course.description) return undefined;
+  const parts = course.description.split("|");
+  const dateCandidate = parts[0]?.trim();
+  if (dateCandidate && /^\d{4}-\d{2}-\d{2}$/.test(dateCandidate)) {
+    return dateCandidate;
+  }
+  return undefined;
+}
+
+function apiCourseToTrip(course: CourseResponse, dateStr: string, daysUntil: number): UpcomingTrip {
+  const date = new Date(dateStr);
+  return {
+    area: course.regionName || "망원동",
+    coordinates: course.startLocation
+      ? {
+          lat: course.startLocation.latitude,
+          lng: course.startLocation.longitude,
+        }
+      : fallbackTripCoordinates,
+    coverImageUrl: course.coverImageUrl || fallbackApiTripImage,
+    dateLabel: new Intl.DateTimeFormat("ko", {
+      day: "numeric",
+      month: "numeric",
+      weekday: "short",
+    }).format(date),
+    daysUntil,
+    daysUntilText: `${daysUntil}일 뒤`,
+    id: course.id,
+    title: course.title,
+  };
+}
+
 export function getNextTrip(
   apiCourses: CourseResponse[],
   savedCourses: SavedCourse[],
 ): UpcomingTrip | null {
-  const upcomingSaved = savedCourses
-    .filter((course) => course.date)
-    .map((course) => ({
-      course,
-      daysUntil: getDaysUntil(course.date ?? ""),
-    }))
-    .filter((item) => item.daysUntil >= 0)
-    .sort((a, b) => a.daysUntil - b.daysUntil)[0];
+  const parsedTrips: { id: string; date: string; daysUntil: number; isApi: boolean; data: any }[] = [];
 
-  if (upcomingSaved) {
-    return savedCourseToTrip(upcomingSaved.course, upcomingSaved.daysUntil);
+  savedCourses.forEach((course) => {
+    if (course.date) {
+      const days = getDaysUntil(course.date);
+      if (days >= 0) {
+        parsedTrips.push({
+          id: course.id,
+          date: course.date,
+          daysUntil: days,
+          isApi: false,
+          data: course,
+        });
+      }
+    }
+  });
+
+  apiCourses.forEach((course) => {
+    const dateStr = parseApiCourseDate(course);
+    if (dateStr) {
+      const days = getDaysUntil(dateStr);
+      if (days >= 0) {
+        parsedTrips.push({
+          id: course.id,
+          date: dateStr,
+          daysUntil: days,
+          isApi: true,
+          data: course,
+        });
+      }
+    }
+  });
+
+  parsedTrips.sort((a, b) => a.daysUntil - b.daysUntil);
+
+  if (parsedTrips.length > 0) {
+    const next = parsedTrips[0];
+    if (next.isApi) {
+      return apiCourseToTrip(next.data, next.date, next.daysUntil);
+    } else {
+      return savedCourseToTrip(next.data, next.daysUntil);
+    }
   }
 
   const latestSaved = [...savedCourses].sort(
@@ -71,6 +135,10 @@ export function getNextTrip(
       new Date(a.updatedAt ?? a.createdAt ?? 0).getTime(),
   )[0];
   if (latestApi) {
+    const dateStr = parseApiCourseDate(latestApi);
+    if (dateStr) {
+      return apiCourseToTrip(latestApi, dateStr, getDaysUntil(dateStr));
+    }
     return {
       area: latestApi.regionName || "망원동",
       coordinates: latestApi.startLocation

@@ -132,10 +132,18 @@ function getCourseHashtags({
   description?: string | null;
   stopCount: number;
 }) {
+  let parsedDesc = description ?? "";
+  if (parsedDesc.includes("|")) {
+    const parts = parsedDesc.split("|");
+    parsedDesc = parts[1] ?? "";
+  } else if (parsedDesc.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    parsedDesc = "";
+  }
+
   const tags = [
     area?.replace(/\s+/g, ""),
     stopCount <= 3 ? "가볍게" : "알찬하루",
-    ...(description ?? "")
+    ...parsedDesc
       .split(/[·,\s]+/)
       .map((value) => value.trim())
       .filter(Boolean),
