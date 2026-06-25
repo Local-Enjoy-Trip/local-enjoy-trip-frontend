@@ -1,6 +1,8 @@
 import { getAttractionDetail } from "@/features/attractions/attractionApi";
 import { createCourse, type CourseItemRequest } from "@/features/course/courseApi";
 import { normalizeCourseTags } from "@/features/course/courseTags";
+import { getNote } from "@/features/notes/noteApi";
+import { resolveNoteImageSrc } from "@/features/notes/noteImage";
 import { courses } from "@/shared/data/mockData";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide-react";
@@ -862,12 +864,20 @@ function PointDetailPanel({
 }) {
   const isPlace = point.kind === "place";
   const attractionId = isPlace ? getNumericPointId(point.id) : null;
+  const noteId = !isPlace ? getNumericPointId(point.id) : null;
   const attractionDetailQuery = useQuery({
     enabled: attractionId !== null,
     queryFn: () => getAttractionDetail(attractionId ?? 0),
     queryKey: ["attraction", "detail", attractionId],
   });
-  const imageUrl = isPlace ? point.source.imageUrl : point.source.imageUrl;
+  const noteDetailQuery = useQuery({
+    enabled: noteId !== null,
+    queryFn: () => getNote(noteId ?? 0),
+    queryKey: ["notes", "detail", noteId],
+  });
+  const imageUrl = isPlace
+    ? point.source.imageUrl
+    : resolveNoteImageSrc(noteDetailQuery.data ?? point.source);
   const title = (isPlace ? point.name : point.source.placeName) || point.name;
   const fullLocation = isPlace ? point.source.area : point.source.placeName;
   const neighborhood = getNeighborhoodLabel(fullLocation);

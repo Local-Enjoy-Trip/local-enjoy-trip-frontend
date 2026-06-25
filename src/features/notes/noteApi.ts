@@ -44,6 +44,7 @@ export type NoteResponse = NoteWriteRequest & {
 };
 
 type NotesResponse = { notes: NoteResponse[] };
+type NoteDetailResponse = NoteResponse | { note: NoteResponse };
 
 type PresignedUploadResponse = {
   expiresAt: string;
@@ -68,6 +69,12 @@ export function getSavedNotes(limit = 100) {
 export function getMyNotes(limit = 100) {
   return apiGet<NotesResponse>(`/api/notes/me?limit=${limit}`).then(
     (response) => response.notes,
+  );
+}
+
+export function getNote(id: number) {
+  return apiGet<NoteDetailResponse>(`/api/notes/${id}`).then((response) =>
+    "note" in response ? response.note : response,
   );
 }
 
