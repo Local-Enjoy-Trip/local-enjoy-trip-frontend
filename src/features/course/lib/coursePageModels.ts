@@ -31,6 +31,22 @@ export type CourseHashtagSection = {
   title: string;
 };
 
+type ParsedTrip =
+  | {
+      data: CourseResponse;
+      date: string;
+      daysUntil: number;
+      id: string;
+      isApi: true;
+    }
+  | {
+      data: SavedCourse;
+      date: string;
+      daysUntil: number;
+      id: string;
+      isApi: false;
+    };
+
 export function getCourseCards(
   apiCourses: CourseResponse[],
   savedCourses: SavedCourse[],
@@ -63,7 +79,7 @@ function apiCourseToTrip(course: CourseResponse, dateStr: string, daysUntil: num
           lng: course.startLocation.longitude,
         }
       : fallbackTripCoordinates,
-    coverImageUrl: course.coverImageUrl || fallbackApiTripImage,
+    coverImageUrl: getApiCourseCoverImageUrl(course),
     dateLabel: new Intl.DateTimeFormat("ko", {
       day: "numeric",
       month: "numeric",
@@ -80,7 +96,7 @@ export function getNextTrip(
   apiCourses: CourseResponse[],
   savedCourses: SavedCourse[],
 ): UpcomingTrip | null {
-  const parsedTrips: { id: string; date: string; daysUntil: number; isApi: boolean; data: any }[] = [];
+  const parsedTrips: ParsedTrip[] = [];
 
   savedCourses.forEach((course) => {
     if (course.date) {
@@ -147,7 +163,7 @@ export function getNextTrip(
             lng: latestApi.startLocation.longitude,
           }
         : fallbackTripCoordinates,
-      coverImageUrl: latestApi.coverImageUrl || fallbackApiTripImage,
+      coverImageUrl: getApiCourseCoverImageUrl(latestApi),
       dateLabel: "일정 미정",
       daysUntil: 0,
       daysUntilText: "0일 뒤",
@@ -157,6 +173,15 @@ export function getNextTrip(
   }
 
   return null;
+}
+
+function getApiCourseCoverImageUrl(course: CourseResponse) {
+  const firstItemImage = [...course.items]
+    .sort((a, b) => a.position - b.position)
+    .map((item) => item.imageUrl || item.firstImage || item.thumbnailUrl)
+    .find((imageUrl): imageUrl is string => Boolean(imageUrl?.trim()));
+
+  return course.coverImageUrl || firstItemImage || fallbackApiTripImage;
 }
 
 export function groupCoursesByHashtag(

@@ -2,6 +2,10 @@ import {
   cacheCourses,
   type CourseResponse,
 } from "@/features/course/courseApi";
+import {
+  normalizeCourseTags,
+  parseCourseDescriptionTags,
+} from "@/features/course/courseTags";
 import type { SavedCourse } from "@/features/course/courseStorage";
 import { Link } from "react-router-dom";
 
@@ -95,10 +99,11 @@ export function apiCourseToDiscovery(course: CourseResponse): CourseDiscoveryMod
 
   return {
     area,
-    coverImageUrl: course.coverImageUrl || fallbackImage,
+    coverImageUrl: getCourseCoverImageUrl(course),
     hashtags: getCourseHashtags({
       area,
       description: course.description,
+      tags: course.tags,
       stopCount: course.routeSummary.stopCount || course.items.length,
     }),
     id: course.id,
@@ -111,10 +116,13 @@ export function apiCourseToDiscovery(course: CourseResponse): CourseDiscoveryMod
 export function savedCourseToDiscovery(course: SavedCourse): CourseDiscoveryModel {
   return {
     area: course.area || "동네",
-    coverImageUrl: course.stops[0]?.imageUrl || fallbackImage,
+    coverImageUrl:
+      course.stops.find((stop) => stop.imageUrl?.trim())?.imageUrl ||
+      fallbackImage,
     hashtags: getCourseHashtags({
       area: course.area,
       description: course.styles.join(" "),
+      tags: course.styles,
       stopCount: course.stops.length,
     }),
     id: course.id,
@@ -123,31 +131,30 @@ export function savedCourseToDiscovery(course: SavedCourse): CourseDiscoveryMode
   };
 }
 
+function getCourseCoverImageUrl(course: CourseResponse) {
+  const firstItemImage = [...course.items]
+    .sort((a, b) => a.position - b.position)
+    .map((item) => item.imageUrl || item.firstImage || item.thumbnailUrl)
+    .find((imageUrl): imageUrl is string => Boolean(imageUrl?.trim()));
+
+  return course.coverImageUrl || firstItemImage || fallbackImage;
+}
+
 function getCourseHashtags({
   area,
   description,
+  tags: courseTags,
   stopCount,
 }: {
   area?: string | null;
   description?: string | null;
+  tags?: string[] | null;
   stopCount: number;
 }) {
-  let parsedDesc = description ?? "";
-  if (parsedDesc.includes("|")) {
-    const parts = parsedDesc.split("|");
-    parsedDesc = parts[1] ?? "";
-  } else if (parsedDesc.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    parsedDesc = "";
-  }
-
-  const tags = [
+  return normalizeCourseTags([
     area?.replace(/\s+/g, ""),
     stopCount <= 3 ? "가볍게" : "알찬하루",
-    ...parsedDesc
-      .split(/[·,\s]+/)
-      .map((value) => value.trim())
-      .filter(Boolean),
-  ].filter((tag): tag is string => Boolean(tag));
-
-  return Array.from(new Set(tags)).slice(0, 4);
+    ...(courseTags ?? []),
+    ...parseCourseDescriptionTags(description),
+  ]);
 }

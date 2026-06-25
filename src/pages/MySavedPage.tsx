@@ -9,7 +9,7 @@ import {
   savedNotesQueryKey,
   unsaveNote,
 } from "@/features/notes/noteApi";
-import { resolveNoteImageUrl } from "@/features/notes/noteImage";
+import { resolveNoteImageSrc } from "@/features/notes/noteImage";
 import { setNoteSaveOverride } from "@/features/notes/noteSaveOverrides";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -196,7 +196,7 @@ export function MySavedPage() {
           ) : (
             <div className="grid gap-3">
               {savedNotes.map((note) => {
-                const imageUrl = resolveNoteImageUrl(note.imageObjectKey);
+                const imageUrl = resolveNoteImageSrc(note);
 
                 return (
                   <article

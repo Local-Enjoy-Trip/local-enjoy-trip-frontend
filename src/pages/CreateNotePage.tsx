@@ -11,7 +11,7 @@ import {
   type NoteResponse,
   type NoteVisibility,
 } from "@/features/notes/noteApi";
-import { resolveNoteImageUrl } from "@/features/notes/noteImage";
+import { resolveNoteImageSrc } from "@/features/notes/noteImage";
 import type { NoteLocationSelection } from "@/pages/NoteLocationPage";
 import type { Visibility } from "@/shared/types/domain";
 import { PageLoadingSkeleton } from "@/shared/ui/Skeleton";
@@ -162,7 +162,7 @@ export function CreateNotePage() {
 
     hydratedEditNoteIdRef.current = editNote.id;
     setBody(editNote.content);
-    setImagePreview(resolveNoteImageUrl(editNote.imageObjectKey) ?? null);
+    setImagePreview(resolveNoteImageSrc(editNote) ?? null);
     setNoteLocation({
       address: editNote.regionName || "위치 정보 없음",
       coordinates: { lat: editNote.latitude, lng: editNote.longitude },

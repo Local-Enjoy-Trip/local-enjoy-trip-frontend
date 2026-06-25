@@ -12,7 +12,7 @@ import {
   myNotesQueryKey,
   type NoteResponse,
 } from "@/features/notes/noteApi";
-import { resolveNoteImageUrl } from "@/features/notes/noteImage";
+import { resolveNoteImageSrc } from "@/features/notes/noteImage";
 
 export function MyNotesPage() {
   const navigate = useNavigate();
@@ -80,7 +80,7 @@ export function MyNotesPage() {
                   createdAt: note.createdAt,
                   id: String(note.id),
                   imageAlt: note.regionName,
-                  imageUrl: resolveNoteImageUrl(note.imageObjectKey),
+                  imageUrl: resolveNoteImageSrc(note),
                   locationLabel: note.regionName || "위치 정보 없음",
                   profileImageUrl: user?.profileImageUrl,
                   saved: false,

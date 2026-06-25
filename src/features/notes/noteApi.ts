@@ -38,6 +38,7 @@ export type NoteResponse = NoteWriteRequest & {
   createdAt: string;
   id: number;
   imageObjectKey?: string | null;
+  imageUrl?: string | null;
   status: "ACTIVE" | "HIDDEN" | "DELETED";
   updatedAt: string;
 };

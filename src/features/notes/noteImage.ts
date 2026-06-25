@@ -19,3 +19,13 @@ export function resolveNoteImageUrl(objectKey?: string | null) {
   if (!baseUrl.pathname.endsWith("/")) baseUrl.pathname += "/";
   return new URL(normalizedKey, baseUrl).toString();
 }
+
+export function resolveNoteImageSrc({
+  imageObjectKey,
+  imageUrl,
+}: {
+  imageObjectKey?: string | null;
+  imageUrl?: string | null;
+}) {
+  return imageUrl?.trim() || resolveNoteImageUrl(imageObjectKey);
+}

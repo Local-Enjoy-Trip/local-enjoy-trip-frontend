@@ -1,5 +1,5 @@
 import { apiGet } from "@/shared/api/http";
-import { resolveNoteImageUrl } from "@/features/notes/noteImage";
+import { resolveNoteImageSrc } from "@/features/notes/noteImage";
 import type { HomeNote } from "@/features/home/types/homeTypes";
 import type { Coordinates, Experience } from "@/shared/types/domain";
 
@@ -55,6 +55,7 @@ type NearbyNoteResponse = {
   createdAt: string;
   id: number;
   imageObjectKey: string | null;
+  imageUrl?: string | null;
   latitude?: number;
   longitude?: number;
   regionName: string | null;
@@ -164,7 +165,7 @@ function toHomeNote(note: NearbyNoteResponse): HomeNote {
         : undefined,
     createdAt: note.createdAt,
     id: `note-${note.id}`,
-    image: resolveNoteImageUrl(note.imageObjectKey),
+    image: resolveNoteImageSrc(note),
     location: note.regionName ? getAreaLabel(note.regionName) : "주변 동네",
     name: note.authorNickname || note.authorUserId,
     place: note.regionName || note.title,

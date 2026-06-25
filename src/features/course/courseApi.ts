@@ -4,6 +4,10 @@ import {
   apiPost,
   apiPut,
 } from "@/shared/api/http";
+import {
+  normalizeCourseTags,
+  parseCourseDescriptionTags,
+} from "@/features/course/courseTags";
 
 export type CourseVisibility = "PRIVATE" | "FRIENDS" | "PUBLIC" | string;
 export type CourseStatus = "DRAFT" | "READY" | "ARCHIVED" | string;
@@ -26,6 +30,7 @@ export type CourseCreateRequest = {
   items: CourseItemRequest[];
   regionName?: string;
   status?: CourseStatus;
+  tags: string[];
   title: string;
   visibility?: CourseVisibility;
 };
@@ -88,12 +93,15 @@ export type AiCoursePreviewResponse = {
 export type CourseItemResponse = {
   attractionId?: number | null;
   day: number;
+  firstImage?: string | null;
   id?: number | null;
+  imageUrl?: string | null;
   itemType: CourseItemType;
   memo?: string | null;
   noteId?: number | null;
   position: number;
   stayMinutes?: number | null;
+  thumbnailUrl?: string | null;
   title?: string | null;
 };
 
@@ -135,6 +143,7 @@ export type CourseResponse = {
   segments: CourseSegmentResponse[];
   startLocation?: CourseStartLocationResponse | null;
   status: CourseStatus;
+  tags?: string[] | null;
   title: string;
   updatedAt?: string | null;
   visibility: CourseVisibility;
@@ -224,6 +233,10 @@ export async function appendCourseItem(
     ],
     regionName: course.regionName ?? undefined,
     status: course.status,
+    tags: normalizeCourseTags(
+      [...(course.tags ?? []), ...parseCourseDescriptionTags(course.description), course.regionName],
+      course.regionName ?? "로컬",
+    ),
     title: course.title,
     visibility: course.visibility,
   });

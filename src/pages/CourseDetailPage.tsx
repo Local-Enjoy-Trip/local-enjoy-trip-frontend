@@ -21,6 +21,10 @@ import {
   type SavedCourse,
   type SavedCourseStop,
 } from "@/features/course/courseStorage";
+import {
+  normalizeCourseTags,
+  parseCourseDescriptionTags,
+} from "@/features/course/courseTags";
 import { CourseDraftCalendar } from "@/features/course/components/CourseCreatePanel";
 import {
   getAttractionDetail,
@@ -1080,7 +1084,7 @@ function getCourseItemTypeLabel(item: CourseItemResponse) {
 
 function toCourseUpdateRequest(course: CourseResponse) {
   return {
-    coverImageUrl: course.coverImageUrl ?? undefined,
+    coverImageUrl: course.coverImageUrl ?? getFirstCourseItemImage(course),
     description: course.description ?? undefined,
     items: sortedCourseItems(course).map((item) => ({
       attractionId: item.attractionId ?? undefined,
@@ -1093,9 +1097,41 @@ function toCourseUpdateRequest(course: CourseResponse) {
     })),
     regionName: course.regionName ?? undefined,
     status: course.status,
+    tags: getCourseResponseTags(course),
     title: course.title,
     visibility: course.visibility,
   };
+}
+
+function getCourseResponseTags(course: CourseResponse) {
+  return normalizeCourseTags(
+    [
+      ...(course.tags ?? []),
+      ...parseCourseDescriptionTags(course.description),
+      course.regionName,
+    ],
+    course.regionName ?? "로컬",
+  );
+}
+
+function getFirstCourseItemImage(course: CourseResponse) {
+  return sortedCourseItems(course)
+    .map((item) => item.imageUrl || item.firstImage || item.thumbnailUrl)
+    .find((imageUrl): imageUrl is string => isRealCourseImage(imageUrl));
+}
+
+function isRealCourseImage(imageUrl?: string | null) {
+  if (!imageUrl?.trim()) return false;
+  if (imageUrl === fallbackCourseImage) return false;
+  return !defaultStops.some((stop) => stop.imageUrl === imageUrl);
+}
+
+function getFirstRealStopImage(stops: CourseStop[]) {
+  return stops.find((stop) => isRealCourseImage(stop.imageUrl))?.imageUrl;
+}
+
+function getFirstRealPointImage(points: MapPoint[]) {
+  return points.find((point) => isRealCourseImage(point.source.imageUrl))?.source.imageUrl;
 }
 
 export function CourseDetailPage() {
@@ -1221,16 +1257,9 @@ export function CourseDetailPage() {
     : (apiCourse?.description?.match(/^\d{4}-\d{2}-\d{2}$/) ? apiCourse.description : undefined);
 
   const apiTags = useMemo<string[]>(() => {
-    if (!apiCourse?.description) return [];
-    if (apiCourse.description.includes("|")) {
-      const parts = apiCourse.description.split("|");
-      return parts[1] ? parts[1].split(",").map((t) => t.trim()).filter(Boolean) : [];
-    }
-    if (apiCourse.description.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return [];
-    }
-    return apiCourse.description.split(/[·,\s]+/).map((t) => t.trim()).filter(Boolean);
-  }, [apiCourse?.description]);
+    if (!apiCourse) return [];
+    return getCourseResponseTags(apiCourse);
+  }, [apiCourse]);
 
   const dateLabel = savedCourse?.date || apiDate
     ? (savedCourse?.date ?? apiDate ?? "").replace(/-/g, ".")
@@ -1380,7 +1409,10 @@ export function CourseDetailPage() {
 
     setIsSavingEdit(true);
     try {
-      const trimmedTags = editTags.map((tag) => tag.trim()).filter(Boolean);
+      const trimmedTags = normalizeCourseTags(
+        editTags,
+        apiCourse?.regionName ?? savedCourse?.area ?? "로컬",
+      );
       if (apiCourse) {
         const nextItems = editStops.flatMap((stop, index) => {
           const item = toCourseItemRequest(stop, index);
@@ -1395,6 +1427,7 @@ export function CourseDetailPage() {
           ...toCourseUpdateRequest(apiCourse),
           description: descriptionPayload || undefined,
           items: nextItems,
+          tags: trimmedTags,
           title,
         });
         setApiCourse(updated);
@@ -1565,11 +1598,15 @@ export function CourseDetailPage() {
         });
 
         const updated = await updateCourse(apiCourse.id, {
-          coverImageUrl: apiCourse.coverImageUrl ?? undefined,
+          coverImageUrl:
+            apiCourse.coverImageUrl ??
+            getFirstRealStopImage(routeStops) ??
+            getFirstRealPointImage(points),
           description: apiCourse.description ?? undefined,
           items: [...currentItems, ...newItems],
           regionName: apiCourse.regionName ?? undefined,
           status: apiCourse.status,
+          tags: getCourseResponseTags(apiCourse),
           title: apiCourse.title,
           visibility: apiCourse.visibility,
         });
@@ -1662,7 +1699,7 @@ export function CourseDetailPage() {
       area: apiCourse.regionName ?? "미정",
       companion: "내 일정",
       date: undefined,
-      styles: [apiCourse.description?.trim() || "탐색한 코스"],
+      styles: getCourseResponseTags(apiCourse),
       pace: "날짜 미정",
       savedAt: new Date().toISOString(),
       collaborators: [],
@@ -1749,6 +1786,7 @@ export function CourseDetailPage() {
 
       const updatedCourse = {
         ...apiCourse,
+        coverImageUrl: getFirstRealStopImage(newStops) ?? apiCourse.coverImageUrl,
         items: newItems,
       };
 
@@ -2871,6 +2909,7 @@ function appendStopsToCourseRequest(
 
   return {
     ...toCourseUpdateRequest(course),
+    coverImageUrl: course.coverImageUrl ?? getFirstRealStopImage(stops),
     items: [...currentItems, ...nextItems],
   };
 }
@@ -2894,12 +2933,13 @@ function createCourseRequestFromStops({
   if (items.length === 0) return null;
 
   return {
-    coverImageUrl: sourceCourse.coverImageUrl ?? stops[0]?.imageUrl,
+    coverImageUrl: getFirstRealStopImage(stops) ?? sourceCourse.coverImageUrl ?? undefined,
     description: sourceCourse.description ?? "탐색한 코스",
     id,
     items,
     regionName: sourceCourse.regionName ?? stops[0]?.location,
     status: "READY",
+    tags: normalizeCourseTags(getCourseResponseTags(sourceCourse), sourceCourse.regionName ?? "로컬"),
     title,
     visibility: "PRIVATE",
   };

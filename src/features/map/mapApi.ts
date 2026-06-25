@@ -1,5 +1,5 @@
 import { apiGet } from "@/shared/api/http";
-import { resolveNoteImageUrl } from "@/features/notes/noteImage";
+import { resolveNoteImageSrc } from "@/features/notes/noteImage";
 import type {
   Coordinates,
   LocalNote,
@@ -47,6 +47,7 @@ type NoteMapPinResponse = {
   distanceMeters: number;
   id: number;
   imageObjectKey: string | null;
+  imageUrl?: string | null;
   latitude: number;
   longitude: number;
   regionName: string;
@@ -214,7 +215,7 @@ function toLocalNote(note: NoteMapPinResponse): LocalNote {
     createdAt: note.createdAt,
     favoriteCount: getFavoriteCount(note),
     id: `note-${note.id}`,
-    imageUrl: resolveNoteImageUrl(note.imageObjectKey),
+    imageUrl: resolveNoteImageSrc(note),
     placeName: note.regionName,
     relationshipToViewer: note.relationshipToViewer.toLowerCase() as ViewerRelationship,
     saved: note.saved ?? false,

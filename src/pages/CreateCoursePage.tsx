@@ -13,6 +13,7 @@ import {
   type CourseResponse,
 } from "@/features/course/courseApi";
 import { getAttractionDetail } from "@/features/attractions/attractionApi";
+import { normalizeCourseTags } from "@/features/course/courseTags";
 import {
   ArrowLeft,
   ArrowRight,
@@ -98,6 +99,7 @@ function toCourseCreateRequest(course: SavedCourse): CourseCreateRequest | null 
     items,
     regionName: course.area,
     status: "READY",
+    tags: normalizeCourseTags(course.styles, course.area || "AI추천"),
     title: course.title,
     visibility: "PRIVATE",
   };
@@ -570,6 +572,7 @@ function DirectCourseCreator() {
         id: `direct-${Date.now()}`,
         items: [],
         status: "DRAFT",
+        tags: ["직접만든코스"],
         title: trimmedTitle,
         visibility: "PRIVATE",
       });

@@ -1,5 +1,6 @@
 import { getAttractionDetail } from "@/features/attractions/attractionApi";
 import { createCourse, type CourseItemRequest } from "@/features/course/courseApi";
+import { normalizeCourseTags } from "@/features/course/courseTags";
 import { courses } from "@/shared/data/mockData";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide-react";
@@ -412,6 +413,12 @@ export function MapVisibleDrawer({
       items: courseItem ? [courseItem] : [],
       regionName: getCourseArea(courseTarget),
       status: "READY",
+      tags: normalizeCourseTags(
+        courseTarget.kind === "place"
+          ? courseTarget.source.tags
+          : [getCourseArea(courseTarget), "쪽지"],
+        getCourseArea(courseTarget),
+      ),
       title,
       visibility: "PRIVATE",
     };

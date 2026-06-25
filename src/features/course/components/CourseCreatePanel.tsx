@@ -1,4 +1,5 @@
 import { createCourse } from "@/features/course/courseApi";
+import { normalizeCourseTags } from "@/features/course/courseTags";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
 import {
   CalendarCheck,
@@ -76,6 +77,7 @@ export function CourseCreateSheet({
       items: [],
       regionName: tripArea,
       status: "DRAFT",
+      tags: normalizeCourseTags([tripArea], "직접만든코스"),
       visibility: "PRIVATE",
     };
 
