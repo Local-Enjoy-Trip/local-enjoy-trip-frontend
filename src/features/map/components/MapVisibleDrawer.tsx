@@ -1,4 +1,4 @@
-import { saveCourse, type SavedCourseStop } from "@/features/course/courseStorage";
+import { createCourse, type CourseItemRequest } from "@/features/course/courseApi";
 import { courses } from "@/shared/data/mockData";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import type { MapPoint } from "../types";
 import { getNeighborhoodLabel, MapListCard } from "./MapListCard";
 
@@ -59,6 +60,7 @@ export function MapVisibleDrawer({
   selectedPoint: MapPoint | null;
   visiblePoints: MapPoint[];
 }) {
+  const navigate = useNavigate();
   const drawerRef = useRef<HTMLElement>(null);
   const pointCardRefs = useRef(new Map<string, HTMLDivElement>());
   const lastAutoFocusedPointIdRef = useRef<string | null>(null);
@@ -70,6 +72,7 @@ export function MapVisibleDrawer({
   const [courseTarget, setCourseTarget] = useState<MapPoint | null>(null);
   const [courseNotice, setCourseNotice] = useState<string | null>(null);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseTitle, setNewCourseTitle] = useState("");
   const [newCourseDate, setNewCourseDate] = useState(() => formatDateInputValue(new Date()));
   const [isDateUndecided, setIsDateUndecided] = useState(false);
@@ -397,27 +400,32 @@ export function MapVisibleDrawer({
     setNewCourseTitle((current) => current || `${courseTarget.name} 코스`);
   }
 
-  function submitNewCourse() {
-    if (!courseTarget) return;
+  async function submitNewCourse() {
+    if (!courseTarget || isSubmittingCourse) return;
 
     const title = newCourseTitle.trim() || `${courseTarget.name} 코스`;
+    const courseItem = toCourseItem(courseTarget);
     const course = {
       id: `map-${Date.now()}`,
+      items: courseItem ? [courseItem] : [],
+      regionName: getCourseArea(courseTarget),
+      status: "READY",
       title,
-      area: getCourseArea(courseTarget),
-      companion: "직접 만들기",
-      date: isDateUndecided ? undefined : newCourseDate,
-      styles: ["직접 선택"],
-      pace: "하루",
-      savedAt: new Date().toISOString(),
-      collaborators: [],
-      stops: [toSavedCourseStop(courseTarget)],
+      visibility: "PRIVATE",
     };
 
-    saveCourse(course);
+    setIsSubmittingCourse(true);
+    const createdCourse = await createCourse(course).catch(() => null);
+    setIsSubmittingCourse(false);
+    if (!createdCourse) {
+      setCourseNotice("코스를 서버에 저장하지 못했어요.");
+      return;
+    }
     setCourseNotice(`${title} 코스를 만들었어요.`);
     setCourseTarget(null);
     setIsCreatingCourse(false);
+    setNewCourseTitle("");
+    navigate(`/course/${createdCourse.id}`);
   }
 
   const drawerStyle = {
@@ -538,6 +546,7 @@ export function MapVisibleDrawer({
 
                 <button
                   className="mt-1 h-12 rounded-2xl border-0 bg-[#1F3D35] text-sm font-black text-white shadow-[0_10px_22px_rgba(31,61,53,0.18)]"
+                  disabled={isSubmittingCourse}
                   onClick={submitNewCourse}
                   type="button"
                 >
@@ -993,31 +1002,18 @@ function getFavoriteCount(point: MapPoint) {
   return point.source.favoriteCount;
 }
 
-function toSavedCourseStop(point: MapPoint): SavedCourseStop {
+function toCourseItem(point: MapPoint): CourseItemRequest | null {
   const numericId = getNumericPointId(point.id);
-
-  if (point.kind === "place") {
-    return {
-      attractionId: numericId ?? undefined,
-      category: point.source.tags[0] ?? "장소",
-      description: point.source.summary,
-      id: 1,
-      imageUrl: point.source.imageUrl,
-      lat: point.coordinates.lat,
-      lng: point.coordinates.lng,
-      title: point.name,
-    };
-  }
+  if (numericId === null) return null;
 
   return {
-    category: "쪽지",
-    description: point.source.body,
-    id: 1,
-    imageUrl: point.source.imageUrl ?? "",
-    lat: point.coordinates.lat,
-    lng: point.coordinates.lng,
-    noteId: numericId ?? undefined,
-    title: point.source.placeName || point.name,
+    attractionId: point.kind === "place" ? numericId : undefined,
+    day: 1,
+    itemType: point.kind === "place" ? "ATTRACTION" : "NOTE",
+    memo: point.kind === "spot" ? point.source.body : undefined,
+    noteId: point.kind === "spot" ? numericId : undefined,
+    position: 1,
+    stayMinutes: 60,
   };
 }
 

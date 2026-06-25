@@ -1,23 +1,9 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  Check,
-  Globe2,
-  ImagePlus,
-  LockKeyhole,
-  MapPin,
-  PenLine,
-  Users,
-  X,
-} from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useAuthUser } from "@/features/auth/authStore";
+import { homeLocationOptions } from "@/features/home/types/homeTypes";
 import {
   createNote,
   getSavedNotes,
-  saveNote,
+  myNotesQueryKey,
   savedNotesQueryKey,
   updateNote,
   uploadNoteImage,
@@ -26,15 +12,29 @@ import {
   type NoteVisibility,
 } from "@/features/notes/noteApi";
 import { resolveNoteImageUrl } from "@/features/notes/noteImage";
-import { homeLocationOptions } from "@/features/home/types/homeTypes";
 import type { NoteLocationSelection } from "@/pages/NoteLocationPage";
 import type { Visibility } from "@/shared/types/domain";
 import { PageLoadingSkeleton } from "@/shared/ui/Skeleton";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Globe2,
+  ImagePlus,
+  LockKeyhole,
+  Plus,
+  Users,
+  X,
+} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-const MAX_BODY_LENGTH = 140;
+const MAX_BODY_LENGTH = 80;
 const defaultNoteLocation = homeLocationOptions[0];
 const noteDraftStorageKey = "spot-note-draft";
-const defaultNoteTags = ["산책", "맛집", "카페"];
+const defaultNoteTags: string[] = [];
 const visibilityOptions = [
   { value: "public", label: "전체공개", shortLabel: "전체", Icon: Globe2 },
   { value: "friends", label: "친구공개", shortLabel: "친구", Icon: Users },
@@ -99,6 +99,7 @@ function readDraft(): NoteDraft {
 
 export function CreateNotePage() {
   const navigate = useNavigate();
+  const { data: user } = useAuthUser();
   const { noteId } = useParams();
   const queryClient = useQueryClient();
   const routeLocation = useLocation();
@@ -130,9 +131,7 @@ export function CreateNotePage() {
     initialDraft.imagePreview
   );
   const [tagValues, setTagValues] = useState<string[]>(
-    defaultNoteTags.map((defaultTag, index) =>
-      initialDraft.tags[index] ?? defaultTag
-    )
+    initialDraft.tags ?? defaultNoteTags
   );
   const [visibility, setVisibility] = useState<Visibility>(
     initialDraft.visibility
@@ -141,6 +140,7 @@ export function CreateNotePage() {
   const selectedVisibility =
     visibilityOptions.find((option) => option.value === visibility) ??
     visibilityOptions[1];
+  const displayName = user?.nickname ?? user?.realName ?? user?.name ?? "서울다람쥐";
   useEffect(() => {
     if (routeState?.noteLocation) return;
     if (!editNote || hydratedEditNoteIdRef.current === editNote.id) return;
@@ -185,15 +185,14 @@ export function CreateNotePage() {
         return updateNote(parsedNoteId, request);
       }
 
-      const note = await createNote(request);
-
-      // Swagger에는 작성 쪽지 목록 API가 없어, 마이페이지 조회용으로 함께 저장합니다.
-      await saveNote(note.id);
-      return note;
+      return createNote(request);
     },
     onSuccess: async () => {
       window.sessionStorage.removeItem(noteDraftStorageKey);
-      await queryClient.invalidateQueries({ queryKey: savedNotesQueryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: myNotesQueryKey }),
+        queryClient.invalidateQueries({ queryKey: savedNotesQueryKey }),
+      ]);
       navigate(submitReturnTo, { replace: true });
     },
   });
@@ -253,6 +252,16 @@ export function CreateNotePage() {
     );
   }
 
+  function addTag() {
+    setTagValues((currentTags) => [...currentTags, ""]);
+  }
+
+  function removeTag(index: number) {
+    setTagValues((currentTags) =>
+      currentTags.filter((_, tagIndex) => tagIndex !== index)
+    );
+  }
+
   if (isEditing && editNoteQuery.isPending && !routeNote) {
     return <PageLoadingSkeleton type="list" />;
   }
@@ -275,54 +284,17 @@ export function CreateNotePage() {
   }
 
   return (
-    <section className="min-h-dvh bg-[#F8F3EC] px-4 pt-[calc(18px+env(safe-area-inset-top))] pb-[calc(18px+env(safe-area-inset-bottom))] text-[#201B16]">
-      <header className="rounded-[30px] bg-[#FFFDF8] px-5 py-5 shadow-[0_18px_44px_rgba(93,65,37,0.08)]">
-        <div className="flex items-start gap-3">
-          <span className="grid size-12 flex-none place-items-center rounded-2xl bg-[#FFE7D9] text-[#FF4300]">
-            <PenLine size={23} strokeWidth={2.5} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="m-0 text-xs font-black tracking-[0.16em] text-[#FF4300]">
-              {isEditing ? "EDIT NOTE" : "LEAVE A NOTE"}
-            </p>
-            <h1 className="mt-2 mb-0 text-[1.75rem] leading-tight font-black tracking-[-0.055em]">
-              {isEditing ? "남겨둔 쪽지를 다듬어요" : "이 장소에 작은 쪽지를 붙여요"}
-            </h1>
-            <p className="mt-2 mb-0 text-[0.9rem] leading-relaxed font-semibold text-[#8A7A6E]">
-              {isEditing
-                ? "그날의 문장과 사진을 조금 더 자연스럽게 고쳐보세요."
-                : "길게 쓰지 않아도 괜찮아요. 다음 사람에게 닿을 한 줄이면 충분해요."}
-            </p>
-          </div>
-        </div>
-        <button
-          className="mt-5 flex w-full items-center justify-between gap-4 rounded-[24px] border border-[#F4D9C8] bg-[#FFF6EF] px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] transition-[border-color,transform,box-shadow] active:scale-[0.995]"
-          type="button"
-          onClick={openLocationPage}
-        >
-          <span className="flex min-w-0 items-center gap-3">
-            <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-white text-[#FF4300] shadow-[0_8px_18px_rgba(255,67,0,0.08)]">
-              <MapPin size={22} fill="#FF4300" />
-            </span>
-            <span className="min-w-0">
-              <small className="mb-1 block text-[0.68rem] font-black text-[#B76745]">
-                붙일 위치
-              </small>
-              <strong className="block truncate text-[1rem] font-black text-[#2B241E]">
-                {noteLocation.name}
-              </strong>
-              <small className="mt-1 block truncate text-[0.78rem] font-semibold text-[#9A7564]">
-                {noteLocation.address}
-              </small>
-            </span>
-          </span>
-          <span className="grid h-9 w-9 flex-none place-items-center rounded-full bg-white/80 text-[#FF4300] shadow-[inset_0_0_0_1px_rgba(255,67,0,0.08)]">
-            <ChevronRight size={20} strokeWidth={2.7} />
-          </span>
-        </button>
+    <section className="min-h-dvh bg-white px-4 pt-[calc(34px+env(safe-area-inset-top))] pb-[calc(32px+env(safe-area-inset-bottom))] text-[#202020]">
+      <header>
+        <h1 className="m-0 text-2xl leading-tight font-extrabold tracking-[-0.02em]">
+          {displayName}님의 쪽지
+        </h1>
+        <p className="mt-3 mb-0 text-sm font-medium text-[#202020]">
+          이 곳에 대한 나만의 추억 혹은 꿀팁을 남겨주세요
+        </p>
       </header>
 
-      <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
+      <form className="mt-8 grid gap-0" onSubmit={handleSubmit}>
         <input
           ref={fileInputRef}
           className="sr-only"
@@ -331,12 +303,31 @@ export function CreateNotePage() {
           onChange={handleImageChange}
         />
 
-        <section className="rounded-[30px] bg-[#FFFDF8] p-4 shadow-[0_18px_44px_rgba(93,65,37,0.08)]">
-          <div className="grid grid-cols-[1.2fr_1fr] gap-3">
+        <section>
+          <h2 className="mt-2 m-0 text-sm font-extrabold">쪽지 위치</h2>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <strong className="mt-4 block truncate text-[0.95rem] font-black">
+                {noteLocation.name}
+              </strong>
+              <p className="mt-1.5 mb-0 truncate text-xs font-bold text-[#8D8D8D]">
+                {noteLocation.address}
+              </p>
+            </div>
+            <button
+              aria-label="쪽지 위치 변경"
+              className="grid size-12 flex-none items-end justify-center bg-white text-[#FF4300]"
+              onClick={openLocationPage}
+              type="button">
+              <ChevronRight size={21} strokeWidth={2.8} />
+            </button>
+          </div>
+
+          <div className="mt-5 w-[116px] flex items-center justify-center border border-gray-300 rounded-[20px]">
             <AnimatePresence mode="wait">
               {imagePreview ? (
                 <motion.div
-                  className="relative aspect-square overflow-hidden rounded-[25px] bg-[#F1E7DB] shadow-[0_14px_32px_rgba(39,32,25,0.06)]"
+                  className="relative aspect-square overflow-hidden rounded-xl bg-[#F5F3F1]"
                   key="preview"
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -348,16 +339,16 @@ export function CreateNotePage() {
                     src={imagePreview}
                     alt="첨부 사진 미리보기"
                   />
-                  <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/55 to-transparent p-2.5 pt-9">
+                  <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/55 to-transparent p-2 pt-8">
                     <button
-                      className="rounded-full bg-white/90 px-2.5 py-1.5 text-[0.68rem] font-black text-[#333] backdrop-blur-md"
+                      className="rounded-full bg-white/90 px-2 py-1 text-[0.62rem] font-black text-[#333] backdrop-blur-md"
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      사진 변경
+                      변경
                     </button>
                     <button
-                      className="grid h-8 w-8 place-items-center rounded-full bg-black/35 text-white backdrop-blur-md"
+                      className="grid size-7 place-items-center rounded-full bg-black/35 text-white backdrop-blur-md"
                       type="button"
                       onClick={handleImageRemove}
                       aria-label="첨부 사진 삭제"
@@ -368,7 +359,7 @@ export function CreateNotePage() {
                 </motion.div>
               ) : (
                 <motion.button
-                  className="grid aspect-square place-items-center rounded-[25px] border border-dashed border-[#E8C9B8] bg-[#FBF2EA] text-center shadow-[0_14px_32px_rgba(39,32,25,0.05)] transition-[background-color,transform] active:scale-[0.99]"
+                  className="grid aspect-square p-5 place-items-center rounded-xl bg-[#F5F3F1] text-center transition-transform active:scale-[0.99]"
                   key="empty"
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -378,102 +369,41 @@ export function CreateNotePage() {
                   exit={{ opacity: 0 }}
                 >
                   <span>
-                    <span className="mx-auto grid h-13 w-13 place-items-center rounded-2xl bg-[#FF4300] text-white shadow-[0_12px_26px_rgba(255,67,0,0.18)]">
-                      <ImagePlus size={23} strokeWidth={2.2} />
+                    <span className="mx-auto grid size-9 place-items-center rounded-xl bg-[#FF2F12] text-white">
+                      <ImagePlus size={18} strokeWidth={2.3} />
                     </span>
-                    <strong className="mt-3 block text-sm font-black text-[#3A2E25]">
-                      사진 한 장
+                    <strong className="mt-2.5 block text-[0.68rem] font-black text-[#56514D]">
+                      사진
                     </strong>
-                    <small className="mt-1 block text-[0.7rem] font-semibold text-[#A18B7D]">
-                      분위기를 같이 붙여요
+                    <small className="mt-1 block text-[0.58rem] font-bold text-[#9A9691]">
+                      한 장 추가
                     </small>
                   </span>
                 </motion.button>
               )}
             </AnimatePresence>
-
-            <div className="relative grid grid-cols-2 grid-rows-2 gap-2.5">
-              {tagValues.map((tag, index) => (
-                <label
-                  className="flex min-h-0 items-center justify-center rounded-[19px] bg-[#F7EEE5] px-2 text-center shadow-[0_10px_24px_rgba(39,32,25,0.035)] transition-[background-color,box-shadow] focus-within:bg-[#fff3ed] focus-within:shadow-[inset_0_0_0_1px_#FF4300]"
-                  key={index}
-                >
-                  <span className="text-sm font-black text-[#FF4300]">#</span>
-                  <input
-                    className="min-w-0 w-full border-0 bg-transparent text-center text-[0.78rem] font-black text-[#756e67] outline-none"
-                    maxLength={6}
-                    onChange={(event) => updateTag(index, event.target.value)}
-                    placeholder="태그"
-                    value={tag}
-                  />
-                </label>
-              ))}
-
-              <button
-                className="min-h-0 rounded-[19px] bg-[#F7EEE5] px-2 text-sm font-black text-[#3A2E25] shadow-[0_10px_24px_rgba(39,32,25,0.035)] transition-transform active:scale-[0.98]"
-                type="button"
-                onClick={() => setIsVisibilityOpen((isOpen) => !isOpen)}
-                aria-expanded={isVisibilityOpen}
-              >
-                <span className="flex flex-col items-center gap-1">
-                  <selectedVisibility.Icon size={18} strokeWidth={2.4} />
-                  <span className="inline-flex items-center gap-0.5 whitespace-nowrap text-xs">
-                    {selectedVisibility.shortLabel}
-                    <ChevronDown
-                      className={isVisibilityOpen ? "rotate-180" : ""}
-                      size={13}
-                      strokeWidth={2.8}
-                    />
-                  </span>
-                </span>
-              </button>
-
-              {isVisibilityOpen ? (
-                <div className="absolute top-[calc(100%+8px)] right-0 z-20 grid w-[166px] gap-1 rounded-2xl border border-[#efe9e3] bg-white p-1.5 shadow-[0_16px_34px_rgba(39,32,25,0.12)]">
-                  {visibilityOptions.map(({ value, label, Icon }) => {
-                    const isSelected = visibility === value;
-
-                    return (
-                      <button
-                        className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-left text-xs font-black ${
-                          isSelected
-                            ? "bg-[#fff3ed] text-[#FF4300]"
-                            : "text-[#6f6861]"
-                        }`}
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          setVisibility(value);
-                          setIsVisibilityOpen(false);
-                        }}
-                      >
-                        <Icon size={15} strokeWidth={2.3} />
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
           </div>
+        </section>
 
-          <label className="mt-4 block font-black text-[#3A2E25]">
+        <section className="mt-10">
+          <h2 className="m-0 text-sm font-extrabold">쪽지 내용</h2>
+          <label className="mt-3 block">
             <span className="sr-only">쪽지 내용</span>
             <div className="relative">
               <textarea
-                className="min-h-[230px] w-full resize-none rounded-[26px] border border-[#EFE0D5] bg-[linear-gradient(#fffdf8_31px,#f2e8de_32px)] bg-[length:100%_32px] p-5 pb-11 leading-8 font-semibold text-[#3A2E25] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] outline-none transition-[border-color,box-shadow] placeholder:font-semibold placeholder:text-[#B7A69B] focus:border-[#FF4300] focus:shadow-[0_0_0_4px_rgba(255,67,0,0.08)]"
+                className="min-h-[120px] w-full resize-none rounded-2xl border border-[#E8E4DF] bg-white px-4 py-4 text-sm leading-relaxed text-[#2D2D2D] outline-none placeholder:font-bold placeholder:text-[#B7B3AE] focus:border-[#FF4300] focus:ring-3 focus:ring-[#FF4300]/10"
                 maxLength={MAX_BODY_LENGTH}
                 onChange={(event) =>
                   setBody(event.target.value.slice(0, MAX_BODY_LENGTH))
                 }
-                placeholder="예: 이 골목은 해질 때 조용해서 천천히 걷기 좋아요."
+                placeholder="이 장소에서 남기고 싶은 한 줄을 적어보세요."
                 value={body}
               />
               <span
-                className={`pointer-events-none absolute right-4 bottom-3 text-xs font-bold ${
+                className={`pointer-events-none absolute right-4 bottom-3 text-[0.68rem] font-bold ${
                   body.length >= MAX_BODY_LENGTH
                     ? "text-[#FF4300]"
-                    : "text-[#bbb]"
+                    : "text-[#C8C4BF]"
                 }`}
               >
                 {body.length}/{MAX_BODY_LENGTH}
@@ -482,8 +412,101 @@ export function CreateNotePage() {
           </label>
         </section>
 
+        <section className="mt-5 grid gap-4">
+          <div className="grid grid-cols-[42px_1fr] items-center gap-2">
+            <h2 className="m-0 text-sm font-extrabold">태그</h2>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden">
+                {tagValues.map((tag, index) => (
+                  <label
+                    className="inline-flex h-8 min-w-0 flex-none items-center gap-1 rounded-none bg-[#F5F5F5] px-2 text-xs font-bold text-[#4A4641]"
+                    key={index}
+                  >
+                    <span className="font-black text-[#FF4300]">#</span>
+                    <input
+                      className="w-10 min-w-0 border-0 bg-transparent text-xs font-bold text-[#4A4641] outline-none"
+                      maxLength={6}
+                      onChange={(event) => updateTag(index, event.target.value)}
+                      placeholder="태그"
+                      value={tag}
+                    />
+                    <button
+                      aria-label={`${tag || "태그"} 태그 삭제`}
+                      className="text-[#A8A8A8]"
+                      onClick={() => removeTag(index)}
+                      type="button"
+                    >
+                      <X size={11} strokeWidth={2.6} />
+                    </button>
+                  </label>
+                ))}
+                <button
+                  aria-label="태그 추가"
+                  className="grid size-8 flex-none place-items-center bg-[#F5F5F5] text-[#A8A8A8] transition-colors hover:text-[#FF4300]"
+                  onClick={addTag}
+                  type="button"
+                >
+                  <Plus size={15} strokeWidth={2.8} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative grid grid-cols-[70px_1fr] items-center gap-2">
+            <h2 className="m-0 text-sm font-extrabold">공개 범위</h2>
+            <div className="flex justify-end">
+              <button
+                aria-expanded={isVisibilityOpen}
+                className="inline-flex h-9 items-center rounded-none bg-[#F2F2F2] text-[#171717]"
+                onClick={() => setIsVisibilityOpen((isOpen) => !isOpen)}
+                type="button"
+              >
+                <span className="inline-flex h-full items-center gap-1 px-2.5 text-sm font-extrabold">
+                  {selectedVisibility.shortLabel}
+                  <selectedVisibility.Icon size={14} strokeWidth={2.4} />
+                </span>
+                <span className="grid h-full w-9 place-items-center border-l border-white/75">
+                  <ChevronDown
+                    className={isVisibilityOpen ? "rotate-180" : ""}
+                    size={18}
+                    strokeWidth={2.8}
+                  />
+                </span>
+              </button>
+            </div>
+
+            {isVisibilityOpen ? (
+              <div className="absolute top-[calc(100%+8px)] right-0 z-20 grid w-[166px] gap-1 rounded-2xl border border-[#EEEEEE] bg-white p-1.5 shadow-[0_16px_34px_rgba(17,17,17,0.12)]">
+                {visibilityOptions.map(({ value, label, Icon }) => {
+                  const isSelected = visibility === value;
+
+                  return (
+                    <button
+                      className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-left text-xs font-black ${
+                        isSelected
+                          ? "bg-[#FFF0EA] text-[#FF4300]"
+                          : "text-[#5F5B56]"
+                      }`}
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        setVisibility(value);
+                        setIsVisibilityOpen(false);
+                      }}
+                    >
+                      <Icon size={15} strokeWidth={2.3} />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+          <div aria-hidden="true" className="h-[146px]" />
+        </section>
+
         <button
-          className="sticky bottom-[calc(12px+env(safe-area-inset-bottom))] z-10 inline-flex min-h-[58px] w-full items-center justify-center gap-2 rounded-[22px] border-0 bg-[#FF4300] font-black text-white shadow-[0_16px_30px_rgba(255,67,0,0.22)] transition-[opacity,transform,box-shadow] active:scale-[0.99] disabled:bg-[#E7DDD3] disabled:text-[#A99B90] disabled:shadow-none"
+          className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[20px] border border-transparent bg-[#FF4300] text-sm font-black text-white shadow-[0_12px_24px_rgba(255,67,0,0.18)] transition-[opacity,transform,box-shadow] active:scale-[0.99] disabled:border-[#FFD3C4] disabled:bg-[#FFF1EC] disabled:text-[#D97A5D] disabled:shadow-none"
           disabled={!body.trim() || noteMutation.isPending}
           type="submit"
         >

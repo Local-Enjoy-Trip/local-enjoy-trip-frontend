@@ -3,8 +3,8 @@ import type {
   NeighborhoodBriefing,
   WeatherForecast,
 } from "@/features/home/homeApi";
-import { Skeleton } from "@/shared/ui/Skeleton";
 import { homeLocations } from "@/features/home/types/homeTypes";
+import { Skeleton } from "@/shared/ui/Skeleton";
 import {
   Cloud,
   CloudFog,

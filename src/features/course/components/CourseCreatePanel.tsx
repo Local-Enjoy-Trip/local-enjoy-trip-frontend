@@ -1,4 +1,4 @@
-import { saveCourse } from "@/features/course/courseStorage";
+import { createCourse } from "@/features/course/courseApi";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
 import {
   CalendarCheck,
@@ -51,6 +51,8 @@ export function CourseCreateSheet({
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDate, setDraftDate] = useState("");
   const [dateUndecided, setDateUndecided] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(() =>
     startOfMonth(new Date()),
   );
@@ -60,31 +62,38 @@ export function CourseCreateSheet({
     window.setTimeout(() => setCreateMode("choice"), 180);
   }
 
-  function createDirectCourse(event: FormEvent) {
+  async function createDirectCourse(event: FormEvent) {
     event.preventDefault();
+    if (isCreating) return;
+
     const title = draftTitle.trim();
     if (!title) return;
 
     const course = {
       id: `direct-${Date.now()}`,
       title,
-      area: tripArea,
-      companion: "내 일정",
-      date: dateUndecided || !draftDate ? undefined : draftDate,
-      styles: ["직접 만든 코스"],
-      pace: dateUndecided || !draftDate ? "날짜 미정" : draftDate,
-      savedAt: new Date().toISOString(),
-      collaborators: [],
-      stops: [],
+      description: dateUndecided || !draftDate ? undefined : draftDate,
+      items: [],
+      regionName: tripArea,
+      status: "DRAFT",
+      visibility: "PRIVATE",
     };
 
-    saveCourse(course);
-    setDraftTitle("");
-    setDraftDate("");
-    setDateUndecided(false);
-    setCalendarMonth(startOfMonth(new Date()));
-    closeSheet();
-    navigate(`/course/${course.id}`);
+    try {
+      setIsCreating(true);
+      setCreateError("");
+      const createdCourse = await createCourse(course);
+      setDraftTitle("");
+      setDraftDate("");
+      setDateUndecided(false);
+      setCalendarMonth(startOfMonth(new Date()));
+      closeSheet();
+      navigate(`/course/${createdCourse.id}`);
+    } catch {
+      setCreateError("코스를 서버에 저장하지 못했어요. 로그인 상태를 확인해 주세요.");
+    } finally {
+      setIsCreating(false);
+    }
   }
 
   function selectDraftDate(date: string) {
@@ -178,11 +187,16 @@ export function CourseCreateSheet({
 
           <button
             className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-extrabold text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C]"
-            disabled={!draftTitle.trim()}
+            disabled={!draftTitle.trim() || isCreating}
             type="submit"
           >
             생성하기
           </button>
+          {createError ? (
+            <p className="m-0 rounded-xl bg-[#FFF0EE] px-3 py-2 text-xs font-bold text-[#D5483D]">
+              {createError}
+            </p>
+          ) : null}
         </form>
       )}
     </BottomSheet>

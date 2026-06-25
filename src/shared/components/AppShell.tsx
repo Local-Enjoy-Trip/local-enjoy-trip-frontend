@@ -1,10 +1,10 @@
 import {
+  Compass,
   Home,
   Map,
   MapPinned,
   NotebookPen,
   Plus,
-  Route,
   UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -106,7 +106,7 @@ function MapNavIcon({ isActive }: { isActive: boolean }) {
   );
 }
 
-function CourseNavIcon({ isActive }: { isActive: boolean }) {
+function ExploreNavIcon({ isActive }: { isActive: boolean }) {
   return (
     <span className="relative block h-6 w-6" aria-hidden="true">
       <svg
@@ -117,11 +117,19 @@ function CourseNavIcon({ isActive }: { isActive: boolean }) {
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <path
-          d="M7.25 3.25H16.75C18.13 3.25 19.25 4.37 19.25 5.75V19.1C19.25 20.43 17.69 21.14 16.69 20.27L12.98 17.04C12.42 16.55 11.58 16.55 11.02 17.04L7.31 20.27C6.31 21.14 4.75 20.43 4.75 19.1V5.75C4.75 4.37 5.87 3.25 7.25 3.25Z"
+        <circle
+          cx="12"
+          cy="12"
+          r="8.25"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.8"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M15.35 8.65L13.55 13.55L8.65 15.35L10.45 10.45L15.35 8.65Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.55"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -134,9 +142,10 @@ function CourseNavIcon({ isActive }: { isActive: boolean }) {
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
+        <circle cx="12" cy="12" r="8.5" fill="currentColor" />
         <path
-          d="M7.25 3.25H16.75C18.13 3.25 19.25 4.37 19.25 5.75V19.1C19.25 20.43 17.69 21.14 16.69 20.27L12.98 17.04C12.42 16.55 11.58 16.55 11.02 17.04L7.31 20.27C6.31 21.14 4.75 20.43 4.75 19.1V5.75C4.75 4.37 5.87 3.25 7.25 3.25Z"
-          fill="currentColor"
+          d="M16.05 7.95L13.85 13.85L7.95 16.05L10.15 10.15L16.05 7.95Z"
+          fill="white"
         />
       </svg>
     </span>
@@ -189,13 +198,13 @@ function MyNavIcon({ isActive }: { isActive: boolean }) {
 const navItems = [
   { to: "/", label: "홈", icon: Home },
   { to: "/map", label: "지도", icon: Map },
-  { to: "/course", label: "코스", icon: Route },
+  { to: "/course", label: "탐색", icon: Compass },
   { to: "/my", label: "마이", icon: UserRound },
 ];
 
 const createItems = [
   {
-    to: "/note/new",
+    to: "/note/location",
     label: "쪽지 남기기",
     icon: NotebookPen,
   },
@@ -356,7 +365,13 @@ export function AppShell() {
                     index > 0 ? "border-t border-solid border-black/10" : ""
                   }`}
                   key={item.to}
-                  onClick={() => navigate(item.to)}
+                  onClick={() => {
+                    if (item.to === "/note/location") {
+                      navigate(item.to, { state: { isFirstSelect: true } });
+                    } else {
+                      navigate(item.to);
+                    }
+                  }}
                   role="menuitem"
                   type="button"
                 >
@@ -411,7 +426,7 @@ export function AppShell() {
                     }`}
                   >
                     {item.to === "/course" ? (
-                      <CourseNavIcon isActive={isActive} />
+                      <ExploreNavIcon isActive={isActive} />
                     ) : item.to === "/my" ? (
                       <MyNavIcon isActive={isActive} />
                     ) : (

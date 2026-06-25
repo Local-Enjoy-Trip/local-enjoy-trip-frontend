@@ -1,5 +1,4 @@
 import {
-  saveCourse,
   type SavedCourse,
   type SavedCourseStop,
 } from "@/features/course/courseStorage";
@@ -234,21 +233,19 @@ function AiCourseCreator() {
     setSaveNotice("");
     const request = toCourseCreateRequest(recommendation);
 
-    if (request) {
-      try {
-        const course = await createCourse(request);
-        navigate(`/course/${course.id}`);
-        return;
-      } catch {
-        setSaveNotice("서버 저장이 어려워 임시 코스로 담아둘게요.");
-      }
-    } else {
-      setSaveNotice("실제 장소 ID가 없어 임시 코스로 담아둘게요.");
+    if (!request) {
+      setSaveNotice("서버에 저장할 실제 장소 ID가 부족해요.");
+      setIsSaving(false);
+      return;
     }
 
-    saveCourse(recommendation);
-    navigate(`/course/${recommendation.id}`);
-    setIsSaving(false);
+    try {
+      const course = await createCourse(request);
+      navigate(`/course/${course.id}`);
+    } catch {
+      setSaveNotice("코스를 서버에 저장하지 못했어요. 로그인 상태를 확인해 주세요.");
+      setIsSaving(false);
+    }
   }
 
   if (phase === "loading") {
@@ -380,6 +377,8 @@ function DirectCourseCreator() {
   const [date, setDate] = useState("");
   const [stops, setStops] = useState<DirectStop[]>(initialPlace ? [{ id: Date.now(), name: initialPlace }] : []);
   const [newStop, setNewStop] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   function addStop() {
     if (!newStop.trim()) return;
@@ -387,10 +386,30 @@ function DirectCourseCreator() {
     setNewStop("");
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    window.alert("백엔드 연결 후 직접 만든 코스가 저장됩니다.");
-    navigate("/course");
+    if (isSaving) return;
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError("");
+      const course = await createCourse({
+        description: date || undefined,
+        id: `direct-${Date.now()}`,
+        items: [],
+        status: "DRAFT",
+        title: trimmedTitle,
+        visibility: "PRIVATE",
+      });
+      navigate(`/course/${course.id}`);
+    } catch {
+      setSaveError("코스를 서버에 저장하지 못했어요. 로그인 상태를 확인해 주세요.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -400,7 +419,8 @@ function DirectCourseCreator() {
         <label className="grid gap-2 text-sm font-black">코스 이름<input className="min-h-13 rounded-2xl border border-[#E5E1DA] px-4 font-semibold outline-none focus:border-[#1F3D35]" onChange={(event) => setTitle(event.target.value)} placeholder="여행 코스 이름" value={title} /></label>
         <label className="grid gap-2 text-sm font-black">여행 날짜<span className="relative"><CalendarDays className="absolute top-1/2 left-3 -translate-y-1/2 text-[#999]" size={17} /><input className="min-h-13 w-full rounded-2xl border border-[#E5E1DA] pl-10 font-semibold" onChange={(event) => setDate(event.target.value)} type="date" value={date} /></span></label>
         <div><div className="flex items-center justify-between"><strong className="text-sm">방문 장소</strong><span className="text-xs font-black text-[#FD4003]">{stops.length}곳</span></div><div className="mt-3 grid gap-2">{stops.map((stop, index) => <div className="flex min-h-13 items-center gap-3 rounded-2xl border border-[#EEEAE3] px-3" key={stop.id}><span className="grid size-7 place-items-center rounded-full bg-[#FFF0EA] text-xs font-black text-[#FD4003]">{index + 1}</span><span className="flex-1 text-sm font-black">{stop.name}</span><button aria-label={`${stop.name} 삭제`} className="grid size-8 place-items-center rounded-full border-0 bg-[#F5F3EF]" onClick={() => setStops((current) => current.filter((item) => item.id !== stop.id))} type="button"><X size={15} /></button></div>)}</div><div className="mt-3 flex gap-2"><input className="min-h-12 min-w-0 flex-1 rounded-2xl border border-[#E5E1DA] px-4 text-sm font-semibold" onChange={(event) => setNewStop(event.target.value)} placeholder="장소 이름 입력" value={newStop} /><button aria-label="장소 추가" className="grid size-12 place-items-center rounded-2xl border-0 bg-[#1F3D35] text-white" onClick={addStop} type="button"><Plus size={20} /></button></div></div>
-        <button className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#E8E5DF]" disabled={!title.trim() || stops.length === 0} type="submit">코스 저장하기</button>
+        <button className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#E8E5DF]" disabled={!title.trim() || isSaving} type="submit">{isSaving ? "저장 중..." : "코스 저장하기"}</button>
+        {saveError ? <p className="m-0 rounded-xl bg-[#FFF0EE] px-3 py-2 text-xs font-bold text-[#D5483D]">{saveError}</p> : null}
       </form>
     </section>
   );

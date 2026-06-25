@@ -8,8 +8,8 @@ import { NoteCard } from "@/features/notes/components/NoteCard";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import {
   deleteNote,
-  getSavedNotes,
-  savedNotesQueryKey,
+  getMyNotes,
+  myNotesQueryKey,
   type NoteResponse,
 } from "@/features/notes/noteApi";
 import { resolveNoteImageUrl } from "@/features/notes/noteImage";
@@ -19,16 +19,14 @@ export function MyNotesPage() {
   const queryClient = useQueryClient();
   const { data: user } = useAuthUser();
   const notesQuery = useQuery({
-    queryFn: () => getSavedNotes(),
-    queryKey: savedNotesQueryKey,
+    queryFn: () => getMyNotes(),
+    queryKey: myNotesQueryKey,
   });
-  const myNotes = (notesQuery.data ?? []).filter(
-    (note) => note.authorUserId === user?.id,
-  );
+  const myNotes = notesQuery.data ?? [];
   const deleteMutation = useMutation({
     mutationFn: deleteNote,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: savedNotesQueryKey });
+      await queryClient.invalidateQueries({ queryKey: myNotesQueryKey });
     },
   });
 

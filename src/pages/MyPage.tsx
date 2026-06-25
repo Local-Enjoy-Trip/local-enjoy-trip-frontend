@@ -7,7 +7,7 @@ import {
   useAuthUser,
 } from "@/features/auth/authStore";
 import { friendsQueryKey, getFriends } from "@/features/friends/friendApi";
-import { getSavedNotes, savedNotesQueryKey } from "@/features/notes/noteApi";
+import { getMyNotes, myNotesQueryKey } from "@/features/notes/noteApi";
 import { courses } from "@/shared/data/mockData";
 import { PageLoadingSkeleton, TextSkeleton } from "@/shared/ui/Skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -64,10 +64,10 @@ export function MyPage() {
   const [nicknameInput, setNicknameInput] = useState("");
   const [nicknameError, setNicknameError] = useState("");
   const { data: user, isLoading } = useAuthUser();
-  const savedNotesQuery = useQuery({
+  const myNotesQuery = useQuery({
     enabled: Boolean(user),
-    queryFn: () => getSavedNotes(),
-    queryKey: savedNotesQueryKey,
+    queryFn: () => getMyNotes(),
+    queryKey: myNotesQueryKey,
   });
   const friendsQuery = useQuery({
     enabled: Boolean(user),
@@ -75,8 +75,7 @@ export function MyPage() {
     queryKey: friendsQueryKey,
   });
   const friendCount = friendsQuery.data?.length ?? 0;
-  const myNoteCount =
-    savedNotesQuery.data?.filter((note) => note.authorUserId === user?.id).length ?? 0;
+  const myNoteCount = myNotesQuery.data?.length ?? 0;
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSettled: () => {
@@ -194,7 +193,7 @@ export function MyPage() {
               },
               { isLoading: false, label: "코스", value: courses.length },
               {
-                isLoading: savedNotesQuery.isLoading,
+                isLoading: myNotesQuery.isLoading,
                 label: "쪽지",
                 value: myNoteCount,
               },
@@ -247,13 +246,18 @@ export function MyPage() {
           />
           <MenuButton
             icon={Bookmark}
-            label="내 쪽지"
-            onClick={() => navigate("/my/notes")}
+            label="저장함"
+            onClick={() => navigate("/my/saved")}
           />
           <MenuButton
             icon={MapPinned}
             label="내 코스"
-            onClick={() => navigate("/course")}
+            onClick={() => navigate("/my/courses")}
+          />
+          <MenuButton
+            icon={Pencil}
+            label="내 쪽지"
+            onClick={() => navigate("/my/notes")}
           />
           <button
             className="flex min-h-14 w-full items-center gap-4 rounded-xl bg-white px-1 text-left text-[#D5483D] disabled:opacity-50"

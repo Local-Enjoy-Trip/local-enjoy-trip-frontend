@@ -4,17 +4,14 @@ import {
   ChevronRight,
   Download,
   Map as MapIcon,
-  Plane,
   Plus,
-  ReceiptText,
   Star,
   UserPlus,
-  UsersRound,
   WandSparkles,
-  WalletCards,
   X,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
@@ -26,24 +23,43 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuthUser } from "@/features/auth/authStore";
 import type { Coordinates } from "@/shared/types/domain";
 import {
+  appendCourseItem,
+  createCourse,
   getCachedApiCourse,
+  getMyCourses,
   getPublicCourse,
   recommendCourseOrder,
   updateCourse,
+  type CourseCreateRequest,
+  type CourseItemRequest,
   type CourseItemResponse,
   type CourseResponse,
 } from "@/features/course/courseApi";
 import {
+  appendCourseStop,
+  appendCourseStops,
   getSavedCourse,
+  getSavedCourses,
   saveCourse,
+  type SavedCourse,
+  type SavedCourseStop,
   updateCourseCollaborators,
+  updateCourseDetails,
 } from "@/features/course/courseStorage";
+import { getFriends as getServiceFriends } from "@/features/friends/friendApi";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
+import { mapCenter } from "@/features/map/constants";
+import { MapSearchBar } from "@/features/map/components/MapSearchBar";
+import { getNeighborhoodLabel } from "@/features/map/components/MapListCard";
 import { loadKakaoMap } from "@/features/map/lib/kakaoMap";
+import { getFallbackPosition, toMapPoints } from "@/features/map/lib/mapPoints";
+import { getMapExplore, searchMap } from "@/features/map/mapApi";
+import { NoteCard } from "@/features/notes/components/NoteCard";
 import type {
   KakaoCustomOverlay,
   KakaoMapInstance,
   KakaoPolyline,
+  MapPoint,
 } from "@/features/map/types";
 
 type CourseStop = {
@@ -51,8 +67,11 @@ type CourseStop = {
   accent: "violet" | "coral" | "mint";
   category: string;
   coordinates: Coordinates;
+  description: string;
   distanceFromPrevious?: string;
+  imageUrl: string;
   location: string;
+  sourceItem?: CourseItemResponse;
   title: string;
 };
 
@@ -67,6 +86,9 @@ const defaultStops: CourseStop[] = [
     accent: "violet",
     category: "시장 · 망원",
     coordinates: { lat: 37.5567, lng: 126.9057 },
+    description: "동네 간식으로 가볍게 하루를 시작해요.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=720&q=80",
     location: "망원",
     title: "망원시장",
   },
@@ -75,7 +97,10 @@ const defaultStops: CourseStop[] = [
     accent: "violet",
     category: "골목 산책 · 망원",
     coordinates: { lat: 37.5562, lng: 126.9049 },
+    description: "작은 가게와 오래된 주택 사이를 천천히 걸어요.",
     distanceFromPrevious: "650m",
+    imageUrl:
+      "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=720&q=80",
     location: "망원",
     title: "망원시장 골목",
   },
@@ -84,7 +109,10 @@ const defaultStops: CourseStop[] = [
     accent: "coral",
     category: "공원 · 한강",
     coordinates: { lat: 37.5545, lng: 126.897 },
+    description: "강바람을 맞으며 노을이 드는 시간을 즐겨요.",
     distanceFromPrevious: "1.2km",
+    imageUrl:
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80",
     location: "망원",
     title: "망원한강공원 입구",
   },
@@ -93,7 +121,10 @@ const defaultStops: CourseStop[] = [
     accent: "mint",
     category: "노을 산책 · 한강",
     coordinates: { lat: 37.5548, lng: 126.8959 },
+    description: "한강을 따라 이어지는 길에서 천천히 쉬어가요.",
     distanceFromPrevious: "480m",
+    imageUrl:
+      "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&w=720&q=80",
     location: "망원",
     title: "한강 산책로",
   },
@@ -102,7 +133,10 @@ const defaultStops: CourseStop[] = [
     accent: "violet",
     category: "소품 · 망원",
     coordinates: { lat: 37.5569, lng: 126.9036 },
+    description: "작은 소품과 로컬 가게를 둘러보며 취향을 찾아요.",
     distanceFromPrevious: "320m",
+    imageUrl:
+      "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=720&q=80",
     location: "망원",
     title: "망원 소품샵 거리",
   },
@@ -111,7 +145,10 @@ const defaultStops: CourseStop[] = [
     accent: "coral",
     category: "카페 · 망원",
     coordinates: { lat: 37.5574, lng: 126.9027 },
+    description: "골목 안쪽 카페에서 잠깐 숨을 고르며 쉬어가요.",
     distanceFromPrevious: "210m",
+    imageUrl:
+      "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=720&q=80",
     location: "망원",
     title: "골목 카페",
   },
@@ -120,7 +157,10 @@ const defaultStops: CourseStop[] = [
     accent: "violet",
     category: "책방 · 망원",
     coordinates: { lat: 37.5582, lng: 126.9042 },
+    description: "동네 큐레이션이 담긴 책방에서 조용히 머물러요.",
     distanceFromPrevious: "430m",
+    imageUrl:
+      "https://images.unsplash.com/photo-1526243741027-444d633d7365?auto=format&fit=crop&w=720&q=80",
     location: "망원",
     title: "동네 책방",
   },
@@ -129,23 +169,24 @@ const defaultStops: CourseStop[] = [
     accent: "mint",
     category: "디저트 · 망원",
     coordinates: { lat: 37.5578, lng: 126.9062 },
+    description: "가벼운 디저트로 하루 코스를 기분 좋게 마무리해요.",
     distanceFromPrevious: "380m",
+    imageUrl:
+      "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=720&q=80",
     location: "망원",
     title: "망원 디저트 바",
   },
 ];
 
-const accentClass = {
-  coral: "bg-[#F56565] text-white",
-  mint: "bg-[#49BFB0] text-white",
-  violet: "bg-[#7957F2] text-white",
-} satisfies Record<CourseStop["accent"], string>;
+const fallbackCourseImage =
+  "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80";
 
 const markerColorClass = {
   coral: "is-coral",
   mint: "is-mint",
   violet: "is-violet",
 } satisfies Record<CourseStop["accent"], string>;
+const seoulMapRadiusMeters = 30_000;
 
 function getRouteCenter(routeStops: CourseStop[]) {
   return routeStops.reduce(
@@ -235,6 +276,11 @@ function CourseRouteMap({
   useEffect(() => {
     let cancelled = false;
 
+    if (routeStops.length === 0) {
+      setStatus("ready");
+      return;
+    }
+
     loadKakaoMap().then((nextStatus) => {
       if (cancelled) return;
 
@@ -283,7 +329,7 @@ function CourseRouteMap({
     const kakaoMaps = window.kakao?.maps;
     const map = mapRef.current;
 
-    if (status !== "ready" || !kakaoMaps || !map) return;
+    if (routeStops.length === 0 || status !== "ready" || !kakaoMaps || !map) return;
 
     overlaysRef.current.forEach((overlay) => overlay.setMap(null));
     overlaysRef.current = [];
@@ -384,7 +430,18 @@ function CourseRouteMap({
       className={`relative overflow-hidden bg-[#DDF0E3] ${className}`}
       data-testid="course-route-map"
     >
-      {status === "missing-key" || status === "error" ? (
+      {routeStops.length === 0 ? (
+        <div className="absolute inset-0 grid place-items-center bg-[#E7F0E8] px-6 text-center">
+          <div>
+            <p className="m-0 text-sm font-black text-[#1F3D35]">
+              아직 지도에 표시할 장소가 없어요.
+            </p>
+            <p className="mt-1.5 mb-0 text-xs font-bold text-[#718078]">
+              장소 추가하기로 첫 장소를 담아주세요.
+            </p>
+          </div>
+        </div>
+      ) : status === "missing-key" || status === "error" ? (
         <FallbackRouteMapPreview routeStops={routeStops} />
       ) : (
         <>
@@ -615,7 +672,7 @@ function CourseRouteDrawer({
         onWheel={handleListWheel}
         ref={scrollerRef}
       >
-        {canEdit ? (
+        {canEdit && routeStops.length > 1 ? (
           <button
             className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#DCE7DF] bg-[#EDF5EF] text-sm font-black text-[#1F3D35]"
             onClick={onOptimize}
@@ -627,7 +684,6 @@ function CourseRouteDrawer({
         ) : null}
         <div className="mb-3 flex items-center justify-between">
           <h2 className="m-0 text-lg font-black text-[#272727]">여행지 리스트</h2>
-          {canEdit ? <button className="border-0 bg-transparent p-0 text-sm font-black text-[#8B857C]" type="button">편집</button> : null}
         </div>
         {routeStops.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#D8D4CC] bg-white p-5 text-center">
@@ -638,13 +694,13 @@ function CourseRouteDrawer({
               상세 페이지에서 저장한 장소와 쪽지를 차례로 담아보세요.
             </p>
           </div>
-        ) : routeStops.map((stop) => (
+        ) : routeStops.map((stop, index) => (
           <StopTimelineItem
             isActive={stop.id === activeStopId}
             key={stop.id}
             onSelect={() => setActiveStopId(stop.id)}
+            order={index + 1}
             stop={stop}
-            totalStops={routeStops.length}
           />
         ))}
       </div>
@@ -655,17 +711,17 @@ function CourseRouteDrawer({
 function StopTimelineItem({
   isActive,
   onSelect,
+  order,
   stop,
-  totalStops,
 }: {
   isActive: boolean;
   onSelect: () => void;
+  order: number;
   stop: CourseStop;
-  totalStops: number;
 }) {
   return (
     <div
-      className="grid w-full cursor-pointer grid-cols-[58px_1fr] gap-2"
+      className="w-full cursor-pointer"
       data-stop-id={stop.id}
       onClick={onSelect}
       onKeyDown={(event) => {
@@ -677,36 +733,41 @@ function StopTimelineItem({
       role="button"
       tabIndex={0}
     >
-      <div className="relative flex min-h-[72px] flex-col items-center pt-2">
-        <span
-          className={`absolute left-1/2 w-px -translate-x-1/2 bg-[#DEDCD6] ${
-            stop.id === 1 ? "top-[-14px]" : "top-[-26px]"
-          } ${stop.id < totalStops ? "bottom-[-18px]" : "bottom-9"}`}
-        />
-        {stop.distanceFromPrevious ? (
-          <span className="absolute top-[-26px] z-10 rounded-md border border-[#E4E1DA] bg-white px-2 py-0.5 text-[0.7rem] font-black text-[#5F5A54] shadow-[0_4px_12px_rgba(31,38,35,0.04)]">
+      {stop.distanceFromPrevious ? (
+        <div className="mb-2 flex items-center justify-center gap-2 text-[0.7rem] font-black text-[#8B857C]">
+          <span className="h-px w-10 bg-[#DEDAD2]" />
+          <span className="rounded-full bg-white px-2.5 py-1 shadow-[0_4px_12px_rgba(31,38,35,0.04)]">
             {stop.distanceFromPrevious}
           </span>
-        ) : null}
-        <span
-          className={`z-10 grid size-8 place-items-center rounded-full text-sm font-black ${accentClass[stop.accent]}`}
-        >
-          {stop.id}
-        </span>
-      </div>
-
+          <span className="h-px w-10 bg-[#DEDAD2]" />
+        </div>
+      ) : null}
       <article
-        className={`mb-3 rounded-xl bg-white px-3.5 py-3 shadow-[0_8px_18px_rgba(31,38,35,0.05)] transition ${
-          isActive ? "ring-2 ring-[#7957F2]/20" : ""
+        className={`mb-5 rounded-[22px] bg-white p-3.5 shadow-[0_12px_28px_rgba(31,38,35,0.07)] transition ${
+          isActive ? "ring-2 ring-[#FD4003]/20" : ""
         }`}
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-4">
+          <img
+            alt=""
+            className="size-[86px] flex-none rounded-[18px] object-cover"
+            loading="lazy"
+            src={stop.imageUrl}
+          />
           <div className="min-w-0 flex-1">
-            <h3 className="m-0 truncate text-[0.98rem] font-black text-[#272727]">
-              {stop.title}
-            </h3>
-            <p className="mt-0.5 mb-0 text-xs font-bold text-[#9A958E]">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid size-9 flex-none place-items-center rounded-full bg-[#FD4003] text-base font-black text-white">
+                {order}
+              </span>
+              <h3 className="m-0 truncate text-[1.15rem] font-black text-[#111111]">
+                {stop.title}
+              </h3>
+            </div>
+            <p className="mt-2 mb-0 truncate text-sm font-black text-[#807A73]">
               {stop.category}
+            </p>
+            <p className="mt-1.5 mb-0 line-clamp-2 text-sm leading-snug font-bold text-[#716C65]">
+              {stop.description}
             </p>
           </div>
           <button
@@ -722,13 +783,6 @@ function StopTimelineItem({
     </div>
   );
 }
-
-const friends = [
-  { name: "지우", note: "망원 산책 메이트", color: "bg-[#FFE1D5]" },
-  { name: "민서", note: "카페 취향이 비슷해요", color: "bg-[#DDEADB]" },
-  { name: "도윤", note: "맛집을 잘 찾아요", color: "bg-[#E2E0F8]" },
-  { name: "하린", note: "사진 명소를 좋아해요", color: "bg-[#F6E7C9]" },
-];
 
 function sortedCourseItems(course: CourseResponse) {
   return [...course.items].sort((a, b) => a.position - b.position);
@@ -756,13 +810,19 @@ function toDisplayRouteStops(course: CourseResponse): CourseStop[] {
         lat: base.lat + index * 0.0018 + (index % 2) * 0.001,
         lng: base.lng + index * 0.0022 - (index % 2) * 0.001,
       },
+      description:
+        item.memo?.trim() ||
+        course.description?.trim() ||
+        `${course.regionName ?? "이 동네"}에서 이어지는 추천 코스예요.`,
       distanceFromPrevious:
         index === 0
           ? undefined
           : segment
             ? `${Math.max(1, Math.round(segment.distanceMeters))}m`
             : `${320 + index * 110}m`,
+      imageUrl: course.coverImageUrl || fallbackStop.imageUrl || fallbackCourseImage,
       location: course.regionName ?? fallbackStop.location,
+      sourceItem: item,
       title: item.title?.trim() || `${getCourseItemTypeLabel(item)} ${index + 1}`,
     };
   });
@@ -800,7 +860,9 @@ export function CourseDetailPage() {
   const [searchParams] = useSearchParams();
   const authUserQuery = useAuthUser();
   const userId = authUserQuery.data?.id;
-  const [savedCourse] = useState(() => getSavedCourse(courseId));
+  const [savedCourse, setSavedCourse] = useState<SavedCourse | undefined>(() =>
+    getSavedCourse(courseId),
+  );
   const [apiCourse, setApiCourse] = useState<CourseResponse | null>(
     () => getCachedApiCourse(courseId) ?? null,
   );
@@ -821,19 +883,26 @@ export function CourseDetailPage() {
         accent: (["violet", "coral", "mint"] as const)[index % 3],
         category: `${stop.category} · ${savedCourse.area}`,
         coordinates: { lat: stop.lat, lng: stop.lng },
+        description: stop.description,
         distanceFromPrevious: index === 0 ? undefined : `${320 + index * 110}m`,
+        imageUrl: stop.imageUrl || fallbackCourseImage,
         location: savedCourse.area,
         title: stop.title,
-      })) ?? defaultStops,
+      })) ?? [],
     [apiCourse, savedCourse],
   );
   const courseTitle = apiCourse?.title ?? savedCourse?.title ?? "망원 하루 코스";
   const companion = savedCourse?.companion ?? "내 일정";
-  const dateLabel = savedCourse?.date
-    ? savedCourse.date.replace(/-/g, ".")
+  const apiDate = apiCourse?.description?.match(/^\d{4}-\d{2}-\d{2}$/)
+    ? apiCourse.description
+    : undefined;
+  const dateLabel = savedCourse?.date || apiDate
+    ? (savedCourse?.date ?? apiDate ?? "").replace(/-/g, ".")
     : "날짜 미정";
   const styleLabel =
-    apiCourse?.description?.trim() ||
+    (apiCourse?.description?.match(/^\d{4}-\d{2}-\d{2}$/)
+      ? ""
+      : apiCourse?.description?.trim()) ||
     apiCourse?.regionName ||
     savedCourse?.styles.join(" · ") ||
     "로컬 산책";
@@ -841,6 +910,7 @@ export function CourseDetailPage() {
   const [drawerCoverOffset, setDrawerCoverOffset] = useState(0);
   const [headerOffset, setHeaderOffset] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [optimizeOpen, setOptimizeOpen] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -848,8 +918,53 @@ export function CourseDetailPage() {
     null,
   );
   const [mapOpen, setMapOpen] = useState(false);
+  const [placePickerOpen, setPlacePickerOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState(courseTitle);
+  const [editDate, setEditDate] = useState(savedCourse?.date ?? apiDate ?? "");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isAddingPoint, setIsAddingPoint] = useState(false);
+  const [isCopyingCourse, setIsCopyingCourse] = useState(false);
+  const [copyTargetId, setCopyTargetId] = useState("");
+  const [copyNewTitle, setCopyNewTitle] = useState("");
+  const [copySavedCourses, setCopySavedCourses] = useState(() => getSavedCourses());
   const [notice, setNotice] = useState("");
-  const [selectedFriends, setSelectedFriends] = useState(savedCourse?.collaborators ?? []);
+  const [selectedFriends, setSelectedFriends] = useState(
+    savedCourse?.collaborators ?? [],
+  );
+  const friendsQuery = useQuery({
+    enabled: friendsOpen,
+    queryFn: getServiceFriends,
+    queryKey: ["friends"],
+  });
+  const myCoursesQuery = useQuery({
+    enabled: copyOpen,
+    queryFn: getMyCourses,
+    queryKey: ["courses", "me", "copy-targets"],
+    retry: 1,
+  });
+  const copyTargets = useMemo(() => {
+    const apiTargets = (myCoursesQuery.data ?? [])
+      .filter((course) => course.id !== apiCourse?.id)
+      .map((course) => ({
+        id: `api:${course.id}`,
+        meta: `${course.regionName ?? "동네"} · ${course.items.length}곳`,
+        title: course.title,
+        type: "api" as const,
+        value: course,
+      }));
+    const localTargets = copySavedCourses
+      .filter((course) => course.id !== savedCourse?.id)
+      .map((course) => ({
+        id: `local:${course.id}`,
+        meta: `${course.area} · ${course.stops.length}곳`,
+        title: course.title,
+        type: "local" as const,
+        value: course,
+      }));
+
+    return [...apiTargets, ...localTargets];
+  }, [apiCourse?.id, copySavedCourses, myCoursesQuery.data, savedCourse?.id]);
   const headerHeight = HEADER_EXPANDED_HEIGHT - headerOffset;
   const drawerTop = DRAWER_COLLAPSED_TOP - drawerCoverOffset;
   const isHeaderCompact = headerOffset > 0;
@@ -895,42 +1010,157 @@ export function CourseDetailPage() {
     }
   }, [activeStopId, routeStops]);
 
+  useEffect(() => {
+    setEditTitle(courseTitle);
+    setEditDate(savedCourse?.date ?? apiDate ?? "");
+  }, [apiDate, courseTitle, savedCourse?.date]);
+
+  useEffect(() => {
+    if (!copyOpen) return;
+
+    setCopySavedCourses(getSavedCourses());
+    setCopyTargetId("");
+    setCopyNewTitle(`${courseTitle} 복사`);
+  }, [copyOpen, courseTitle]);
+
   function showNotice(message: string) {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2200);
   }
 
-  function saveAsImage() {
+  async function saveCourseEdit() {
+    if (!canEditCourse || isSavingEdit) return;
+
+    const title = editTitle.trim();
+    if (!title) {
+      showNotice("코스 제목을 입력해주세요.");
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      if (apiCourse) {
+        const updated = await updateCourse(apiCourse.id, {
+          ...toCourseUpdateRequest(apiCourse),
+          description: editDate || undefined,
+          title,
+        });
+        setApiCourse(updated);
+      } else if (savedCourse) {
+        updateCourseDetails(savedCourse.id, {
+          date: editDate || undefined,
+          title,
+        });
+        setSavedCourse(getSavedCourse(savedCourse.id));
+      }
+      setEditOpen(false);
+      showNotice("코스 정보를 수정했어요.");
+    } catch {
+      showNotice("코스 정보를 저장하지 못했어요.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
+
+  async function saveAsImage() {
     const width = 1080;
-    const height = Math.max(1500, 620 + routeStops.length * 150);
-    const stopRows = routeStops
-      .map((stop, index) => {
-        const y = 560 + index * 150;
-        return `<circle cx="152" cy="${y}" r="34" fill="#1F3D35"/><text x="152" y="${y + 12}" text-anchor="middle" font-size="32" font-weight="900" fill="#fff">${index + 1}</text><text x="220" y="${y - 8}" font-size="34" font-weight="900" fill="#242424">${escapeSvg(stop.title)}</text><text x="220" y="${y + 42}" font-size="24" font-weight="700" fill="#777">${escapeSvg(stop.category)}</text>${
-          index < routeStops.length - 1
-            ? `<line x1="152" y1="${y + 42}" x2="152" y2="${y + 116}" stroke="#D7D2C8" stroke-width="8" stroke-linecap="round"/>`
-            : ""
-        }`;
-      })
-      .join("");
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#F7F5F0"/><rect x="70" y="70" width="940" height="${height - 140}" rx="44" fill="white"/><text x="130" y="190" font-size="34" font-weight="800" fill="#FD4003">곳곳 COURSE</text><text x="130" y="290" font-size="64" font-weight="900" fill="#1F3D35">${escapeSvg(courseTitle)}</text><text x="130" y="350" font-size="28" font-weight="800" fill="#777">${escapeSvg(`${dateLabel} · ${companion}`)}</text><text x="130" y="402" font-size="28" font-weight="800" fill="#777">${escapeSvg(styleLabel)}</text><text x="130" y="490" font-size="30" font-weight="900" fill="#242424">여행지 리스트</text>${stopRows}</svg>`;
-    const image = new Image();
-    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    const headerHeight = 350;
+    const cardHeight = 205;
+    const cardGap = 34;
+    const height = Math.max(
+      1500,
+      headerHeight + routeStops.length * (cardHeight + cardGap) + 150,
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    const drawingContext = context;
 
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-      if (!context) return;
+    async function render(includeImages: boolean) {
+      const images = includeImages
+        ? await Promise.all(routeStops.map((stop) => loadCanvasImage(stop.imageUrl)))
+        : routeStops.map(() => null);
 
-      context.drawImage(image, 0, 0);
-      const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png");
-      link.download = `${courseTitle}.png`;
-      link.click();
-    };
-    image.src = url;
+      drawingContext.clearRect(0, 0, width, height);
+      drawingContext.fillStyle = "#F7F5F0";
+      drawingContext.fillRect(0, 0, width, height);
+      drawingContext.fillStyle = "#111111";
+      drawingContext.font = "900 58px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+      drawingContext.fillText(courseTitle, 72, 116);
+      drawingContext.fillStyle = "#FD4003";
+      drawingContext.font = "900 28px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+      drawingContext.fillText("곳곳 COURSE", 72, 165);
+      drawingContext.fillStyle = "#746F67";
+      drawingContext.font = "800 28px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+      drawingContext.fillText(`${dateLabel} · ${companion}`, 72, 215);
+      drawWrappedText(drawingContext, styleLabel, 72, 260, 900, 34, 2);
+
+      routeStops.forEach((stop, index) => {
+        const y = headerHeight + index * (cardHeight + cardGap);
+        const cardX = 62;
+        const cardY = y;
+        const cardWidth = width - cardX * 2;
+        const imageX = cardX + 28;
+        const imageY = cardY + 28;
+        const imageSize = 150;
+
+        if (stop.distanceFromPrevious) {
+          drawingContext.fillStyle = "#DEDAD2";
+          drawingContext.fillRect(width / 2 - 124, cardY - 18, 248, 4);
+          drawRoundRect(drawingContext, width / 2 - 62, cardY - 33, 124, 34, 17, "#FFFFFF");
+          drawingContext.fillStyle = "#8B857C";
+          drawingContext.font = "900 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+          drawingContext.textAlign = "center";
+          drawingContext.fillText(stop.distanceFromPrevious, width / 2, cardY - 10);
+          drawingContext.textAlign = "start";
+        }
+
+        drawRoundRect(drawingContext, cardX, cardY, cardWidth, cardHeight, 34, "#FFFFFF");
+        drawRoundRect(drawingContext, imageX, imageY, imageSize, imageSize, 24, "#E7E3DC");
+
+        const image = images[index];
+        if (image) {
+          drawingContext.save();
+          clipRoundRect(drawingContext, imageX, imageY, imageSize, imageSize, 24);
+          drawCoverImage(drawingContext, image, imageX, imageY, imageSize, imageSize);
+          drawingContext.restore();
+        }
+
+        const textX = imageX + imageSize + 34;
+        const numberX = textX;
+        const numberY = cardY + 62;
+        drawingContext.beginPath();
+        drawingContext.arc(numberX + 24, numberY, 24, 0, Math.PI * 2);
+        drawingContext.fillStyle = "#FD4003";
+        drawingContext.fill();
+        drawingContext.fillStyle = "#FFFFFF";
+        drawingContext.font = "900 28px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+        drawingContext.textAlign = "center";
+        drawingContext.fillText(String(index + 1), numberX + 24, numberY + 10);
+        drawingContext.textAlign = "start";
+
+        drawingContext.fillStyle = "#111111";
+        drawingContext.font = "900 38px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+        drawSingleLineText(drawingContext, stop.title, textX + 68, numberY + 11, 550);
+        drawingContext.fillStyle = "#807A73";
+        drawingContext.font = "900 27px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+        drawSingleLineText(drawingContext, stop.category, textX, cardY + 120, 660);
+        drawingContext.fillStyle = "#716C65";
+        drawingContext.font = "800 26px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+        drawWrappedText(drawingContext, stop.description, textX, cardY + 158, 660, 32, 2);
+      });
+    }
+
+    try {
+      await render(true);
+      downloadCanvas(canvas, courseTitle);
+    } catch {
+      await render(false);
+      downloadCanvas(canvas, courseTitle);
+    }
+
     setShareOpen(false);
     showNotice("긴 일정 이미지로 저장했어요.");
   }
@@ -939,16 +1169,110 @@ export function CourseDetailPage() {
     if (!canEditCourse) return;
     if (savedCourse) updateCourseCollaborators(savedCourse.id, selectedFriends);
     setFriendsOpen(false);
-    showNotice(`${selectedFriends.length}명에게 보기 권한을 공유했어요.`);
+    showNotice(
+      selectedFriends.length > 0
+        ? `${selectedFriends.length}명에게 공유 요청을 보냈어요. 친구가 알림에서 수락하면 볼 수 있어요.`
+        : "공유 요청을 보내지 않았어요.",
+    );
   }
 
-  function addPublicCourseToMine() {
-    if (!apiCourse) return;
+  async function addPointToCourse(point: MapPoint) {
+    if (!canEditCourse || isAddingPoint) return;
 
+    setIsAddingPoint(true);
+    try {
+      if (apiCourse) {
+        const numericId = getNumericPointId(point.id);
+        const updated = await appendCourseItem(apiCourse.id, {
+          attractionId: point.kind === "place" ? numericId ?? undefined : undefined,
+          day: 1,
+          itemType: point.kind === "place" ? "ATTRACTION" : "NOTE",
+          memo: point.kind === "spot" ? point.source.body : undefined,
+          noteId: point.kind === "spot" ? numericId ?? undefined : undefined,
+          stayMinutes: 60,
+        });
+        setApiCourse(updated);
+      } else if (savedCourse) {
+        appendCourseStop(savedCourse.id, toSavedCourseStop(point));
+        setSavedCourse(getSavedCourse(savedCourse.id));
+      }
+
+      setPlacePickerOpen(false);
+      showNotice(`${point.name}을(를) 코스 맨 뒤에 추가했어요.`);
+    } catch {
+      if (savedCourse) {
+        appendCourseStop(savedCourse.id, toSavedCourseStop(point));
+        setSavedCourse(getSavedCourse(savedCourse.id));
+        setPlacePickerOpen(false);
+        showNotice(`${point.name}을(를) 코스 맨 뒤에 추가했어요.`);
+        return;
+      }
+
+      showNotice("코스에 추가하지 못했어요.");
+    } finally {
+      setIsAddingPoint(false);
+    }
+  }
+
+  async function addPublicCourseToTarget() {
+    if (!apiCourse || !copyTargetId || isCopyingCourse) return;
+
+    const target = copyTargets.find((course) => course.id === copyTargetId);
+    if (!target) return;
+
+    setIsCopyingCourse(true);
+    try {
+      if (target.type === "api") {
+        const request = appendStopsToCourseRequest(target.value, routeStops);
+        if (request.items.length <= target.value.items.length) {
+          showNotice("담을 수 있는 실제 장소 ID가 부족해요.");
+          return;
+        }
+
+        await updateCourse(target.value.id, request);
+      } else {
+        appendCourseStops(target.value.id, toSavedStops(routeStops));
+        setCopySavedCourses(getSavedCourses());
+      }
+
+      setCopyOpen(false);
+      showNotice(`${target.title}에 ${routeStops.length}곳을 담았어요.`);
+    } catch {
+      showNotice("선택한 코스에 담지 못했어요.");
+    } finally {
+      setIsCopyingCourse(false);
+    }
+  }
+
+  async function createCourseFromPublicCourse() {
+    if (!apiCourse || isCopyingCourse) return;
+
+    const title = copyNewTitle.trim() || `${courseTitle} 복사`;
     const localId = `mine-${apiCourse.id}-${Date.now()}`;
+    setIsCopyingCourse(true);
+
+    try {
+      const request = createCourseRequestFromStops({
+        id: localId,
+        sourceCourse: apiCourse,
+        stops: routeStops,
+        title,
+      });
+
+      if (request) {
+        const course = await createCourse(request);
+        setCopyOpen(false);
+        showNotice("새 내 코스로 담았어요.");
+        navigate(`/course/${course.id}`, { replace: true });
+        return;
+      }
+    } catch {
+      // Fall back to local storage below.
+    }
+
     saveCourse({
       id: localId,
-      title: apiCourse.title,
+      title,
       area: apiCourse.regionName ?? "미정",
       companion: "내 일정",
       date: undefined,
@@ -956,20 +1280,12 @@ export function CourseDetailPage() {
       pace: "날짜 미정",
       savedAt: new Date().toISOString(),
       collaborators: [],
-      stops: routeStops.map((stop, index) => ({
-        id: index + 1,
-        title: stop.title,
-        category: stop.category.split(" · ")[0] ?? "장소",
-        description: stop.category,
-        imageUrl:
-          apiCourse.coverImageUrl ??
-          "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80",
-        lat: stop.coordinates.lat,
-        lng: stop.coordinates.lng,
-      })),
+      stops: toSavedStops(routeStops),
     });
-    showNotice("내 코스에 추가했어요.");
+    setCopyOpen(false);
+    showNotice("새 내 코스로 담았어요.");
     navigate(`/course/${localId}`, { replace: true });
+    setIsCopyingCourse(false);
   }
 
   async function openOptimizeSheet() {
@@ -1015,7 +1331,6 @@ export function CourseDetailPage() {
     <div className="flex items-center gap-1">
       <button aria-label="일정 이미지 저장" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setShareOpen(true)} type="button"><Download size={23} /></button>
       <button aria-label="전체 지도 보기" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setMapOpen(true)} type="button"><MapIcon size={24} /></button>
-      {canEditCourse ? <button aria-label="일행과 함께 일정 짜기" className="grid size-10 place-items-center rounded-full border-0 bg-transparent text-[#333]" onClick={() => setFriendsOpen(true)} type="button"><UsersRound size={24} /></button> : null}
     </div>
   );
 
@@ -1029,18 +1344,17 @@ export function CourseDetailPage() {
               {actionButtons}
             </header>
             <div className="mt-5">
-              <div className="flex items-end gap-2"><h1 className="m-0 truncate text-[1.85rem] leading-tight font-black text-[#333]">{courseTitle}</h1>{canEditCourse ? <button className="mb-1 border-0 bg-transparent p-0 text-base font-black text-[#9A958E]" type="button">편집</button> : null}</div>
+              <div className="flex items-end gap-2"><h1 className="m-0 truncate text-[1.85rem] leading-tight font-black text-[#333]">{courseTitle}</h1>{canEditCourse ? <button className="mb-1 border-0 bg-transparent p-0 text-base font-black text-[#9A958E]" onClick={() => setEditOpen(true)} type="button">편집</button> : null}</div>
               <p className="mt-1.5 mb-0 text-lg font-black text-[#777]">{dateLabel}</p>
               <p className="mt-1.5 mb-0 truncate text-base font-bold text-[#777]">{companion} | {styleLabel}</p>
             </div>
             {canEditCourse ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white" onClick={() => navigate(`/map?mode=course-add&courseId=${encodeURIComponent(courseId)}&filter=saved`)} type="button"><Plus size={20} />장소 추가하기</button>
+              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white" onClick={() => setPlacePickerOpen(true)} type="button"><Plus size={20} />장소 추가하기</button>
               <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full border border-[#D9E5DC] bg-[#EDF5EF] px-4 text-sm font-black text-[#1F3D35]" onClick={() => setFriendsOpen(true)} type="button"><UserPlus size={18} />일행과 함께 일정 짜기</button>
             </div> : apiCourse?.visibility === "PUBLIC" ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white" onClick={addPublicCourseToMine} type="button"><Plus size={18} />내 코스에 추가</button>
+              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-black text-white" onClick={() => setCopyOpen(true)} type="button"><Plus size={18} />내 코스에 추가</button>
               <span className="inline-flex h-10 flex-none items-center rounded-full bg-[#F3F3F3] px-3 text-xs font-black text-[#777]">탐색한 코스</span>
             </div> : <div className="mt-5 inline-flex rounded-full bg-[#F3F3F3] px-3 py-2 text-xs font-black text-[#777]">보기 전용 일정</div>}
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1"><button className="inline-flex h-9 flex-none items-center gap-1.5 rounded-full bg-[#F3F3F3] px-4 text-sm font-black text-[#777]"><Plane size={17} />교통</button><button className="inline-flex h-9 flex-none items-center gap-1.5 rounded-full bg-[#F3F3F3] px-4 text-sm font-black text-[#777]"><WalletCards size={17} />예산</button><button className="inline-flex h-9 flex-none items-center gap-1.5 rounded-full bg-[#F3F3F3] px-4 text-sm font-black text-[#777]"><ReceiptText size={17} />체크리스트</button></div>
           </div>
 
           <div className="absolute inset-x-0 top-0 z-10 bg-white px-5 pt-[calc(10px+env(safe-area-inset-top))] pb-3" style={{ opacity: isHeaderCompact ? 1 : 0, pointerEvents: isHeaderCompact ? "auto" : "none" }}>
@@ -1057,12 +1371,107 @@ export function CourseDetailPage() {
       {mapOpen ? <section className="fixed inset-0 z-[70] mx-auto flex w-full max-w-[430px] flex-col bg-white text-[#171717]">
         <header className="flex items-center gap-3 px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-4"><button aria-label="지도 닫기" className="grid size-10 place-items-center rounded-full border-0 bg-[#F4F2EE]" onClick={() => setMapOpen(false)} type="button"><X size={21} /></button><div className="min-w-0 flex-1"><h2 className="m-0 truncate text-lg font-black">{courseTitle}</h2><p className="mt-0.5 mb-0 text-xs font-bold text-[#8B857C]">장소를 넘기며 동선을 확인해보세요</p></div></header>
         <CourseRouteMap activeStopId={activeStopId} className="min-h-0 flex-1" routeStops={routeStops} />
-        <div className="flex flex-none snap-x gap-3 overflow-x-auto bg-white px-5 py-4 pb-[calc(18px+env(safe-area-inset-bottom))]">{routeStops.map((stop, index) => <button className={`flex w-[78%] flex-none snap-center items-center gap-3 rounded-2xl border p-3 text-left ${activeStopId === stop.id ? "border-[#1F3D35] bg-[#EEF4EF]" : "border-[#E7E3DC] bg-white"}`} key={stop.id} onClick={() => setActiveStopId(stop.id)} type="button"><span className="grid size-9 flex-none place-items-center rounded-full bg-[#1F3D35] text-sm font-black text-white">{index + 1}</span><span className="min-w-0"><strong className="block truncate text-sm font-black">{stop.title}</strong><span className="mt-1 block truncate text-xs font-bold text-[#8B857C]">{stop.category}</span></span></button>)}</div>
+        <div className="flex flex-none snap-x gap-3 overflow-x-auto bg-white px-5 py-4 pb-[calc(18px+env(safe-area-inset-bottom))]">{routeStops.length > 0 ? routeStops.map((stop, index) => <button className={`flex w-[78%] flex-none snap-center items-center gap-3 rounded-2xl border p-3 text-left ${activeStopId === stop.id ? "border-[#1F3D35] bg-[#EEF4EF]" : "border-[#E7E3DC] bg-white"}`} key={stop.id} onClick={() => setActiveStopId(stop.id)} type="button"><span className="grid size-9 flex-none place-items-center rounded-full bg-[#1F3D35] text-sm font-black text-white">{index + 1}</span><span className="min-w-0"><strong className="block truncate text-sm font-black">{stop.title}</strong><span className="mt-1 block truncate text-xs font-bold text-[#8B857C]">{stop.category}</span></span></button>) : <p className="m-0 w-full text-center text-sm font-black text-[#8B857C]">아직 추가한 장소가 없어요.</p>}</div>
       </section> : null}
+
+      {placePickerOpen ? (
+        <CoursePlacePickerOverlay
+          isAdding={isAddingPoint}
+          onClose={() => setPlacePickerOpen(false)}
+          onConfirm={addPointToCourse}
+        />
+      ) : null}
+
+      <BottomSheet isOpen={copyOpen} onClose={() => setCopyOpen(false)} title="내 코스에 추가">
+        <div className="grid gap-5">
+          <section>
+            <div className="flex items-center justify-between gap-3">
+              <strong className="text-sm font-black text-[#24211E]">기존 코스에 담기</strong>
+              <span className="text-xs font-black text-[#FD4003]">{routeStops.length}곳</span>
+            </div>
+            <div className="mt-3 grid max-h-64 gap-2 overflow-y-auto pr-1">
+              {myCoursesQuery.isLoading ? (
+                <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">
+                  내 코스를 불러오는 중이에요.
+                </p>
+              ) : copyTargets.length === 0 ? (
+                <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">
+                  아직 담을 수 있는 내 코스가 없어요.
+                </p>
+              ) : (
+                copyTargets.map((target) => {
+                  const selected = copyTargetId === target.id;
+
+                  return (
+                    <button
+                      className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left ${
+                        selected
+                          ? "border-[#1F3D35] bg-[#F0F5F1]"
+                          : "border-[#EBE7E0] bg-white"
+                      }`}
+                      key={target.id}
+                      onClick={() => setCopyTargetId(target.id)}
+                      type="button"
+                    >
+                      <span className="grid size-10 flex-none place-items-center rounded-full bg-[#FFF0EA] text-sm font-black text-[#FD4003]">
+                        {target.type === "api" ? "API" : "내"}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-sm font-black text-[#24211E]">
+                          {target.title}
+                        </strong>
+                        <span className="mt-1 block truncate text-xs font-bold text-[#928C84]">
+                          {target.meta}
+                        </span>
+                      </span>
+                      {selected ? (
+                        <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white">
+                          <CheckSquare size={15} />
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <button
+              className="mt-3 min-h-13 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]"
+              disabled={!copyTargetId || isCopyingCourse}
+              onClick={addPublicCourseToTarget}
+              type="button"
+            >
+              {isCopyingCourse ? "담는 중..." : "선택한 코스에 담기"}
+            </button>
+          </section>
+
+          <section className="border-t border-[#EEEAE3] pt-5">
+            <strong className="text-sm font-black text-[#24211E]">새 코스로 담기</strong>
+            <label className="mt-3 grid gap-2 text-xs font-black text-[#8B857C]">
+              코스 이름
+              <input
+                className="min-h-13 rounded-2xl border border-[#E5E1DA] px-4 text-sm font-semibold text-[#24211E] outline-none focus:border-[#1F3D35]"
+                maxLength={30}
+                onChange={(event) => setCopyNewTitle(event.target.value)}
+                value={copyNewTitle}
+              />
+            </label>
+            <button
+              className="mt-3 min-h-13 w-full rounded-2xl border-0 bg-[#FD4003] font-black text-white disabled:bg-[#F1C4B3]"
+              disabled={isCopyingCourse || routeStops.length === 0}
+              onClick={createCourseFromPublicCourse}
+              type="button"
+            >
+              {isCopyingCourse ? "새 코스 만드는 중..." : "새 코스 만들어 담기"}
+            </button>
+          </section>
+        </div>
+      </BottomSheet>
 
       <BottomSheet isOpen={shareOpen} onClose={() => setShareOpen(false)} title="일정 저장하기"><div className="grid gap-3"><button className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#E9E5DE] bg-white px-4 text-left" onClick={saveAsImage} type="button"><span className="grid size-11 place-items-center rounded-xl bg-[#EEF4EF] text-[#1F3D35]"><Download size={21} /></span><span><strong className="block text-sm font-black">긴 일정 이미지로 저장하기</strong><span className="mt-1 block text-xs font-bold text-[#8B857C]">AI 코스 추천 결과처럼 전체 리스트를 세로 이미지로 저장해요</span></span></button></div></BottomSheet>
 
-      <BottomSheet isOpen={friendsOpen} onClose={() => setFriendsOpen(false)} title="친구에게 코스 공유"><p className="mt-0 text-sm font-bold text-[#8B857C]">서비스 안에서 맺어진 친구에게만 공유돼요. 코스장인 나만 편집할 수 있고, 친구는 보기 전용으로 확인해요.</p><div className="mt-4 grid gap-2">{friends.map((friend) => { const selected = selectedFriends.includes(friend.name); return <button className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left ${selected ? "border-[#1F3D35] bg-[#F0F5F1]" : "border-[#EBE7E0] bg-white"}`} key={friend.name} onClick={() => setSelectedFriends((current) => selected ? current.filter((name) => name !== friend.name) : [...current, friend.name])} type="button"><span className={`grid size-11 place-items-center rounded-full text-sm font-black ${friend.color}`}>{friend.name[0]}</span><span className="min-w-0 flex-1"><strong className="block font-black">{friend.name}</strong><span className="mt-1 block text-xs font-bold text-[#928C84]">{friend.note} · 보기 전용</span></span>{selected ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><CheckSquare size={15} /></span> : null}</button>; })}</div><button className="mt-5 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white" onClick={saveFriends} type="button">{selectedFriends.length > 0 ? `${selectedFriends.length}명에게 공유` : "공유하지 않기"}</button></BottomSheet>
+      <BottomSheet isOpen={editOpen} onClose={() => setEditOpen(false)} title="코스 정보 편집"><div className="grid gap-4"><label className="grid gap-2 text-sm font-black text-[#24211E]">코스 제목<input className="min-h-13 rounded-2xl border border-[#E5E1DA] px-4 font-semibold outline-none focus:border-[#1F3D35]" maxLength={30} onChange={(event) => setEditTitle(event.target.value)} value={editTitle} /></label><label className="grid gap-2 text-sm font-black text-[#24211E]">날짜<input className="min-h-13 rounded-2xl border border-[#E5E1DA] px-4 font-semibold outline-none focus:border-[#1F3D35]" onChange={(event) => setEditDate(event.target.value)} type="date" value={editDate} /></label><button className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={isSavingEdit || !editTitle.trim()} onClick={saveCourseEdit} type="button">{isSavingEdit ? "저장 중..." : "저장하기"}</button></div></BottomSheet>
+
+      <BottomSheet isOpen={friendsOpen} onClose={() => setFriendsOpen(false)} title="친구에게 코스 공유"><p className="mt-0 text-sm font-bold text-[#8B857C]">서비스 안에서 이미 친구가 된 사람에게만 공유 요청을 보낼 수 있어요. 친구가 알림에서 수락해야 코스를 볼 수 있고, 수락 후에도 수정은 코스장인 나만 할 수 있어요.</p><div className="mt-4 grid gap-2">{friendsQuery.isLoading ? <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">친구 목록을 불러오는 중이에요.</p> : (friendsQuery.data ?? []).length === 0 ? <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">아직 공유할 수 있는 친구가 없어요.</p> : (friendsQuery.data ?? []).map((friend) => { const selected = selectedFriends.includes(friend.userId); return <button className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left ${selected ? "border-[#1F3D35] bg-[#F0F5F1]" : "border-[#EBE7E0] bg-white"}`} key={friend.userId} onClick={() => setSelectedFriends((current) => selected ? current.filter((userId) => userId !== friend.userId) : [...current, friend.userId])} type="button"><span className="grid size-11 place-items-center rounded-full bg-[#DDEADB] text-sm font-black text-[#1F3D35]">{friend.displayName.slice(0, 1).toUpperCase() || "?"}</span><span className="min-w-0 flex-1"><strong className="block truncate font-black">{friend.displayName}</strong><span className="mt-1 block truncate text-xs font-bold text-[#928C84]">{friend.email ?? "서비스 친구"} · 수락 후 보기 전용</span></span>{selected ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><CheckSquare size={15} /></span> : null}</button>; })}</div><button className="mt-5 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={friendsQuery.isLoading} onClick={saveFriends} type="button">{selectedFriends.length > 0 ? `${selectedFriends.length}명에게 공유 요청 보내기` : "공유하지 않기"}</button></BottomSheet>
 
       <BottomSheet isOpen={optimizeOpen} onClose={() => setOptimizeOpen(false)} title="AI 동선 정리"><div className="rounded-2xl bg-[#EEF4EF] p-4"><div className="flex items-center gap-2 text-[#1F3D35]"><WandSparkles size={21} /><strong className="font-black">{isOptimizing ? "AI가 동선을 계산하고 있어요" : apiCourse ? "서버 추천 동선을 불러왔어요" : "걷는 시간을 약 18분 줄일 수 있어요"}</strong></div><p className="mt-2 mb-0 text-sm leading-relaxed font-semibold text-[#667069]">{apiCourse ? "적용하면 추천 순서를 내 코스에 저장해요." : "가까운 장소끼리 묶고 마지막 장소가 대중교통과 이어지도록 순서를 정리했어요."}</p></div><div className="mt-4 flex flex-wrap items-center gap-2">{(optimizedCourse ? toDisplayRouteStops(optimizedCourse) : routeStops).map((stop, index) => <span className="inline-flex items-center gap-1 text-xs font-black text-[#5D5852]" key={stop.id}><span className="grid size-6 place-items-center rounded-full bg-[#FD4003] text-white">{index + 1}</span>{stop.title}{index < routeStops.length - 1 ? <ChevronRight size={14} className="text-[#AAA49B]" /> : null}</span>)}</div><button className="mt-6 min-h-14 w-full rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#D8D4CC]" disabled={isOptimizing} onClick={applyOptimizedOrder} type="button">{isOptimizing ? "추천 받는 중..." : "이 순서로 적용하기"}</button></BottomSheet>
 
@@ -1071,10 +1480,735 @@ export function CourseDetailPage() {
   );
 }
 
-function escapeSvg(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function drawRoundRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  fillStyle: string,
+) {
+  context.save();
+  context.fillStyle = fillStyle;
+  clipRoundRect(context, x, y, width, height, radius);
+  context.fill();
+  context.restore();
+}
+
+function clipRoundRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const nextRadius = Math.min(radius, width / 2, height / 2);
+
+  context.beginPath();
+  context.moveTo(x + nextRadius, y);
+  context.lineTo(x + width - nextRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + nextRadius);
+  context.lineTo(x + width, y + height - nextRadius);
+  context.quadraticCurveTo(
+    x + width,
+    y + height,
+    x + width - nextRadius,
+    y + height,
+  );
+  context.lineTo(x + nextRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - nextRadius);
+  context.lineTo(x, y + nextRadius);
+  context.quadraticCurveTo(x, y, x + nextRadius, y);
+  context.closePath();
+}
+
+function drawCoverImage(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+  const drawWidth = image.naturalWidth * scale;
+  const drawHeight = image.naturalHeight * scale;
+  const drawX = x + (width - drawWidth) / 2;
+  const drawY = y + (height - drawHeight) / 2;
+
+  context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+}
+
+function drawSingleLineText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+) {
+  if (context.measureText(text).width <= maxWidth) {
+    context.fillText(text, x, y);
+    return;
+  }
+
+  let nextText = text;
+  while (nextText.length > 0 && context.measureText(`${nextText}...`).width > maxWidth) {
+    nextText = nextText.slice(0, -1);
+  }
+  context.fillText(`${nextText}...`, x, y);
+}
+
+function drawWrappedText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines: number,
+) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+
+  words.forEach((word) => {
+    const testLine = line ? `${line} ${word}` : word;
+    if (context.measureText(testLine).width <= maxWidth) {
+      line = testLine;
+      return;
+    }
+
+    if (line) lines.push(line);
+    line = word;
+  });
+  if (line) lines.push(line);
+
+  lines.slice(0, maxLines).forEach((nextLine, index) => {
+    const isLastVisibleLine = index === maxLines - 1 && lines.length > maxLines;
+    drawSingleLineText(
+      context,
+      isLastVisibleLine ? `${nextLine}...` : nextLine,
+      x,
+      y + index * lineHeight,
+      maxWidth,
+    );
+  });
+}
+
+function loadCanvasImage(src: string) {
+  return new Promise<HTMLImageElement | null>((resolve) => {
+    if (!src) {
+      resolve(null);
+      return;
+    }
+
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
+}
+
+function downloadCanvas(canvas: HTMLCanvasElement, title: string) {
+  const link = document.createElement("a");
+  link.href = canvas.toDataURL("image/png");
+  link.download = `${title}.png`;
+  link.click();
+}
+
+function CoursePlacePickerOverlay({
+  isAdding,
+  onClose,
+  onConfirm,
+}: {
+  isAdding: boolean;
+  onClose: () => void;
+  onConfirm: (point: MapPoint) => void;
+}) {
+  type PickerTab = "place" | "note";
+  const [query, setQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
+  const [activeTab, setActiveTab] = useState<PickerTab>("place");
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<KakaoMapInstance | null>(null);
+  const markerOverlaysRef = useRef<KakaoCustomOverlay[]>([]);
+  const [mapStatus, setMapStatus] = useState<
+    "loading" | "ready" | "missing-key" | "error"
+  >("loading");
+  const trimmedQuery = query.trim();
+  const isSearching = submittedQuery.length > 0;
+  const exploreQuery = useQuery({
+    queryFn: () =>
+      getMapExplore({
+        coordinates: mapCenter,
+        filter: "ALL",
+        radiusMeters: seoulMapRadiusMeters,
+      }),
+    queryKey: ["course-add-map-explore"],
+    staleTime: 30_000,
+  });
+  const searchQuery = useQuery({
+    enabled: isSearching,
+    queryFn: () =>
+      searchMap({
+        coordinates: mapCenter,
+        keyword: submittedQuery,
+        radiusMeters: seoulMapRadiusMeters,
+        target: "ALL",
+      }),
+    queryKey: ["course-add-map-search", submittedQuery],
+  });
+  const points = useMemo(() => {
+    const data = isSearching ? searchQuery.data : exploreQuery.data;
+    if (!data) return [];
+    return toMapPoints(data.places, data.notes);
+  }, [exploreQuery.data, isSearching, searchQuery.data]);
+  const placePoints = useMemo(
+    () =>
+      points.filter(
+        (point): point is Extract<MapPoint, { kind: "place" }> =>
+          point.kind === "place",
+      ),
+    [points],
+  );
+  const notePoints = useMemo(
+    () =>
+      points.filter(
+        (point): point is Extract<MapPoint, { kind: "spot" }> =>
+          point.kind === "spot",
+      ),
+    [points],
+  );
+  const activePoints = activeTab === "place" ? placePoints : notePoints;
+  const isLoading = isSearching ? searchQuery.isLoading : exploreQuery.isLoading;
+
+  useEffect(() => {
+    if (activeTab === "place" && placePoints.length === 0 && notePoints.length > 0) {
+      setActiveTab("note");
+    } else if (
+      activeTab === "note" &&
+      notePoints.length === 0 &&
+      placePoints.length > 0
+    ) {
+      setActiveTab("place");
+    }
+  }, [activeTab, notePoints.length, placePoints.length]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadKakaoMap().then((nextStatus) => {
+      if (cancelled) return;
+      setMapStatus(nextStatus);
+
+      if (nextStatus !== "ready") return;
+      if (!mapContainerRef.current || !window.kakao) {
+        setMapStatus("error");
+        return;
+      }
+
+      try {
+        const kakaoMaps = window.kakao.maps;
+        const map = new kakaoMaps.Map(mapContainerRef.current, {
+          center: new kakaoMaps.LatLng(mapCenter.lat, mapCenter.lng),
+          level: 5,
+        });
+
+        mapRef.current = map;
+        window.requestAnimationFrame(() => {
+          map.relayout();
+          map.setCenter(new kakaoMaps.LatLng(mapCenter.lat, mapCenter.lng));
+        });
+      } catch {
+        setMapStatus("error");
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      markerOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
+      markerOverlaysRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    const kakaoMaps = window.kakao?.maps;
+    const map = mapRef.current;
+
+    if (mapStatus !== "ready" || !kakaoMaps || !map) return;
+
+    markerOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
+    markerOverlaysRef.current = [];
+
+    points.slice(0, 80).forEach((point) => {
+      const selected = selectedPoint?.id === point.id;
+      const marker = document.createElement("button");
+      marker.type = "button";
+      marker.setAttribute("aria-label", `${point.name} 선택`);
+      marker.className = [
+        "grid",
+        "size-10",
+        "place-items-center",
+        "rounded-full",
+        "border-2",
+        "border-white",
+        "text-xs",
+        "font-black",
+        "text-white",
+        "shadow-[0_8px_18px_rgba(31,38,35,0.22)]",
+        selected
+          ? "bg-[#1F3D35]"
+          : point.kind === "place"
+            ? "bg-[#FD4003]"
+            : "bg-[#7957F2]",
+      ].join(" ");
+      marker.textContent = selected ? "✓" : point.kind === "place" ? "장소" : "쪽지";
+      marker.addEventListener("click", () => setSelectedPoint(point));
+
+      const overlay = new kakaoMaps.CustomOverlay({
+        content: marker,
+        position: new kakaoMaps.LatLng(
+          point.coordinates.lat,
+          point.coordinates.lng,
+        ),
+        yAnchor: 0.5,
+        zIndex: selected ? 1000 : 30,
+      });
+      overlay.setMap(map);
+      markerOverlaysRef.current.push(overlay);
+    });
+
+    if (points[0]) {
+      const centerPoint = selectedPoint ?? points[0];
+      map.panTo(
+        new kakaoMaps.LatLng(
+          centerPoint.coordinates.lat,
+          centerPoint.coordinates.lng,
+        ),
+      );
+    }
+
+    return () => {
+      markerOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
+      markerOverlaysRef.current = [];
+    };
+  }, [mapStatus, points, selectedPoint]);
+
+  useEffect(() => {
+    const kakaoMaps = window.kakao?.maps;
+    const map = mapRef.current;
+
+    if (mapStatus !== "ready" || !kakaoMaps || !map || !selectedPoint) return;
+
+    map.panTo(
+      new kakaoMaps.LatLng(
+        selectedPoint.coordinates.lat,
+        selectedPoint.coordinates.lng,
+      ),
+    );
+  }, [mapStatus, selectedPoint]);
+
+  function submitSearch() {
+    setSubmittedQuery(trimmedQuery);
+    setSelectedPoint(null);
+  }
+
+  return (
+    <section className="fixed inset-0 z-[80] mx-auto flex w-full max-w-[430px] flex-col bg-white text-[#171717]">
+      <header className="flex items-center gap-3 px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-4">
+        <button
+          aria-label="장소 추가 닫기"
+          className="grid size-10 place-items-center rounded-full border-0 bg-[#F4F2EE]"
+          onClick={onClose}
+          type="button"
+        >
+          <X size={21} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <h2 className="m-0 truncate text-lg font-black">장소 추가하기</h2>
+          <p className="mt-0.5 mb-0 text-xs font-bold text-[#8B857C]">
+            지도에서 하나를 선택한 뒤 체크로 추가해요.
+          </p>
+        </div>
+      </header>
+
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-[#E7F0E8]">
+        <div className="absolute inset-x-4 top-3 z-20">
+          <MapSearchBar
+            onQueryChange={setQuery}
+            onSubmit={submitSearch}
+            placeholder="추가할 장소나 쪽지 검색"
+            query={query}
+          />
+        </div>
+        <div className="absolute inset-0 overflow-hidden bg-[#DDF0E3]">
+          {mapStatus === "missing-key" || mapStatus === "error" ? (
+            <>
+              <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.56)_0_14%,transparent_14%_100%),linear-gradient(25deg,transparent_0_47%,rgba(118,190,216,0.45)_47%_70%,transparent_70%_100%)]" />
+              <div className="absolute left-[10%] top-[24%] h-1 w-[72%] rotate-[-9deg] rounded-full bg-[#D2D7DF]" />
+              <div className="absolute left-[20%] top-[60%] h-1 w-[64%] rotate-[8deg] rounded-full bg-[#D2D7DF]" />
+              {points.slice(0, 24).map((point) => {
+                const position = getFallbackPosition(point.coordinates);
+                const selected = selectedPoint?.id === point.id;
+
+                return (
+                  <button
+                    aria-label={`${point.name} 선택`}
+                    className={`absolute grid size-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 text-xs font-black shadow-[0_8px_18px_rgba(31,38,35,0.22)] ${
+                      selected
+                        ? "border-white bg-[#1F3D35] text-white"
+                        : point.kind === "place"
+                          ? "border-white bg-[#FD4003] text-white"
+                          : "border-white bg-[#7957F2] text-white"
+                    }`}
+                    key={point.id}
+                    onClick={() => setSelectedPoint(point)}
+                    style={position}
+                    type="button"
+                  >
+                    {selected ? <CheckSquare size={18} /> : point.kind === "place" ? "장소" : "쪽지"}
+                  </button>
+                );
+              })}
+            </>
+          ) : (
+            <div
+              aria-label="장소 추가 카카오 지도"
+              className="h-full w-full"
+              ref={mapContainerRef}
+            />
+          )}
+          {mapStatus === "loading" || isLoading ? (
+            <div className="absolute inset-0 grid place-items-center bg-[#E7F0E8]/80 text-sm font-black text-[#1F3D35]">
+              {mapStatus === "loading" ? "카카오맵을 불러오는 중..." : "장소를 불러오는 중..."}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex max-h-[46dvh] flex-none flex-col rounded-t-[22px] bg-white px-4 pt-3 pb-[calc(18px+env(safe-area-inset-bottom))] shadow-[0_-14px_34px_rgba(17,17,17,0.18)]">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <strong className="text-sm font-black">
+            {isSearching ? `"${submittedQuery}" 검색 결과` : "주변 장소와 쪽지"}
+          </strong>
+          <button
+            className="h-10 rounded-full border-0 bg-[#1F3D35] px-4 text-sm font-black text-white disabled:bg-[#D8D4CC]"
+            disabled={!selectedPoint || isAdding}
+            onClick={() => selectedPoint && onConfirm(selectedPoint)}
+            type="button"
+          >
+            {isAdding ? "추가 중..." : "체크한 항목 추가"}
+          </button>
+        </div>
+        <div
+          aria-label="추가 항목 종류"
+          className="mb-3 grid grid-cols-2 rounded-2xl bg-white p-1"
+          role="tablist"
+        >
+          {([
+            ["place", "장소", placePoints.length],
+            ["note", "쪽지", notePoints.length],
+          ] as const).map(([value, label, count]) => (
+            <button
+              aria-selected={activeTab === value}
+              className={`h-10 rounded-xl text-sm font-black ${
+                activeTab === value
+                  ? "bg-[#F4F3EF] text-[#171717]"
+                  : "bg-transparent text-[#888178]"
+              }`}
+              key={value}
+              onClick={() => setActiveTab(value)}
+              role="tab"
+              type="button"
+            >
+              {label} <span className="text-[11px]">{count}</span>
+            </button>
+          ))}
+        </div>
+        <div className="min-h-0 overflow-y-auto">
+          {points.length === 0 && !isLoading ? (
+            <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">
+              검색 결과가 없어요.
+            </p>
+          ) : activePoints.length === 0 && !isLoading ? (
+            <p className="m-0 rounded-2xl bg-[#F6F5F1] p-4 text-sm font-black text-[#8B857C]">
+              표시할 {activeTab === "place" ? "장소" : "쪽지"}가 없어요.
+            </p>
+          ) : activeTab === "note" ? (
+            <div className="-mx-4">
+              <div className="flex touch-pan-x snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 [overscroll-behavior-inline:contain] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {notePoints.map((point) => (
+                  <CoursePickerNoteCard
+                    key={point.id}
+                    onSelect={() => setSelectedPoint(point)}
+                    point={point}
+                    selected={selectedPoint?.id === point.id}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-2.5">
+              {placePoints.map((point) => (
+                <CoursePickerPlaceCard
+                  key={point.id}
+                  onSelect={() => setSelectedPoint(point)}
+                  point={point}
+                  selected={selectedPoint?.id === point.id}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CoursePickerPlaceCard({
+  onSelect,
+  point,
+  selected,
+}: {
+  onSelect: () => void;
+  point: Extract<MapPoint, { kind: "place" }>;
+  selected: boolean;
+}) {
+  const detailLabel = point.source.tags.slice(0, 3).join(" · ");
+  const neighborhood = getNeighborhoodLabel(point.source.area);
+
+  return (
+    <article
+      className={`relative h-[176px] overflow-hidden rounded-[20px] bg-[#302d2a] shadow-[0_8px_20px_rgba(17,17,17,0.12)] transition ${
+        selected ? "ring-3 ring-[#1F3D35]" : ""
+      }`}
+    >
+      {point.source.imageUrl ? (
+        <img
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          decoding="async"
+          loading="lazy"
+          src={point.source.imageUrl}
+        />
+      ) : (
+        <span className="absolute inset-0 grid place-items-center bg-[#4a4641] text-white/70">
+          <MapIcon size={34} />
+        </span>
+      )}
+      <div className="absolute inset-0 bg-linear-to-t from-black/95 via-black/20 to-black/5" />
+      <button
+        aria-label={`${point.name} 선택`}
+        className="absolute inset-0 z-10 border-0 bg-transparent p-0 text-left"
+        onClick={onSelect}
+        type="button"
+      >
+        <span className="absolute top-3 left-3 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-[#242424] shadow-[0_2px_6px_rgba(17,17,17,0.12)]">
+          {neighborhood}
+        </span>
+        <span
+          className={`absolute top-3 right-3 grid size-8 place-items-center rounded-full border-2 border-white text-white shadow-[0_4px_10px_rgba(0,0,0,0.22)] ${
+            selected ? "bg-[#1F3D35]" : "bg-black/35"
+          }`}
+        >
+          {selected ? <CheckSquare size={17} /> : null}
+        </span>
+        <span className="absolute right-4 bottom-3 left-4 text-white">
+          <strong className="block truncate text-[1.02rem] leading-tight font-extrabold">
+            {point.name}
+          </strong>
+          <span className="mt-1 block truncate text-[11px] font-medium text-white/80">
+            {point.source.area}
+          </span>
+          {detailLabel ? (
+            <span className="mt-1 block truncate text-[11px] font-bold text-white/80">
+              {detailLabel}
+            </span>
+          ) : null}
+        </span>
+      </button>
+    </article>
+  );
+}
+
+function CoursePickerNoteCard({
+  onSelect,
+  point,
+  selected,
+}: {
+  onSelect: () => void;
+  point: Extract<MapPoint, { kind: "spot" }>;
+  selected: boolean;
+}) {
+  return (
+    <div className="relative snap-center">
+      <NoteCard
+        note={{
+          authorName: point.authorName,
+          body: point.source.body,
+          createdAt: point.source.createdAt,
+          id: point.id,
+          imageAlt: point.source.placeName,
+          imageUrl: point.source.imageUrl,
+          locationLabel: getNeighborhoodLabel(point.source.placeName),
+          profileImageUrl: point.authorAvatarUrl,
+          saved: point.saved,
+        }}
+        onSelect={onSelect}
+        selected={selected}
+        showAddToCourse={false}
+        showSavedIcon={false}
+      />
+      <button
+        aria-label={`${point.name} 선택`}
+        className={`absolute top-3 right-3 z-20 grid size-8 place-items-center rounded-full border-2 border-white text-white shadow-[0_4px_10px_rgba(0,0,0,0.16)] ${
+          selected ? "bg-[#1F3D35]" : "bg-black/35"
+        }`}
+        onClick={onSelect}
+        type="button"
+      >
+        {selected ? <CheckSquare size={17} /> : null}
+      </button>
+    </div>
+  );
+}
+
+function toSavedCourseStop(point: MapPoint): SavedCourseStop {
+  const numericId = getNumericPointId(point.id);
+
+  if (point.kind === "place") {
+    return {
+      attractionId: numericId ?? undefined,
+      category: point.source.tags[0] ?? "장소",
+      description: point.source.summary,
+      id: 1,
+      imageUrl: point.source.imageUrl,
+      lat: point.coordinates.lat,
+      lng: point.coordinates.lng,
+      title: point.name,
+    };
+  }
+
+  return {
+    category: "쪽지",
+    description: point.source.body,
+    id: 1,
+    imageUrl: point.source.imageUrl ?? "",
+    lat: point.coordinates.lat,
+    lng: point.coordinates.lng,
+    noteId: numericId ?? undefined,
+    title: point.source.placeName || point.name,
+  };
+}
+
+function toCourseItemRequest(
+  stop: CourseStop,
+  index: number,
+): CourseItemRequest | null {
+  const sourceItem = stop.sourceItem;
+
+  if (sourceItem?.attractionId) {
+    return {
+      attractionId: sourceItem.attractionId,
+      day: sourceItem.day || 1,
+      itemType: "ATTRACTION",
+      memo: sourceItem.memo ?? stop.description,
+      position: index + 1,
+      stayMinutes: sourceItem.stayMinutes ?? 60,
+    };
+  }
+
+  if (sourceItem?.noteId) {
+    return {
+      day: sourceItem.day || 1,
+      itemType: "NOTE",
+      memo: sourceItem.memo ?? stop.description,
+      noteId: sourceItem.noteId,
+      position: index + 1,
+      stayMinutes: sourceItem.stayMinutes ?? 60,
+    };
+  }
+
+  return null;
+}
+
+function appendStopsToCourseRequest(
+  course: CourseResponse,
+  stops: CourseStop[],
+): Omit<CourseCreateRequest, "id"> {
+  const currentItems = sortedCourseItems(course).map((item) => ({
+    attractionId: item.attractionId ?? undefined,
+    day: item.day,
+    itemType: item.itemType,
+    memo: item.memo ?? undefined,
+    noteId: item.noteId ?? undefined,
+    position: item.position,
+    stayMinutes: item.stayMinutes ?? undefined,
+  }));
+  const startPosition = currentItems.reduce(
+    (max, item) => Math.max(max, item.position ?? 0),
+    0,
+  );
+  const nextItems = stops.flatMap((stop, index) => {
+    const item = toCourseItemRequest(stop, index);
+    return item ? [{ ...item, position: startPosition + index + 1 }] : [];
+  });
+
+  return {
+    ...toCourseUpdateRequest(course),
+    items: [...currentItems, ...nextItems],
+  };
+}
+
+function createCourseRequestFromStops({
+  id,
+  sourceCourse,
+  stops,
+  title,
+}: {
+  id: string;
+  sourceCourse: CourseResponse;
+  stops: CourseStop[];
+  title: string;
+}): CourseCreateRequest | null {
+  const items = stops.flatMap((stop, index) => {
+    const item = toCourseItemRequest(stop, index);
+    return item ? [item] : [];
+  });
+
+  if (items.length === 0) return null;
+
+  return {
+    coverImageUrl: sourceCourse.coverImageUrl ?? stops[0]?.imageUrl,
+    description: sourceCourse.description ?? "탐색한 코스",
+    id,
+    items,
+    regionName: sourceCourse.regionName ?? stops[0]?.location,
+    status: "READY",
+    title,
+    visibility: "PRIVATE",
+  };
+}
+
+function toSavedStops(stops: CourseStop[]): SavedCourseStop[] {
+  return stops.map((stop, index) => ({
+    attractionId: stop.sourceItem?.attractionId ?? undefined,
+    category: stop.category.split(" · ")[0] ?? "장소",
+    description: stop.description,
+    id: index + 1,
+    imageUrl: stop.imageUrl || fallbackCourseImage,
+    lat: stop.coordinates.lat,
+    lng: stop.coordinates.lng,
+    noteId: stop.sourceItem?.noteId ?? undefined,
+    title: stop.title,
+  }));
+}
+
+function getNumericPointId(id: string) {
+  const value = Number(id.replace(/^(place|note)-/, ""));
+  return Number.isFinite(value) ? value : null;
 }

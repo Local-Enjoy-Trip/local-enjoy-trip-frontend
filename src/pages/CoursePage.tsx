@@ -9,10 +9,10 @@ import {
   NoteCarousel,
   PlaceCarousel,
 } from "@/features/course/components/CourseRecommendationCarousels";
-import { UpcomingTripPanel } from "@/features/course/components/UpcomingTripPanel";
 import { getCourseFeed, getMyCourses } from "@/features/course/courseApi";
 import { getSavedCourses } from "@/features/course/courseStorage";
 import {
+  fallbackTripCoordinates,
   getCourseCards,
   getNextTrip,
   groupCoursesByHashtag,
@@ -23,7 +23,7 @@ import {
 } from "@/features/home/homeApi";
 import { notes, places } from "@/shared/data/mockData";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 const savedPlaces = places.filter((place) => place.saved);
@@ -34,9 +34,6 @@ export function CoursePage() {
   const [savedCourses, setSavedCourses] = useState(() => getSavedCourses());
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isTripPanelOpen, setIsTripPanelOpen] = useState(true);
-  const tripPanelAnimationLockRef = useRef(false);
-  const tripPanelUnlockTimeoutRef = useRef<number | null>(null);
 
   const myCoursesQuery = useQuery({
     queryFn: getMyCourses,
@@ -48,8 +45,8 @@ export function CoursePage() {
     () => getNextTrip(apiCourses, savedCourses),
     [apiCourses, savedCourses],
   );
-  const tripCoordinates = nextTrip.coordinates;
-  const tripArea = nextTrip.area;
+  const tripCoordinates = nextTrip?.coordinates ?? fallbackTripCoordinates;
+  const tripArea = nextTrip?.area ?? "내 주변";
 
   const nearbyPlacesQuery = useQuery({
     queryFn: () => getPopularNearbyExperiences(tripCoordinates),
@@ -117,38 +114,6 @@ export function CoursePage() {
     }, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  useEffect(() => {
-    const requestTripPanelOpen = (nextOpen: boolean) => {
-      if (tripPanelAnimationLockRef.current) return;
-      setIsTripPanelOpen((current) => {
-        if (current === nextOpen) return current;
-        tripPanelAnimationLockRef.current = true;
-        if (tripPanelUnlockTimeoutRef.current) {
-          window.clearTimeout(tripPanelUnlockTimeoutRef.current);
-        }
-        tripPanelUnlockTimeoutRef.current = window.setTimeout(() => {
-          tripPanelAnimationLockRef.current = false;
-          tripPanelUnlockTimeoutRef.current = null;
-        }, 360);
-        return nextOpen;
-      });
-    };
-
-    const handleScroll = () => {
-      const nextIsAtPageTop = window.scrollY <= 12;
-      requestTripPanelOpen(nextIsAtPageTop);
-    };
-
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      if (tripPanelUnlockTimeoutRef.current) {
-        window.clearTimeout(tripPanelUnlockTimeoutRef.current);
-      }
-    };
-  }, []);
-
   return (
     <section className="min-h-[calc(100dvh-72px)] overflow-x-hidden bg-white pb-28 text-[#111]">
       <CoursePageHeader
@@ -158,8 +123,14 @@ export function CoursePage() {
 
       <div className="px-5 pt-10">
         <p className="m-0 text-sm font-extrabold text-[#202020]">
-          <span className="text-[#FD4003]">{nextTrip.daysUntilText}</span>
-          {" 여행이 시작되네요!"}
+          {nextTrip ? (
+            <>
+              <span className="text-[#FD4003]">{nextTrip.daysUntilText}</span>
+              {" 여행이 시작되네요!"}
+            </>
+          ) : (
+            "첫 코스를 만들면 관심 지역 추천을 더 잘 보여드릴게요."
+          )}
         </p>
       </div>
 
@@ -168,7 +139,7 @@ export function CoursePage() {
         emptyMessage={`${tripArea} 주변 장소를 준비하고 있어요.`}
         experiences={nearbyPlacesQuery.data ?? []}
         isLoading={nearbyPlacesQuery.isLoading}
-        title="이런 곳에 관심 많으실 것 같아요"
+        title={nextTrip ? "이런 곳에 관심 많으실 것 같아요" : "첫 코스로 담기 좋은 곳"}
         titleClassName="mx-5 mt-0 mb-4 text-xl leading-tight font-extrabold tracking-[-0.01em] text-[#202020]"
       />
 
@@ -201,12 +172,6 @@ export function CoursePage() {
           title="다른 사람들의 코스"
         />
       ) : null}
-
-      <UpcomingTripPanel
-        onToggle={() => setIsTripPanelOpen((current) => !current)}
-        open={isTripPanelOpen}
-        trip={nextTrip}
-      />
 
       <CourseMenuSheet
         isOpen={isMenuOpen}

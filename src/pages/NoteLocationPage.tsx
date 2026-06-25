@@ -44,6 +44,7 @@ type NoteLocationRouteState = {
   noteLocation?: NoteLocationSelection;
   noteReturnTo?: string;
   returnTo?: string;
+  isFirstSelect?: boolean;
 };
 
 type AdministrativeDongOverlay = {
@@ -722,6 +723,14 @@ export function NoteLocationPage() {
   }
 
   function navigateBack() {
+    if (state?.isFirstSelect) {
+      if (window.history.length > 1) {
+        navigate(-1);
+      } else {
+        navigate("/");
+      }
+      return;
+    }
     navigate(isHomeLocation ? "/" : noteEditorReturnTo, {
       state: isHomeLocation
         ? undefined

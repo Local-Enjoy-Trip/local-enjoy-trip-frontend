@@ -304,6 +304,15 @@ export function useKakaoMap(
     [focusMapOn, selectedPointBottomInset]
   );
 
+  const centerTo = useCallback((coordinates: Coordinates) => {
+    if (!mapRef.current || !window.kakao) return;
+
+    mapRef.current.setLevel(4);
+    mapRef.current.panTo(
+      new window.kakao.maps.LatLng(coordinates.lat, coordinates.lng),
+    );
+  }, []);
+
   const recenterTo = useCallback(
     (coordinates: Coordinates) => {
       focusMapOn(coordinates, mapBottomInset, 4);
@@ -313,6 +322,7 @@ export function useKakaoMap(
 
   return {
     bounds,
+    centerTo,
     containerRef,
     level,
     moveTo,

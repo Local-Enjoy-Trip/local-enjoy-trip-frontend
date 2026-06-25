@@ -14,7 +14,7 @@ export function SpotNoteCarousel({
 }) {
   return (
     <section className="mt-8">
-      <SectionHeader title="나와 비슷한 사람들이 추천한 곳" actionTo="/map" />
+      <SectionHeader title="우리동네 주변 쪽지" actionTo="/map" />
       {isLoading ? (
         <div className="flex gap-4 overflow-hidden px-5 pb-2">
           <Skeleton className="h-[270px] w-[78%] flex-none rounded-[20px]" />

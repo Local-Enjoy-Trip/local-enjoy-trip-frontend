@@ -64,6 +64,44 @@ export function appendCourseStop(id: string, stop: SavedCourseStop) {
   window.dispatchEvent(new CustomEvent("spot:courses-changed"));
 }
 
+export function updateCourseDetails(
+  id: string,
+  details: { date?: string; title: string },
+) {
+  const courses = getSavedCourses().map((course) =>
+    course.id === id
+      ? {
+          ...course,
+          date: details.date,
+          title: details.title,
+        }
+      : course,
+  );
+  window.localStorage.setItem(storageKey, JSON.stringify(courses));
+  window.dispatchEvent(new CustomEvent("spot:courses-changed"));
+}
+
+export function appendCourseStops(id: string, stops: SavedCourseStop[]) {
+  if (stops.length === 0) return;
+
+  const courses = getSavedCourses().map((course) =>
+    course.id === id
+      ? {
+          ...course,
+          stops: [
+            ...course.stops,
+            ...stops.map((stop, index) => ({
+              ...stop,
+              id: course.stops.length + index + 1,
+            })),
+          ],
+        }
+      : course,
+  );
+  window.localStorage.setItem(storageKey, JSON.stringify(courses));
+  window.dispatchEvent(new CustomEvent("spot:courses-changed"));
+}
+
 export function updateCourseCollaborators(id: string, collaborators: string[]) {
   const courses = getSavedCourses().map((course) =>
     course.id === id ? { ...course, collaborators } : course,

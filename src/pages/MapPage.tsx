@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { List, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -35,10 +35,11 @@ import {
 } from "@/features/map/mapApi";
 import type { MapPoint, MapViewport } from "@/features/map/types";
 import {
+  savedAttractionsQueryKey,
   saveAttraction,
   unsaveAttraction,
 } from "@/features/attractions/attractionApi";
-import { saveNote, unsaveNote } from "@/features/notes/noteApi";
+import { saveNote, savedNotesQueryKey, unsaveNote } from "@/features/notes/noteApi";
 import {
   applyNoteSaveOverride,
   setNoteSaveOverride,
@@ -53,6 +54,7 @@ import {
 
 const viewportDebounceMs = 500;
 const targetViewportRadiusMeters = 3_000;
+const seoulSearchRadiusMeters = 30_000;
 
 type FrozenMapBounds = {
   northEast: MapViewport["center"];
@@ -62,6 +64,7 @@ type FrozenMapBounds = {
 export function MapPage() {
   useMapViewportBackground();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const isCourseAddMode = searchParams.get("mode") === "course-add";
   const targetCourseId = searchParams.get("courseId");
@@ -139,24 +142,22 @@ export function MapPage() {
     placeholderData: keepPreviousData,
     queryFn: () =>
       searchMap({
-        coordinates: exploreCoordinates,
+        coordinates: mapCenter,
         keyword: trimmedSearchQuery,
-        radiusMeters: exploreRadius,
+        radiusMeters: seoulSearchRadiusMeters,
         target: searchTarget,
       }),
     queryKey: [
       "map-search",
       trimmedSearchQuery,
       searchTarget,
-      exploreCoordinates.lat,
-      exploreCoordinates.lng,
-      exploreRadius,
     ],
     staleTime: 15_000,
   });
   const isSearching = trimmedSearchQuery.length > 0;
   const isFetching = isExploreFetching || searchQuery.isFetching;
   const [drawerSnap, setDrawerSnap] = useState<DrawerSnap>("default");
+  const previousDrawerSnapRef = useRef<DrawerSnap>("default");
   const [locationConsent, setLocationConsent] =
     useState<LocationConsent>(readLocationConsent);
   const locationToastTimerRef = useRef<number | null>(null);
@@ -180,7 +181,10 @@ export function MapPage() {
     const mapData = isSearching ? searchQuery.data : data;
 
     if (!mapData) return [];
-    return toMapPoints(mapData.places, mapData.notes).map((point) => {
+    return toMapPoints(mapData.places, mapData.notes).filter((point) => {
+      if (!isSearching) return true;
+      return isSeoulPoint(point);
+    }).map((point) => {
       const override = pointOverrides[point.id];
       const nextPoint = !override
         ? point
@@ -254,6 +258,7 @@ export function MapPage() {
   );
   const recenterMapTo = kakao.recenterTo;
   const moveMapTo = kakao.moveTo;
+  const centerMapTo = kakao.centerTo;
 
   useEffect(() => {
     const viewport = kakao.viewport;
@@ -317,12 +322,13 @@ export function MapPage() {
   }, [drawerSnap, kakao.bounds]);
 
   const drawerPoints = useMemo(() => {
+    if (isSearching) return filteredPoints;
     if (drawerSnap !== "full" || !fullDrawerBounds) return visiblePoints;
 
     return filteredPoints.filter((point) =>
       isInsideFrozenBounds(point.coordinates, fullDrawerBounds),
     );
-  }, [drawerSnap, filteredPoints, fullDrawerBounds, visiblePoints]);
+  }, [drawerSnap, filteredPoints, fullDrawerBounds, isSearching, visiblePoints]);
 
   const visibleSelectedPinId = useMemo(
     () =>
@@ -478,6 +484,32 @@ export function MapPage() {
     kakao.moveTo(point.coordinates);
   };
 
+  useEffect(() => {
+    const previousDrawerSnap = previousDrawerSnapRef.current;
+    previousDrawerSnapRef.current = drawerSnap;
+
+    if (
+      previousDrawerSnap !== "full" ||
+      drawerSnap === "full" ||
+      !selectedPoint ||
+      kakao.status !== "ready"
+    ) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      centerMapTo(selectedPoint.coordinates);
+    });
+    const timer = window.setTimeout(() => {
+      centerMapTo(selectedPoint.coordinates);
+    }, 160);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [centerMapTo, drawerSnap, kakao.status, selectedPoint]);
+
   const allowCurrentLocation = () => {
     saveLocationConsent("granted");
     setLocationConsent("granted");
@@ -519,10 +551,12 @@ export function MapPage() {
       if (point.kind === "place") {
         if (nextSaved) await saveAttraction(numericId);
         else await unsaveAttraction(numericId);
+        await queryClient.invalidateQueries({ queryKey: savedAttractionsQueryKey });
       } else {
         setNoteSaveOverride(numericId, nextSaved);
         if (nextSaved) await saveNote(numericId);
         else await unsaveNote(numericId);
+        await queryClient.invalidateQueries({ queryKey: savedNotesQueryKey });
       }
 
       showLocationToast(nextSaved ? "저장했어요." : "저장을 해제했어요.");
@@ -814,4 +848,25 @@ function isInsideFrozenBounds(
     coordinates.lng >= bounds.southWest.lng &&
     coordinates.lng <= bounds.northEast.lng
   );
+}
+
+function isSeoulPoint(point: MapPoint) {
+  const location =
+    point.kind === "place" ? point.source.area : point.source.placeName;
+  if (!location?.trim()) return true;
+
+  const normalizedLocation = location.trim();
+  if (/(^|\s)서울(?:시|특별시)?(?:\s|$)/.test(normalizedLocation)) {
+    return true;
+  }
+
+  const [firstPart] = normalizedLocation.split(/\s+/);
+  if (
+    firstPart &&
+    /(?:도|시|광역시|특별시|특별자치시|특별자치도)$/.test(firstPart)
+  ) {
+    return false;
+  }
+
+  return true;
 }

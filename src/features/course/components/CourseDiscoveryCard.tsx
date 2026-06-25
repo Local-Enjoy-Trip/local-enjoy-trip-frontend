@@ -1,4 +1,7 @@
-import type { CourseResponse } from "@/features/course/courseApi";
+import {
+  cacheCourses,
+  type CourseResponse,
+} from "@/features/course/courseApi";
 import type { SavedCourse } from "@/features/course/courseStorage";
 import { Link } from "react-router-dom";
 
@@ -7,6 +10,7 @@ export type CourseDiscoveryModel = {
   coverImageUrl: string;
   hashtags: string[];
   id: string;
+  sourceCourse?: CourseResponse;
   stops: string[];
   title: string;
 };
@@ -24,6 +28,9 @@ export function CourseDiscoveryCard({
   return (
     <Link
       className="block w-[252px] flex-none snap-start text-inherit no-underline"
+      onClick={() => {
+        if (course.sourceCourse) cacheCourses([course.sourceCourse]);
+      }}
       to={`/course/${course.id}`}
     >
       <article className="overflow-hidden rounded-[22px] border border-[#D8D1C8] bg-white shadow-[0_8px_20px_rgba(17,17,17,0.04)]">
@@ -39,24 +46,30 @@ export function CourseDiscoveryCard({
           </span>
         </div>
         <div className="px-4 pt-4 pb-5">
-          <h3 className="m-0 line-clamp-2 min-h-12 text-base leading-snug font-black text-[#171717]">
+          <h3 className="m-0 line-clamp-2 text-base leading-snug font-black text-[#171717]">
             {course.title}
           </h3>
-          <div className="mt-3 grid gap-1.5">
-            {visibleStops.map((stop, index) => (
-              <div className="flex items-start gap-2" key={`${course.id}-${stop}`}>
-                <span className="mt-1 grid flex-none place-items-center">
-                  <span className="size-1.5 rounded-full bg-[#FD4003]" />
-                  {index < visibleStops.length - 1 ? (
-                    <span className="mt-1 block h-3 w-px bg-[#FD4003]/45" />
-                  ) : null}
-                </span>
-                <span className="line-clamp-1 text-xs font-bold text-[#514D47]">
-                  {stop}
-                </span>
-              </div>
-            ))}
-          </div>
+          {visibleStops.length > 0 ? (
+            <div className="mt-3 grid gap-1.5">
+              {visibleStops.map((stop, index) => (
+                <div className="flex items-start gap-2" key={`${course.id}-${stop}`}>
+                  <span className="mt-1 grid flex-none place-items-center">
+                    <span className="size-1.5 rounded-full bg-[#FD4003]" />
+                    {index < visibleStops.length - 1 ? (
+                      <span className="mt-1 block h-3 w-px bg-[#FD4003]/45" />
+                    ) : null}
+                  </span>
+                  <span className="line-clamp-1 text-xs font-bold text-[#514D47]">
+                    {stop}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 mb-0 rounded-xl bg-[#F6F5F1] px-3 py-2 text-xs font-black text-[#8B857C]">
+              아직 추가한 장소가 없어요.
+            </p>
+          )}
           <div className="mt-4 flex gap-1.5 overflow-hidden">
             {course.hashtags.slice(0, 3).map((tag) => (
               <span
@@ -89,7 +102,8 @@ export function apiCourseToDiscovery(course: CourseResponse): CourseDiscoveryMod
       stopCount: course.routeSummary.stopCount || course.items.length,
     }),
     id: course.id,
-    stops: stops.length > 0 ? stops : ["첫 장소", "다음 장소", "마무리 산책"],
+    sourceCourse: course,
+    stops,
     title: course.title,
   };
 }

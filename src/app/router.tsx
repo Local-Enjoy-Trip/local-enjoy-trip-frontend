@@ -11,8 +11,10 @@ import { LoginPage } from "../pages/LoginPage";
 import { EmailLoginPage } from "../pages/EmailLoginPage";
 import { FriendPage } from "../pages/FriendPage";
 import { MapPage } from "../pages/MapPage";
+import { MyCoursesPage } from "../pages/MyCoursesPage";
 import { MyPage } from "../pages/MyPage";
 import { MyNotesPage } from "../pages/MyNotesPage";
+import { MySavedPage } from "../pages/MySavedPage";
 import { NoteLocationPage } from "../pages/NoteLocationPage";
 import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
 import { SignupPage } from "../pages/SignupPage";
@@ -35,7 +37,9 @@ export const router = createBrowserRouter([
       { path: "/course/:courseId", element: <CourseDetailPage /> },
       { path: "/friends", element: <FriendPage /> },
       { path: "/my", element: <MyPage /> },
-      { path: "/my/notes", element: <MyNotesPage /> }
+      { path: "/my/courses", element: <MyCoursesPage /> },
+      { path: "/my/notes", element: <MyNotesPage /> },
+      { path: "/my/saved", element: <MySavedPage /> }
     ]
   },
   {

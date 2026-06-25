@@ -46,7 +46,7 @@ export function getCourseCards(
 export function getNextTrip(
   apiCourses: CourseResponse[],
   savedCourses: SavedCourse[],
-): UpcomingTrip {
+): UpcomingTrip | null {
   const upcomingSaved = savedCourses
     .filter((course) => course.date)
     .map((course) => ({
@@ -88,16 +88,7 @@ export function getNextTrip(
     };
   }
 
-  return {
-    area: "망원동",
-    coordinates: fallbackTripCoordinates,
-    coverImageUrl: fallbackTripImage,
-    dateLabel: "일정 미정",
-    daysUntil: 0,
-    daysUntilText: "0일 뒤",
-    id: "course-1",
-    title: "망원동 여행",
-  };
+  return null;
 }
 
 export function groupCoursesByHashtag(

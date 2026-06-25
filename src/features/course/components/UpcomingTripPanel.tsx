@@ -33,8 +33,64 @@ export function UpcomingTripPanel({
 }: {
   onToggle: () => void;
   open: boolean;
-  trip: UpcomingTrip;
+  trip: UpcomingTrip | null;
 }) {
+  if (!trip) {
+    return (
+      <aside className="pointer-events-none fixed right-5 bottom-[calc(92px+env(safe-area-inset-bottom))] z-30 h-[76px] w-[calc(100vw-40px)] max-w-[390px]">
+        <motion.div
+          animate={open ? "open" : "closed"}
+          className="absolute inset-0 transform-gpu will-change-transform"
+          initial={false}
+          transition={tripPanelTransition}
+          variants={tripPanelVariants}
+        >
+          <Link
+            aria-label="첫 코스 만들기"
+            className={`flex h-full w-full items-center gap-3 rounded-[25px] border-0 bg-[#1F3D35] pr-3 pl-[76px] text-white shadow-[0_14px_30px_rgba(31,61,53,0.18)] ${
+              open ? "pointer-events-auto" : "pointer-events-none"
+            }`}
+            to="/course?create=1"
+          >
+            <motion.span
+              className="relative flex min-w-0 flex-1 items-center gap-2 text-white"
+              transition={tripPanelTransition}
+              variants={tripPanelContentVariants}
+            >
+              <span className="min-w-0 flex-1 text-left text-white">
+                <strong className="block truncate text-sm font-bold text-white">
+                  아직 예정된 코스가 없어요
+                </strong>
+                <span className="mt-1 block truncate text-xs font-medium text-white/85">
+                  가고 싶은 장소로 첫 코스를 만들어요
+                </span>
+              </span>
+              <span className="h-10 w-px flex-none bg-white/20" />
+              <span className="grid min-w-12 flex-none place-items-center gap-1 text-white">
+                <CalendarDays size={21} strokeWidth={1.5} />
+                <span className="mt-0.5 text-[10px] font-medium text-white">
+                  만들기
+                </span>
+              </span>
+            </motion.span>
+          </Link>
+          <motion.button
+            aria-label="첫 코스 만들기 패널 열기"
+            className={`absolute top-1/2 left-3 grid size-14 -translate-y-1/2 place-items-center rounded-full border-4 border-white bg-[#F7F5F0] p-0 text-[#1F3D35] shadow-[0_12px_28px_rgba(17,17,17,0.18)] ${
+              open ? "pointer-events-none" : "pointer-events-auto"
+            }`}
+            initial={false}
+            onClick={onToggle}
+            tabIndex={open ? -1 : 0}
+            type="button"
+          >
+            <CalendarDays size={24} strokeWidth={2.2} />
+          </motion.button>
+        </motion.div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="pointer-events-none fixed right-5 bottom-[calc(92px+env(safe-area-inset-bottom))] z-30 h-[76px] w-[calc(100vw-40px)] max-w-[390px]">
       <motion.div
@@ -80,7 +136,7 @@ export function UpcomingTripPanel({
         </Link>
         <motion.button
           aria-label="다가오는 여행 열기"
-          className={`absolute top-1/2 left-3 grid size-14 -translate-y-1/2 place-items-center rounded-full border-4 border-white bg-white p-0 shadow-[0_12px_28px_rgba(17,17,17,0.18)] ${
+          className={`absolute top-1/2 left-4 z-10 grid size-12 -translate-y-1/2 place-items-center overflow-hidden rounded-full border-3 border-white bg-white p-0 shadow-[0_10px_24px_rgba(17,17,17,0.16)] ${
             open ? "pointer-events-none" : "pointer-events-auto"
           }`}
           initial={false}
@@ -90,7 +146,7 @@ export function UpcomingTripPanel({
         >
           <img
             alt=""
-            className="size-full rounded-full object-cover"
+            className="size-full object-cover"
             src={trip.coverImageUrl}
           />
         </motion.button>

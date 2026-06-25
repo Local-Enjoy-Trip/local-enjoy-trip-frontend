@@ -52,6 +52,7 @@ type PresignedUploadResponse = {
 };
 
 export const savedNotesQueryKey = ["notes", "saved"] as const;
+export const myNotesQueryKey = ["notes", "me"] as const;
 
 export function createNote(request: NoteWriteRequest) {
   return apiPost<NoteResponse>("/api/notes", request);
@@ -59,6 +60,12 @@ export function createNote(request: NoteWriteRequest) {
 
 export function getSavedNotes(limit = 100) {
   return apiGet<NotesResponse>(`/api/notes/saved?limit=${limit}`).then(
+    (response) => response.notes,
+  );
+}
+
+export function getMyNotes(limit = 100) {
+  return apiGet<NotesResponse>(`/api/notes/me?limit=${limit}`).then(
     (response) => response.notes,
   );
 }
