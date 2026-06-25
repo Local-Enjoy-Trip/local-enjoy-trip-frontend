@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ApiError,
+  API_BASE_URL,
   apiGet,
   apiPost,
   apiPut,
@@ -290,12 +291,10 @@ export function getAuthErrorMessage(error: unknown) {
 export function startGoogleLogin(returnTo?: string) {
   if (returnTo) window.sessionStorage.setItem("oauth-return-to", returnTo);
 
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-
-  if (!apiBaseUrl) return false;
+  if (!API_BASE_URL) return false;
 
   window.location.assign(
-    new URL("/oauth2/authorization/google", apiBaseUrl).toString(),
+    new URL("/oauth2/authorization/google", API_BASE_URL).toString(),
   );
   return true;
 }

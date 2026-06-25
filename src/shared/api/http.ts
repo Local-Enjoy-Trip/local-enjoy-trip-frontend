@@ -1,4 +1,12 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+function resolveApiBaseUrl() {
+  const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
+  if (configuredApiBaseUrl) return configuredApiBaseUrl.replace(/\/$/, "");
+
+  return "";
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export const AUTH_TOKEN_STORAGE_KEY = "local-enjoy-trip-access-token";
 
