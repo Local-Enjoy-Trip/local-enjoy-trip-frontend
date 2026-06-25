@@ -135,6 +135,7 @@ export type CourseResponse = {
   description?: string | null;
   distanceMeters?: number | null;
   id: string;
+  imageUrl?: string | null;
   items: CourseItemResponse[];
   ownerUserId?: string | null;
   regionName?: string | null;

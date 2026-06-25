@@ -49,7 +49,6 @@ import {
   ChevronRight,
   Crosshair,
   Download,
-  List,
   Map as MapIcon,
   Plus,
   UserPlus,
@@ -572,17 +571,7 @@ function CourseRouteDrawer({
   function startRouteEditing() {
     setDraftStops(routeStops);
     setIsRouteEditing(true);
-    setDrawerCoverOffset(0);
-    setHeaderOffset(headerCollapseDistance);
-  }
-
-  function showMapWhileEditing() {
     setDrawerCoverOffset(drawerCollapsedTop);
-    setHeaderOffset(0);
-  }
-
-  function showListWhileEditing() {
-    setDrawerCoverOffset(0);
     setHeaderOffset(headerCollapseDistance);
   }
 
@@ -785,14 +774,6 @@ function CourseRouteDrawer({
                       복구하기
                     </button>
                   )}
-                  <button
-                    className="inline-flex h-7 items-center justify-center gap-1 rounded-full border border-[#DCE7DF] bg-[#EEF4EF] px-2.5 text-xs font-black text-[#1F3D35]"
-                    onClick={isExpanded ? showMapWhileEditing : showListWhileEditing}
-                    type="button"
-                  >
-                    {isExpanded ? <MapIcon size={13} /> : <List size={13} />}
-                    {isExpanded ? "지도 보기" : "리스트 보기"}
-                  </button>
                   {hasApiCourse && (
                     <button
                       className="grid size-7 place-items-center rounded-full bg-[#EEF4EF] text-[#1F3D35] border border-[#DCE7DF] hover:bg-[#DCE7DF] disabled:opacity-50"
@@ -844,6 +825,7 @@ function CourseRouteDrawer({
         ) : (
           <Reorder.Group
             axis="y"
+            layoutScroll
             values={displayedStops.map((stop) => stop.id)}
             onReorder={(newStopIds) => {
               const newStops = newStopIds

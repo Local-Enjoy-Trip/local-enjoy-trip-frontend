@@ -118,7 +118,7 @@ function getCourseCoverImageUrl(course: CourseResponse) {
     .map((item) => item.imageUrl || item.firstImage || item.thumbnailUrl)
     .find((imageUrl): imageUrl is string => Boolean(imageUrl?.trim()));
 
-  return course.coverImageUrl || firstItemImage || fallbackImage;
+  return course.imageUrl || course.coverImageUrl || firstItemImage || fallbackImage;
 }
 
 function getCourseHashtags({

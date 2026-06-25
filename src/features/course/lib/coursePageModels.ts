@@ -133,7 +133,7 @@ function getApiCourseCoverImageUrl(course: CourseResponse) {
     .map((item) => item.imageUrl || item.firstImage || item.thumbnailUrl)
     .find((imageUrl): imageUrl is string => Boolean(imageUrl?.trim()));
 
-  return course.coverImageUrl || firstItemImage || fallbackApiTripImage;
+  return course.imageUrl || course.coverImageUrl || firstItemImage || fallbackApiTripImage;
 }
 
 export function groupCoursesByHashtag(
