@@ -52,18 +52,16 @@ export function PwaInstallPrompt() {
       return;
     }
 
-    if (isRecentlyDismissed()) {
-      return;
-    }
-
-    if (showsIosGuide) {
+    if (showsIosGuide && !isRecentlyDismissed()) {
       setIsDrawerOpen(true);
     }
 
     function handleBeforeInstallPrompt(event: Event) {
       event.preventDefault();
       setDeferredPrompt(event as BeforeInstallPromptEvent);
-      setIsDrawerOpen(true);
+      if (!isRecentlyDismissed()) {
+        setIsDrawerOpen(true);
+      }
     }
 
     function handleAppInstalled() {
