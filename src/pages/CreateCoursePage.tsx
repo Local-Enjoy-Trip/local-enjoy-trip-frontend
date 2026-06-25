@@ -31,16 +31,21 @@ import { Skeleton } from "@/shared/ui/Skeleton";
 
 type DirectStop = { id: number; name: string };
 
-const neighborhoods = [
-  "망원동",
-  "성수동",
-  "연남동",
-  "서촌",
-  "을지로",
-  "익선동",
-  "해방촌",
-  "잠실",
+const neighborhoodOptions = [
+  { label: "서촌", regionName: "청운효자동" },
+  { label: "홍대", regionName: "서교동" },
+  { label: "성수", regionName: "성수1가2동" },
+  { label: "연남", regionName: "연남동" },
+  { label: "망원", regionName: "망원1동" },
+  { label: "을지로", regionName: "을지로동" },
+  { label: "익선동", regionName: "종로1·2·3·4가동" },
+  { label: "이태원", regionName: "이태원1동" },
+  { label: "명동", regionName: "명동" },
+  { label: "잠실", regionName: "잠실3동" },
+  { label: "강남", regionName: "역삼1동" },
+  { label: "용산", regionName: "한강로동" },
 ];
+const neighborhoods = neighborhoodOptions.map((option) => option.label);
 const companions = ["혼자", "친구와", "연인과", "아이와", "부모님과", "반려동물과"];
 const travelStyles = [
   "동네 맛집",
@@ -141,17 +146,6 @@ function AiCourseCreator() {
     aiRequestIdRef.current = requestId;
     setPhase("loading");
 
-    const neighborhoodToGugunCode: Record<string, number> = {
-      "망원동": 14,
-      "성수동": 4,
-      "연남동": 14,
-      "서촌": 1,
-      "을지로": 2,
-      "익선동": 1,
-      "해방촌": 3,
-      "잠실": 24,
-    };
-
     const companionMap: Record<string, AiCourseCompanion> = {
       "혼자": "ALONE",
       "친구와": "WITH_FRIEND",
@@ -178,16 +172,16 @@ function AiCourseCreator() {
       "알차게": "PACKED",
     };
 
-    const gugun = neighborhoodToGugunCode[area];
     const comp = companionMap[companion] ?? "ALONE";
     const selectedThemes = styles.map((s) => themeMap[s]).filter(Boolean) as AiCourseTheme[];
     const selectedPace = paceMap[pace] ?? "MODERATE";
+    const regionName =
+      neighborhoodOptions.find((option) => option.label === area)?.regionName ?? area;
 
     try {
       setSaveNotice("");
       const response = await generateAiCourse({
-        sidoCode: 1,
-        gugunCode: gugun,
+        regionName,
         companion: comp,
         themes: selectedThemes.length > 0 ? selectedThemes : ["WALK"],
         pace: selectedPace,

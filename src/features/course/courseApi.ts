@@ -65,8 +65,7 @@ export type AiCourseTheme =
 export type AiCoursePace = "RELAXED" | "MODERATE" | "PACKED";
 
 export type AiCourseGenerateRequest = {
-  sidoCode?: number;
-  gugunCode?: number;
+  regionName: string;
   companion: AiCourseCompanion;
   themes: AiCourseTheme[];
   pace: AiCoursePace;
