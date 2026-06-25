@@ -4,19 +4,30 @@ const defaultNoteImageBaseUrl =
 type NoteImageSource = {
   image?: {
     imageObjectKey?: string | null;
+    image_object_key?: string | null;
     imageUrl?: string | null;
     image_url?: string | null;
     objectKey?: string | null;
+    object_key?: string | null;
     publicUrl?: string | null;
+    public_url?: string | null;
     url?: string | null;
   } | null;
+  fileUrl?: string | null;
+  file_url?: string | null;
   imageObjectKey?: string | null;
+  image_object_key?: string | null;
   imagePublicUrl?: string | null;
+  image_public_url?: string | null;
   imageURL?: string | null;
   imageUrl?: string | null;
   image_url?: string | null;
   objectKey?: string | null;
+  object_key?: string | null;
   publicUrl?: string | null;
+  public_url?: string | null;
+  thumbnailUrl?: string | null;
+  thumbnail_url?: string | null;
 };
 
 export function resolveNoteImageUrl(objectKey?: string | null) {
@@ -43,16 +54,27 @@ export function resolveNoteImageSrc(source: NoteImageSource) {
     source.imageUrl ??
     source.image_url ??
     source.imageURL ??
+    source.thumbnailUrl ??
+    source.thumbnail_url ??
     source.publicUrl ??
+    source.public_url ??
     source.imagePublicUrl ??
+    source.image_public_url ??
+    source.fileUrl ??
+    source.file_url ??
     source.image?.imageUrl ??
     source.image?.image_url ??
     source.image?.publicUrl ??
+    source.image?.public_url ??
     source.image?.url;
   const objectKey =
     source.imageObjectKey ??
+    source.image_object_key ??
     source.objectKey ??
+    source.object_key ??
     source.image?.imageObjectKey ??
+    source.image?.image_object_key ??
+    source.image?.object_key ??
     source.image?.objectKey;
 
   return directUrl?.trim() || resolveNoteImageUrl(objectKey);
