@@ -9,12 +9,14 @@ import {
 import { friendsQueryKey, getFriends } from "@/features/friends/friendApi";
 import { getMyNotes, myNotesQueryKey } from "@/features/notes/noteApi";
 import { courses } from "@/shared/data/mockData";
+import { openPwaInstallPrompt } from "@/shared/lib/pwaInstallEvents";
 import { PageLoadingSkeleton, TextSkeleton } from "@/shared/ui/Skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
   Check,
   ChevronRight,
+  Download,
   LogOut,
   MapPinned,
   Pencil,
@@ -258,6 +260,11 @@ export function MyPage() {
             icon={Pencil}
             label="내 쪽지"
             onClick={() => navigate("/my/notes")}
+          />
+          <MenuButton
+            icon={Download}
+            label="앱 설치하기"
+            onClick={openPwaInstallPrompt}
           />
           <button
             className="flex min-h-14 w-full items-center gap-4 rounded-xl bg-white px-1 text-left text-[#D5483D] disabled:opacity-50"

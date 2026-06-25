@@ -1,5 +1,7 @@
+import { getAttractionDetail } from "@/features/attractions/attractionApi";
 import { createCourse, type CourseItemRequest } from "@/features/course/courseApi";
 import { courses } from "@/shared/data/mockData";
+import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -852,12 +854,22 @@ function PointDetailPanel({
   point: MapPoint;
 }) {
   const isPlace = point.kind === "place";
+  const attractionId = isPlace ? getNumericPointId(point.id) : null;
+  const attractionDetailQuery = useQuery({
+    enabled: attractionId !== null,
+    queryFn: () => getAttractionDetail(attractionId ?? 0),
+    queryKey: ["attraction", "detail", attractionId],
+  });
   const imageUrl = isPlace ? point.source.imageUrl : point.source.imageUrl;
   const title = (isPlace ? point.name : point.source.placeName) || point.name;
   const fullLocation = isPlace ? point.source.area : point.source.placeName;
   const neighborhood = getNeighborhoodLabel(fullLocation);
   const tags = isPlace ? point.source.tags : [getNoteVisibilityLabel(point.source.visibility)];
   const summary = isPlace ? point.source.summary : point.source.body;
+  const detailText =
+    attractionDetailQuery.data?.detail?.trim() ||
+    attractionDetailQuery.data?.overview?.trim() ||
+    (isPlace && summary.trim() !== fullLocation.trim() ? summary.trim() : "");
   const favoriteCount = getFavoriteCount(point);
   const [primaryTag, ...secondaryTags] = tags;
   const authorName = !isPlace ? point.authorName?.trim() || "익명" : "";
@@ -974,9 +986,18 @@ function PointDetailPanel({
         </div>
         ) : null}
 
-        <p className={`${secondaryTags.length > 0 ? "mt-4" : "mt-0"} mb-0 whitespace-pre-wrap text-sm leading-relaxed font-semibold text-[#49443E]`}>
-          {summary}
-        </p>
+        {isPlace ? (
+          <p className={`${secondaryTags.length > 0 ? "mt-4" : "mt-0"} mb-0 whitespace-pre-wrap text-sm leading-relaxed font-semibold text-[#49443E]`}>
+            <span className="font-black text-[#171717]">상세 내용: </span>
+            {attractionDetailQuery.isLoading
+              ? "불러오는 중이에요."
+              : detailText || "등록된 상세 내용이 없어요."}
+          </p>
+        ) : (
+          <p className={`${secondaryTags.length > 0 ? "mt-4" : "mt-0"} mb-0 whitespace-pre-wrap text-sm leading-relaxed font-semibold text-[#49443E]`}>
+            {summary}
+          </p>
+        )}
       </div>
     </article>
   );

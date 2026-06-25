@@ -1,5 +1,7 @@
-import { Download, Share, X } from "lucide-react";
+import { Download, Home, Share } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { OPEN_PWA_INSTALL_PROMPT_EVENT } from "@/shared/lib/pwaInstallEvents";
+import { BottomSheet } from "@/shared/ui/BottomSheet";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -36,8 +38,9 @@ function isIosSafari() {
 export function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [wasManuallyRequested, setWasManuallyRequested] = useState(false);
   const showsIosGuide = useMemo(
     () => typeof window !== "undefined" && isIosSafari(),
     []
@@ -54,23 +57,29 @@ export function PwaInstallPrompt() {
     }
 
     if (showsIosGuide) {
-      setIsVisible(true);
+      setIsDrawerOpen(true);
     }
 
     function handleBeforeInstallPrompt(event: Event) {
       event.preventDefault();
       setDeferredPrompt(event as BeforeInstallPromptEvent);
-      setIsVisible(true);
+      setIsDrawerOpen(true);
     }
 
     function handleAppInstalled() {
       setIsInstalled(true);
-      setIsVisible(false);
+      setIsDrawerOpen(false);
       setDeferredPrompt(null);
+    }
+
+    function handleManualOpen() {
+      setWasManuallyRequested(true);
+      setIsDrawerOpen(true);
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
+    window.addEventListener(OPEN_PWA_INSTALL_PROMPT_EVENT, handleManualOpen);
 
     return () => {
       window.removeEventListener(
@@ -78,6 +87,7 @@ export function PwaInstallPrompt() {
         handleBeforeInstallPrompt
       );
       window.removeEventListener("appinstalled", handleAppInstalled);
+      window.removeEventListener(OPEN_PWA_INSTALL_PROMPT_EVENT, handleManualOpen);
     };
   }, [showsIosGuide]);
 
@@ -94,56 +104,89 @@ export function PwaInstallPrompt() {
     }
 
     setDeferredPrompt(null);
-    setIsVisible(false);
+    setIsDrawerOpen(false);
   }
 
   function handleDismiss() {
     window.localStorage.setItem(DISMISSED_AT_KEY, String(Date.now()));
-    setIsVisible(false);
+    setIsDrawerOpen(false);
   }
 
-  if (isInstalled || !isVisible || (!deferredPrompt && !showsIosGuide)) {
+  if (
+    isInstalled ||
+    (!deferredPrompt && !showsIosGuide && !wasManuallyRequested)
+  ) {
     return null;
   }
 
   return (
-    <aside className="fixed inset-x-4 bottom-[calc(88px+env(safe-area-inset-bottom))] z-40 mx-auto max-w-[398px] rounded-2xl border border-black/10 bg-white px-4 py-3 text-black shadow-[0_16px_44px_rgba(17,17,17,0.18)] sm:bottom-[calc(112px+env(safe-area-inset-bottom))]">
-      <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FF4300] text-white">
-          {showsIosGuide ? (
-            <Share size={19} strokeWidth={2.25} />
-          ) : (
-            <Download size={20} strokeWidth={2.35} />
-          )}
-        </span>
-        <div className="min-w-0 flex-1">
-          <strong className="block text-[0.94rem] font-extrabold leading-5">
-            곳곳을 앱처럼 사용해보세요
-          </strong>
-          <p className="mt-1 text-[0.78rem] font-medium leading-5 text-[#555]">
-            {showsIosGuide
-              ? "공유 버튼을 누른 뒤 홈 화면에 추가를 선택하면 바로 열 수 있어요."
-              : "홈 화면에 추가하면 지도와 코스를 더 빠르게 열 수 있어요."}
-          </p>
-          {deferredPrompt ? (
-            <button
-              className="mt-3 h-9 rounded-full border-0 bg-black px-4 text-[0.82rem] font-bold text-white active:scale-[0.98]"
-              onClick={handleInstallClick}
-              type="button"
-            >
-              앱으로 설치
-            </button>
-          ) : null}
+    <BottomSheet
+      isOpen={isDrawerOpen}
+      onClose={handleDismiss}
+      title="곳곳 설치하기"
+    >
+      <div className="text-[#111]">
+        <div className="flex items-center gap-3">
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#FF4300] text-white">
+            {showsIosGuide ? (
+              <Share size={23} strokeWidth={2.25} />
+            ) : (
+              <Download size={24} strokeWidth={2.35} />
+            )}
+          </span>
+          <div className="min-w-0">
+            <strong className="block text-lg font-extrabold leading-6">
+              앱처럼 빠르게 열어보세요
+            </strong>
+            <p className="mt-1 text-sm font-bold leading-5 text-[#777]">
+              홈 화면에 추가하면 주소 입력 없이 바로 시작할 수 있어요.
+            </p>
+          </div>
         </div>
+
+        {showsIosGuide ? (
+          <ol className="mt-6 grid gap-3 p-0">
+            <li className="flex items-center gap-3 rounded-2xl bg-[#F7F6F2] px-4 py-3 text-sm font-bold text-[#333]">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-[#FF4300]">
+                <Share size={17} strokeWidth={2.25} />
+              </span>
+              Safari 하단의 공유 버튼을 눌러주세요.
+            </li>
+            <li className="flex items-center gap-3 rounded-2xl bg-[#F7F6F2] px-4 py-3 text-sm font-bold text-[#333]">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-[#FF4300]">
+                <Home size={17} strokeWidth={2.25} />
+              </span>
+              홈 화면에 추가를 선택하면 설치가 끝나요.
+            </li>
+          </ol>
+        ) : deferredPrompt ? (
+          <button
+            className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-black px-5 text-base font-black text-white active:scale-[0.98]"
+            onClick={handleInstallClick}
+            type="button"
+          >
+            <Download size={20} strokeWidth={2.35} />
+            앱으로 설치
+          </button>
+        ) : (
+          <div className="mt-6 rounded-2xl bg-[#F7F6F2] px-4 py-4">
+            <div className="flex items-center gap-3 text-sm font-bold text-[#333]">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-[#FF4300]">
+                <Download size={18} strokeWidth={2.35} />
+              </span>
+              브라우저 메뉴에서 앱 설치 또는 홈 화면에 추가를 선택해주세요.
+            </div>
+          </div>
+        )}
+
         <button
-          aria-label="설치 안내 닫기"
-          className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-full border-0 bg-transparent text-[#555]"
+          className="mt-3 h-12 w-full rounded-2xl border border-[#E8E4DD] bg-white text-sm font-black text-[#777]"
           onClick={handleDismiss}
           type="button"
         >
-          <X size={18} strokeWidth={2.2} />
+          나중에 할게요
         </button>
       </div>
-    </aside>
+    </BottomSheet>
   );
 }

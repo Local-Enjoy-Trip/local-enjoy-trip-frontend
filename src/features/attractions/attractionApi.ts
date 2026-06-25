@@ -45,6 +45,7 @@ export type AttractionDetailResponse = {
   title: string;
   address?: string | null;
   addressDetail?: string | null;
+  detail?: string | null;
   imageUrl?: string | null;
   latitude: number;
   longitude: number;

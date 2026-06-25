@@ -97,6 +97,21 @@ function readDraft(): NoteDraft {
   }
 }
 
+function writeDraft(draft: NoteDraft) {
+  try {
+    window.sessionStorage.setItem(noteDraftStorageKey, JSON.stringify(draft));
+  } catch {
+    try {
+      window.sessionStorage.setItem(
+        noteDraftStorageKey,
+        JSON.stringify({ ...draft, imagePreview: null })
+      );
+    } catch {
+      // Keep navigation available even when the browser refuses draft storage.
+    }
+  }
+}
+
 export function CreateNotePage() {
   const navigate = useNavigate();
   const { data: user } = useAuthUser();
@@ -223,16 +238,13 @@ export function CreateNotePage() {
   }
 
   function openLocationPage() {
-    window.sessionStorage.setItem(
-      noteDraftStorageKey,
-      JSON.stringify({
-        body,
-        imagePreview,
-        location: noteLocation,
-        tags: tagValues,
-        visibility,
-      } satisfies NoteDraft)
-    );
+    writeDraft({
+      body,
+      imagePreview,
+      location: noteLocation,
+      tags: tagValues,
+      visibility,
+    });
 
     navigate("/note/location", {
       state: {
@@ -305,7 +317,12 @@ export function CreateNotePage() {
 
         <section>
           <h2 className="mt-2 m-0 text-sm font-extrabold">쪽지 위치</h2>
-          <div className="flex items-center justify-between gap-4">
+          <button
+            aria-label="쪽지 위치 변경"
+            className="flex w-full items-center justify-between gap-4 bg-white p-0 text-left text-[#202020]"
+            onClick={openLocationPage}
+            type="button"
+          >
             <div className="min-w-0">
               <strong className="mt-4 block truncate text-[0.95rem] font-black">
                 {noteLocation.name}
@@ -314,14 +331,10 @@ export function CreateNotePage() {
                 {noteLocation.address}
               </p>
             </div>
-            <button
-              aria-label="쪽지 위치 변경"
-              className="grid size-12 flex-none items-end justify-center bg-white text-[#FF4300]"
-              onClick={openLocationPage}
-              type="button">
+            <span className="grid size-12 flex-none items-end justify-center text-[#FF4300]">
               <ChevronRight size={21} strokeWidth={2.8} />
-            </button>
-          </div>
+            </span>
+          </button>
 
           <div className="mt-5 w-[116px] flex items-center justify-center border border-gray-300 rounded-[20px]">
             <AnimatePresence mode="wait">
