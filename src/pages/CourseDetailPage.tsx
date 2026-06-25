@@ -1015,6 +1015,24 @@ function toCourseUpdateRequest(course: CourseResponse) {
 }
 
 export function CourseDetailPage() {
+  const [safeAreaTop, setSafeAreaTop] = useState(0);
+
+  useEffect(() => {
+    const div = document.createElement("div");
+    div.style.position = "absolute";
+    div.style.top = "env(safe-area-inset-top)";
+    div.style.height = "0";
+    div.style.width = "0";
+    div.style.visibility = "hidden";
+    document.body.appendChild(div);
+    const computedTop = window.getComputedStyle(div).top;
+    const parsed = parseFloat(computedTop);
+    if (!isNaN(parsed)) {
+      setSafeAreaTop(parsed);
+    }
+    document.body.removeChild(div);
+  }, []);
+
   const [isRouteEditing, setIsRouteEditing] = useState(false);
   const [backupCourse, setBackupCourse] = useState<CourseResponse | null>(null);
   const navigate = useNavigate();
@@ -1186,9 +1204,9 @@ export function CourseDetailPage() {
 
     return [...apiTargets, ...localTargets];
   }, [apiCourse?.id, copySavedCourses, myCoursesQuery.data, savedCourse?.id]);
-  const expandedHeaderHeight = HEADER_EXPANDED_HEIGHT;
+  const expandedHeaderHeight = HEADER_EXPANDED_HEIGHT + safeAreaTop;
   const drawerCollapsedTop = DRAWER_COLLAPSED_TOP;
-  const headerCollapseDistance = expandedHeaderHeight - HEADER_COMPACT_HEIGHT;
+  const headerCollapseDistance = expandedHeaderHeight - (HEADER_COMPACT_HEIGHT + safeAreaTop);
 
   const headerHeight = expandedHeaderHeight - headerOffset;
   const drawerTop = drawerCollapsedTop - drawerCoverOffset;
