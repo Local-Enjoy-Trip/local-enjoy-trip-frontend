@@ -26,7 +26,7 @@ export function EmailLoginPage() {
     mutationFn: loginWithEmailAddress,
     onSuccess: (user) => {
       queryClient.setQueryData(authUserQueryKey, user);
-      navigate(routeState?.returnTo ?? "/my", { replace: true });
+      navigate("/", { replace: true });
     },
   });
 

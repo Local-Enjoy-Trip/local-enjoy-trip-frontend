@@ -67,6 +67,8 @@ type NearbyNotesResponse = {
   notes: NearbyNoteResponse[];
 };
 
+type NoteRecommendationsResponse = NearbyNoteResponse[] | NearbyNotesResponse;
+
 const contentTypeLabels: Record<string, string> = {
   "12": "관광지",
   "14": "문화시설",
@@ -112,6 +114,19 @@ export function getNearbyHomeNotes(coordinates: Coordinates) {
   return apiGet<NearbyNotesResponse>(
     `/api/notes/nearby?${params.toString()}`,
   ).then((response) => response.notes.map(toHomeNote));
+}
+
+export function getRecommendedHomeNotes(limit = 10) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+  });
+
+  return apiGet<NoteRecommendationsResponse>(
+    `/api/notes/recommendations?${params.toString()}`,
+  ).then((response) => {
+    const notes = Array.isArray(response) ? response : response.notes;
+    return notes.map(toHomeNote);
+  });
 }
 
 function createNearbyParams(

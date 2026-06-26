@@ -304,7 +304,6 @@ export function HomePage() {
       />
       {selectedLocation ? (
         <CourseCurationSection
-          coordinates={selectedLocation.coordinates}
           location={neighborhoodName}
         />
       ) : (

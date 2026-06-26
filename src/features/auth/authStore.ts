@@ -297,9 +297,8 @@ export function startGoogleLogin(returnTo?: string) {
 }
 
 export function readOAuthReturnTo() {
-  const returnTo = window.sessionStorage.getItem("oauth-return-to") ?? "/my";
   window.sessionStorage.removeItem("oauth-return-to");
-  return returnTo;
+  return "/";
 }
 
 export function useAuthUser() {

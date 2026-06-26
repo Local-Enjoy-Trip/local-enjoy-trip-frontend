@@ -44,9 +44,12 @@ export type CourseOrderRecommendationRequest = {
 
 export type CourseFeedRequest = {
   limit?: number;
-  mapX: number;
-  mapY: number;
-  radius?: number;
+  regionName: string;
+};
+
+export type CourseRecommendationsRequest = {
+  limit?: number;
+  regionName: string;
 };
 
 export type AiCourseCompanion =
@@ -173,14 +176,23 @@ export function getPublicCourse(courseId: string) {
 export function getCourseFeed(request: CourseFeedRequest) {
   const params = new URLSearchParams({
     limit: String(request.limit ?? 20),
-    mapX: String(request.mapX),
-    mapY: String(request.mapY),
+    regionName: request.regionName,
   });
-  if (request.radius) params.set("radius", String(request.radius));
 
   return apiGet<CoursesResponse>(`/api/courses/feed?${params.toString()}`).then(
     (response) => response.courses,
   );
+}
+
+export function getCourseRecommendations(request: CourseRecommendationsRequest) {
+  const params = new URLSearchParams({
+    limit: String(request.limit ?? 10),
+    regionName: request.regionName,
+  });
+
+  return apiGet<CoursesResponse>(
+    `/api/courses/recommendations?${params.toString()}`,
+  ).then((response) => response.courses);
 }
 
 export function generateAiCourse(request: AiCourseGenerateRequest) {

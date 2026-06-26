@@ -4,26 +4,21 @@ import {
   CourseDiscoveryCard,
 } from "@/features/course/components/CourseDiscoveryCard";
 import { getCourseFeed } from "@/features/course/courseApi";
-import type { Coordinates } from "@/shared/types/domain";
 import { SectionHeader } from "@/shared/ui/SectionHeader";
 import { Skeleton } from "@/shared/ui/Skeleton";
 
 export function CourseCurationSection({
-  coordinates,
   location,
 }: {
-  coordinates: Coordinates;
   location: string;
 }) {
   const courseFeedQuery = useQuery({
     queryFn: () =>
       getCourseFeed({
         limit: 10,
-        mapX: coordinates.lng,
-        mapY: coordinates.lat,
-        radius: 3_000,
+        regionName: location,
       }),
-    queryKey: ["home-course-feed", location, coordinates.lat, coordinates.lng],
+    queryKey: ["home-course-feed", location],
     retry: 1,
   });
   const courses = courseFeedQuery.data?.map(apiCourseToDiscovery) ?? [];

@@ -9,7 +9,10 @@ import {
   NoteCarousel,
   PlaceCarousel,
 } from "@/features/course/components/CourseRecommendationCarousels";
-import { getCourseFeed, getMyCourses } from "@/features/course/courseApi";
+import {
+  getCourseRecommendations,
+  getMyCourses,
+} from "@/features/course/courseApi";
 import {
   fallbackTripCoordinates,
   getCourseCards,
@@ -17,8 +20,8 @@ import {
   groupCoursesByHashtag,
 } from "@/features/course/lib/coursePageModels";
 import {
-  getNearbyHomeNotes,
   getPopularNearbyExperiences,
+  getRecommendedHomeNotes,
 } from "@/features/home/homeApi";
 import { notes, places } from "@/shared/data/mockData";
 import { useQuery } from "@tanstack/react-query";
@@ -56,28 +59,16 @@ export function CoursePage() {
     ],
   });
   const nearbyNotesQuery = useQuery({
-    queryFn: () => getNearbyHomeNotes(tripCoordinates),
-    queryKey: [
-      "course-nearby-notes",
-      tripArea,
-      tripCoordinates.lat,
-      tripCoordinates.lng,
-    ],
+    queryFn: () => getRecommendedHomeNotes(10),
+    queryKey: ["course-note-recommendations"],
   });
   const publicCoursesQuery = useQuery({
     queryFn: () =>
-      getCourseFeed({
+      getCourseRecommendations({
         limit: 20,
-        mapX: tripCoordinates.lng,
-        mapY: tripCoordinates.lat,
-        radius: 5_000,
+        regionName: tripArea,
       }),
-    queryKey: [
-      "course-public-feed",
-      tripArea,
-      tripCoordinates.lat,
-      tripCoordinates.lng,
-    ],
+    queryKey: ["course-recommendations", tripArea],
     retry: 1,
   });
 

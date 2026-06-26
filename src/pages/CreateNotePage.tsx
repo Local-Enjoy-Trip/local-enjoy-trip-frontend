@@ -131,7 +131,7 @@ export function CreateNotePage() {
     editNoteQuery.data?.find((note) => note.id === parsedNoteId) ??
     null;
   const isEditing = parsedNoteId !== null;
-  const submitReturnTo = routeState?.returnTo ?? (isEditing ? "/my/notes" : "/my");
+  const submitReturnTo = "/my/notes";
   const locationReturnTo = isEditing && parsedNoteId !== null
     ? `/note/${parsedNoteId}/edit`
     : "/note/new";
