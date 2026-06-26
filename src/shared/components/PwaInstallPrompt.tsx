@@ -30,9 +30,14 @@ function isRecentlyDismissed() {
 function isIosSafari() {
   const userAgent = window.navigator.userAgent.toLowerCase();
   const isIos = /iphone|ipad|ipod/.test(userAgent);
-  const isSafari = /safari/.test(userAgent) && !/crios|fxios|edgios/.test(userAgent);
+  const isSafari =
+    /safari/.test(userAgent) && !/crios|fxios|edgios/.test(userAgent);
 
   return isIos && isSafari;
+}
+
+function isAndroid() {
+  return /android/.test(window.navigator.userAgent.toLowerCase());
 }
 
 export function PwaInstallPrompt() {
@@ -43,6 +48,10 @@ export function PwaInstallPrompt() {
   const [wasManuallyRequested, setWasManuallyRequested] = useState(false);
   const showsIosGuide = useMemo(
     () => typeof window !== "undefined" && isIosSafari(),
+    []
+  );
+  const showsAndroidGuide = useMemo(
+    () => typeof window !== "undefined" && isAndroid(),
     []
   );
 
@@ -137,7 +146,9 @@ export function PwaInstallPrompt() {
               앱처럼 빠르게 열어보세요
             </strong>
             <p className="mt-1 text-sm font-bold leading-5 text-[#777]">
-              홈 화면에 추가하면 주소 입력 없이 바로 시작할 수 있어요.
+              {showsAndroidGuide
+                ? "Android에서는 Chrome 메뉴에서 앱처럼 설치할 수 있어요."
+                : "홈 화면에 추가하면 주소 입력 없이 바로 시작할 수 있어요."}
             </p>
           </div>
         </div>
@@ -164,7 +175,7 @@ export function PwaInstallPrompt() {
             type="button"
           >
             <Download size={20} strokeWidth={2.35} />
-            앱으로 설치
+            {showsAndroidGuide ? "Android에서 앱으로 설치" : "앱으로 설치"}
           </button>
         ) : (
           <div className="mt-6 rounded-2xl bg-[#F7F6F2] px-4 py-4">
@@ -172,7 +183,9 @@ export function PwaInstallPrompt() {
               <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-[#FF4300]">
                 <Download size={18} strokeWidth={2.35} />
               </span>
-              브라우저 메뉴에서 앱 설치 또는 홈 화면에 추가를 선택해주세요.
+              {showsAndroidGuide
+                ? "Chrome 오른쪽 위 메뉴에서 앱 설치 또는 홈 화면에 추가를 선택해주세요."
+                : "브라우저 메뉴에서 앱 설치 또는 홈 화면에 추가를 선택해주세요."}
             </div>
           </div>
         )}

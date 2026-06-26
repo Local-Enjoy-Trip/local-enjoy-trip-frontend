@@ -10,6 +10,12 @@ import {
 } from "@/features/course/courseApi";
 import { getAttractionDetail } from "@/features/attractions/attractionApi";
 import { normalizeCourseTags } from "@/features/course/courseTags";
+import { loadKakaoMap } from "@/features/map/lib/kakaoMap";
+import type {
+  KakaoCustomOverlay,
+  KakaoMapInstance,
+  KakaoPolyline,
+} from "@/features/map/types";
 import {
   ArrowLeft,
   ArrowRight,
@@ -49,6 +55,9 @@ type AiRecommendationCourse = {
   stops: AiRecommendationStop[];
   styles: string[];
   title: string;
+};
+type ZoomLockedKakaoMapInstance = KakaoMapInstance & {
+  setZoomable?: (zoomable: boolean) => void;
 };
 
 const neighborhoodOptions = [
@@ -148,7 +157,7 @@ function ChoiceButton({
   );
 }
 
-function AiRoutePreviewMap({
+function FallbackAiRoutePreviewMap({
   area,
   stops,
 }: {
@@ -235,6 +244,158 @@ function AiRoutePreviewMap({
       </span>
       <span className="absolute right-4 bottom-3 rounded-full bg-[#1F3D35] px-3 py-1.5 text-xs font-black text-white shadow-sm">
         {hasCoordinates ? "위치 기반" : "추천 순서"}
+      </span>
+    </div>
+  );
+}
+
+function AiRoutePreviewMap({
+  area,
+  stops,
+}: {
+  area: string;
+  stops: AiRecommendationStop[];
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<ZoomLockedKakaoMapInstance | null>(null);
+  const overlaysRef = useRef<KakaoCustomOverlay[]>([]);
+  const polylineRef = useRef<KakaoPolyline | null>(null);
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "fallback">(
+    "loading",
+  );
+  const validStops = stops.filter(
+    (stop) =>
+      Number.isFinite(stop.lat) &&
+      Number.isFinite(stop.lng) &&
+      stop.lat !== 0 &&
+      stop.lng !== 0,
+  );
+  const routeCenter = validStops.length
+    ? {
+        lat:
+          validStops.reduce((sum, stop) => sum + stop.lat, 0) /
+          validStops.length,
+        lng:
+          validStops.reduce((sum, stop) => sum + stop.lng, 0) /
+          validStops.length,
+      }
+    : null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!routeCenter || validStops.length < 2) {
+      setMapStatus("fallback");
+      return;
+    }
+
+    setMapStatus("loading");
+    loadKakaoMap().then((status) => {
+      if (cancelled) return;
+
+      if (status !== "ready" || !window.kakao || !containerRef.current) {
+        setMapStatus("fallback");
+        return;
+      }
+
+      try {
+        const kakaoMaps = window.kakao.maps;
+        const map =
+          mapRef.current ??
+          (new kakaoMaps.Map(containerRef.current, {
+            center: new kakaoMaps.LatLng(routeCenter.lat, routeCenter.lng),
+            level: 5,
+          }) as ZoomLockedKakaoMapInstance);
+
+        map.setZoomable?.(false);
+        map.setCenter(new kakaoMaps.LatLng(routeCenter.lat, routeCenter.lng));
+        map.relayout();
+        mapRef.current = map;
+        setMapStatus("ready");
+      } catch (error) {
+        console.error("Failed to initialize AI route map", error);
+        setMapStatus("fallback");
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeCenter?.lat, routeCenter?.lng, validStops.length]);
+
+  useEffect(() => {
+    const kakaoMaps = window.kakao?.maps;
+    const map = mapRef.current;
+
+    if (mapStatus !== "ready" || !kakaoMaps || !map || validStops.length < 2) {
+      return;
+    }
+
+    overlaysRef.current.forEach((overlay) => overlay.setMap(null));
+    overlaysRef.current = [];
+    polylineRef.current?.setMap(null);
+
+    const path = validStops.map((stop) => new kakaoMaps.LatLng(stop.lat, stop.lng));
+    const polyline = new kakaoMaps.Polyline({
+      path,
+      strokeColor: "#1F3D35",
+      strokeOpacity: 0.9,
+      strokeStyle: "shortdash",
+      strokeWeight: 4,
+    });
+    polyline.setMap(map);
+    polylineRef.current = polyline;
+
+    validStops.forEach((stop, index) => {
+      const marker = document.createElement("span");
+      marker.className =
+        "grid size-9 place-items-center rounded-full border-4 border-white bg-[#FD4003] text-xs font-black text-white shadow-[0_8px_18px_rgba(253,64,3,0.25)]";
+      marker.textContent = String(index + 1);
+
+      const overlay = new kakaoMaps.CustomOverlay({
+        content: marker,
+        position: new kakaoMaps.LatLng(stop.lat, stop.lng),
+        yAnchor: 0.5,
+        zIndex: 20 + index,
+      });
+      overlay.setMap(map);
+      overlaysRef.current.push(overlay);
+    });
+
+    return () => {
+      overlaysRef.current.forEach((overlay) => overlay.setMap(null));
+      overlaysRef.current = [];
+      polylineRef.current?.setMap(null);
+    };
+  }, [mapStatus, stops]);
+
+  useEffect(
+    () => () => {
+      overlaysRef.current.forEach((overlay) => overlay.setMap(null));
+      polylineRef.current?.setMap(null);
+      overlaysRef.current = [];
+      mapRef.current = null;
+    },
+    [],
+  );
+
+  if (mapStatus === "fallback") {
+    return <FallbackAiRoutePreviewMap area={area} stops={stops} />;
+  }
+
+  return (
+    <div className="relative mx-5 mt-7 h-48 overflow-hidden rounded-[24px] bg-[#DCE9DF] shadow-[0_14px_34px_rgba(31,38,35,0.08)]">
+      <div ref={containerRef} className="h-full w-full" />
+      {mapStatus === "loading" ? (
+        <div className="absolute inset-0 grid place-items-center bg-[#DCE9DF] text-xs font-black text-[#4E5D53]">
+          카카오 지도를 준비하는 중...
+        </div>
+      ) : null}
+      <span className="pointer-events-none absolute bottom-3 left-4 rounded-full bg-white/95 px-3 py-1.5 text-xs font-black text-[#4E5D53] shadow-sm">
+        {area} 하루 동선
+      </span>
+      <span className="pointer-events-none absolute right-4 bottom-3 rounded-full bg-[#1F3D35] px-3 py-1.5 text-xs font-black text-white shadow-sm">
+        확대/축소 잠금
       </span>
     </div>
   );
