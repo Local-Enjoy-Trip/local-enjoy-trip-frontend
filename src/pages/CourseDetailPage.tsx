@@ -51,7 +51,6 @@ import {
   Download,
   Map as MapIcon,
   Plus,
-  UserPlus,
   WandSparkles,
   X,
   GripVertical,
@@ -1739,7 +1738,6 @@ export function CourseDetailPage() {
             </div>
             {canEditCourse ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
               <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-extrabold text-white" onClick={() => setPlacePickerOpen(true)} type="button"><Plus size={20} />장소 추가하기</button>
-              <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full border border-[#D9E5DC] bg-[#EDF5EF] px-4 text-sm font-extrabold text-[#1F3D35]" onClick={() => setFriendsOpen(true)} type="button"><UserPlus size={18} />일행과 함께 일정 짜기</button>
             </div> : apiCourse ? <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
               <button className="inline-flex h-10 flex-none items-center gap-1.5 rounded-full bg-[#1F3D35] px-4 text-sm font-extrabold text-white" onClick={() => setCopyOpen(true)} type="button"><Plus size={18} />내 코스에 추가</button>
               <span className="inline-flex h-10 flex-none items-center rounded-full bg-[#F3F3F3] px-3 text-xs font-extrabold text-[#777]">탐색한 코스</span>
