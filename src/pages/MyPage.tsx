@@ -6,9 +6,9 @@ import {
   uploadProfileImage,
   useAuthUser,
 } from "@/features/auth/authStore";
+import { getMyCourses } from "@/features/course/courseApi";
 import { friendsQueryKey, getFriends } from "@/features/friends/friendApi";
 import { getMyNotes, myNotesQueryKey } from "@/features/notes/noteApi";
-import { courses } from "@/shared/data/mockData";
 import { openPwaInstallPrompt } from "@/shared/lib/pwaInstallEvents";
 import { PageLoadingSkeleton, TextSkeleton } from "@/shared/ui/Skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -76,8 +76,15 @@ export function MyPage() {
     queryFn: getFriends,
     queryKey: friendsQueryKey,
   });
+  const myCoursesQuery = useQuery({
+    enabled: Boolean(user),
+    queryFn: getMyCourses,
+    queryKey: ["courses", "me"],
+    staleTime: 30_000,
+  });
   const friendCount = friendsQuery.data?.length ?? 0;
   const myNoteCount = myNotesQuery.data?.length ?? 0;
+  const myCourseCount = myCoursesQuery.data?.length ?? 0;
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSettled: () => {
@@ -193,7 +200,7 @@ export function MyPage() {
                 label: "친구",
                 value: friendCount,
               },
-              { isLoading: false, label: "코스", value: courses.length },
+              { isLoading: myCoursesQuery.isLoading, label: "코스", value: myCourseCount },
               {
                 isLoading: myNotesQuery.isLoading,
                 label: "쪽지",
