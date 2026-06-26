@@ -1,9 +1,8 @@
 import { getAttractionDetail } from "@/features/attractions/attractionApi";
-import { createCourse, type CourseItemRequest, type CourseResponse } from "@/features/course/courseApi";
+import { appendCourseItem, createCourse, getMyCourses, type CourseItemRequest, type CourseResponse } from "@/features/course/courseApi";
 import { normalizeCourseTags } from "@/features/course/courseTags";
 import { getNote } from "@/features/notes/noteApi";
 import { resolveNoteImageSrc } from "@/features/notes/noteImage";
-import { courses } from "@/shared/data/mockData";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Crosshair, Heart, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -67,6 +66,12 @@ export function MapVisibleDrawer({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const myCoursesQuery = useQuery({
+    queryFn: getMyCourses,
+    queryKey: ["courses", "me"],
+    staleTime: 30_000,
+  });
+  const myCourses = myCoursesQuery.data ?? [];
   const drawerRef = useRef<HTMLElement>(null);
   const pointCardRefs = useRef(new Map<string, HTMLDivElement>());
   const lastAutoFocusedPointIdRef = useRef<string | null>(null);
@@ -391,9 +396,29 @@ export function MapVisibleDrawer({
     }
   }
 
-  function addToExistingCourse(courseTitle: string) {
+  async function addToExistingCourse(courseId: string, courseTitle: string) {
     if (!courseTarget) return;
 
+    const item = toCourseItem(courseTarget);
+    if (!item) {
+      setCourseNotice("장소 정보를 읽을 수 없어요.");
+      return;
+    }
+
+    setIsSubmittingCourse(true);
+    const updated = await appendCourseItem(courseId, item).catch(() => null);
+    setIsSubmittingCourse(false);
+
+    if (!updated) {
+      setCourseNotice("코스에 추가하지 못했어요. 다시 시도해 주세요.");
+      return;
+    }
+
+    queryClient.setQueryData<CourseResponse[]>(["courses", "me"], (prev) =>
+      prev
+        ? prev.map((c) => (c.id === updated.id ? updated : c))
+        : [updated],
+    );
     setCourseNotice(`${courseTarget.name}을(를) ${courseTitle}에 추가했어요.`);
     setCourseTarget(null);
   }
@@ -574,26 +599,35 @@ export function MapVisibleDrawer({
               </div>
             ) : (
               <div className="grid gap-2">
-              {courses.map((course) => (
-                <button
-                  className="flex items-center gap-3 rounded-xl border border-[#EEEAE2] bg-white p-3 text-left"
-                  key={course.id}
-                  onClick={() => addToExistingCourse(course.title)}
-                  type="button"
-                >
-                  <span className="grid size-10 flex-none place-items-center rounded-lg bg-[#F4F3EF] text-[#3E4A43]">
-                    <Check size={18} strokeWidth={2.4} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <strong className="block truncate text-sm font-black text-[#171717]">
-                      {course.title}
-                    </strong>
-                    <small className="mt-0.5 block text-xs font-bold text-[#807A72]">
-                      {course.area} · {course.stopCount}개 장소
-                    </small>
-                  </span>
-                </button>
-              ))}
+              {myCourses.length === 0 && !myCoursesQuery.isLoading ? (
+                <p className="rounded-2xl bg-[#F7F6F3] px-4 py-4 text-center text-xs font-bold text-[#817A71]">
+                  아직 만든 코스가 없어요.
+                </p>
+              ) : (
+                <div className="max-h-[280px] overflow-y-auto grid gap-2 pr-0.5">
+                  {myCourses.map((course) => (
+                    <button
+                      className="flex items-center gap-3 rounded-xl border border-[#EEEAE2] bg-white p-3 text-left"
+                      disabled={isSubmittingCourse}
+                      key={course.id}
+                      onClick={() => addToExistingCourse(course.id, course.title)}
+                      type="button"
+                    >
+                      <span className="grid size-10 flex-none place-items-center rounded-lg bg-[#F4F3EF] text-[#3E4A43]">
+                        <Check size={18} strokeWidth={2.4} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-sm font-black text-[#171717]">
+                          {course.title}
+                        </strong>
+                        <small className="mt-0.5 block text-xs font-bold text-[#807A72]">
+                          {course.regionName ?? "로컬"} · {course.items.length}개 장소
+                        </small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <button
                 className="mt-1 flex items-center gap-3 rounded-xl border border-dashed border-[#D8D3C9] bg-[#FAF9F6] p-3 text-left"
                 onClick={createCourseWithTarget}
