@@ -1,23 +1,69 @@
+import { lazy, Suspense, type ComponentType } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { AuthTransitionShell } from "./AuthTransitionShell";
 import { RequireAuth } from "../features/auth/RequireAuth";
 import { AppShell } from "../shared/components/AppShell";
-import { CreateNotePage } from "../pages/CreateNotePage";
-import { CreateCoursePage } from "../pages/CreateCoursePage";
-import { CourseDetailPage } from "../pages/CourseDetailPage";
-import { CoursePage } from "../pages/CoursePage";
-import { HomePage } from "../pages/HomePage";
-import { LoginPage } from "../pages/LoginPage";
-import { EmailLoginPage } from "../pages/EmailLoginPage";
-import { FriendPage } from "../pages/FriendPage";
-import { MapPage } from "../pages/MapPage";
-import { MyCoursesPage } from "../pages/MyCoursesPage";
-import { MyPage } from "../pages/MyPage";
-import { MyNotesPage } from "../pages/MyNotesPage";
-import { MySavedPage } from "../pages/MySavedPage";
-import { NoteLocationPage } from "../pages/NoteLocationPage";
-import { OAuthCallbackPage } from "../pages/OAuthCallbackPage";
-import { SignupPage } from "../pages/SignupPage";
+
+function lazyPage<TModule extends Record<TExport, ComponentType>, TExport extends string>(
+  importer: () => Promise<TModule>,
+  exportName: TExport,
+) {
+  return lazy(() =>
+    importer().then((module) => ({ default: module[exportName] })),
+  );
+}
+
+function routeElement(Page: ComponentType) {
+  return (
+    <Suspense fallback={null}>
+      <Page />
+    </Suspense>
+  );
+}
+
+const CreateNotePage = lazyPage(
+  () => import("../pages/CreateNotePage"),
+  "CreateNotePage",
+);
+const CreateCoursePage = lazyPage(
+  () => import("../pages/CreateCoursePage"),
+  "CreateCoursePage",
+);
+const CourseDetailPage = lazyPage(
+  () => import("../pages/CourseDetailPage"),
+  "CourseDetailPage",
+);
+const CoursePage = lazyPage(() => import("../pages/CoursePage"), "CoursePage");
+const HomePage = lazyPage(() => import("../pages/HomePage"), "HomePage");
+const LoginPage = lazyPage(() => import("../pages/LoginPage"), "LoginPage");
+const EmailLoginPage = lazyPage(
+  () => import("../pages/EmailLoginPage"),
+  "EmailLoginPage",
+);
+const FriendPage = lazyPage(() => import("../pages/FriendPage"), "FriendPage");
+const MapPage = lazyPage(() => import("../pages/MapPage"), "MapPage");
+const MyCoursesPage = lazyPage(
+  () => import("../pages/MyCoursesPage"),
+  "MyCoursesPage",
+);
+const MyPage = lazyPage(() => import("../pages/MyPage"), "MyPage");
+const MyNotesPage = lazyPage(
+  () => import("../pages/MyNotesPage"),
+  "MyNotesPage",
+);
+const MySavedPage = lazyPage(
+  () => import("../pages/MySavedPage"),
+  "MySavedPage",
+);
+const NoteLocationPage = lazyPage(
+  () => import("../pages/NoteLocationPage"),
+  "NoteLocationPage",
+);
+const OAuthCallbackPage = lazyPage(
+  () => import("../pages/OAuthCallbackPage"),
+  "OAuthCallbackPage",
+);
+const SignupPage = lazyPage(() => import("../pages/SignupPage"), "SignupPage");
 
 export const router = createBrowserRouter([
   {
@@ -27,28 +73,28 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { path: "/", element: <HomePage /> },
-      { path: "/map", element: <MapPage /> },
-      { path: "/note/new", element: <CreateNotePage /> },
-      { path: "/note/:noteId/edit", element: <CreateNotePage /> },
-      { path: "/note/location", element: <NoteLocationPage /> },
-      { path: "/course", element: <CoursePage /> },
-      { path: "/course/new", element: <CreateCoursePage /> },
-      { path: "/course/:courseId", element: <CourseDetailPage /> },
-      { path: "/friends", element: <FriendPage /> },
-      { path: "/my", element: <MyPage /> },
-      { path: "/my/courses", element: <MyCoursesPage /> },
-      { path: "/my/notes", element: <MyNotesPage /> },
-      { path: "/my/saved", element: <MySavedPage /> }
+      { path: "/", element: routeElement(HomePage) },
+      { path: "/map", element: routeElement(MapPage) },
+      { path: "/note/new", element: routeElement(CreateNotePage) },
+      { path: "/note/:noteId/edit", element: routeElement(CreateNotePage) },
+      { path: "/note/location", element: routeElement(NoteLocationPage) },
+      { path: "/course", element: routeElement(CoursePage) },
+      { path: "/course/new", element: routeElement(CreateCoursePage) },
+      { path: "/course/:courseId", element: routeElement(CourseDetailPage) },
+      { path: "/friends", element: routeElement(FriendPage) },
+      { path: "/my", element: routeElement(MyPage) },
+      { path: "/my/courses", element: routeElement(MyCoursesPage) },
+      { path: "/my/notes", element: routeElement(MyNotesPage) },
+      { path: "/my/saved", element: routeElement(MySavedPage) }
     ]
   },
   {
     element: <AuthTransitionShell />,
     children: [
-      { path: "/login", element: <LoginPage /> },
-      { path: "/login/email", element: <EmailLoginPage /> },
-      { path: "/oauth/callback", element: <OAuthCallbackPage /> },
-      { path: "/signup", element: <SignupPage /> }
+      { path: "/login", element: routeElement(LoginPage) },
+      { path: "/login/email", element: routeElement(EmailLoginPage) },
+      { path: "/oauth/callback", element: routeElement(OAuthCallbackPage) },
+      { path: "/signup", element: routeElement(SignupPage) }
     ]
   }
 ]);
