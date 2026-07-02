@@ -12,10 +12,18 @@ import type { MapFilter } from "../mapStore";
 import type {
   KakaoBounds,
   KakaoCustomOverlay,
+  KakaoMaps,
   KakaoMapInstance,
   MapPoint,
   MapViewport,
+  MarkerCluster,
 } from "../types";
+
+type MapOverlayEntry = {
+  content: HTMLElement;
+  overlay: KakaoCustomOverlay;
+  positionKey: string;
+};
 
 export function useKakaoMap(
   points: MapPoint[],
@@ -31,7 +39,7 @@ export function useKakaoMap(
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
   const initialCenterRef = useRef(initialCenter);
-  const overlaysRef = useRef<KakaoCustomOverlay[]>([]);
+  const overlayEntriesRef = useRef<Map<string, MapOverlayEntry>>(new Map());
   const [status, setStatus] = useState<"loading" | "ready" | "missing-key" | "error">(
     "loading"
   );
@@ -77,6 +85,7 @@ export function useKakaoMap(
     let resizeObserver: ResizeObserver | null = null;
     let initializedMap: KakaoMapInstance | null = null;
     let backgroundClickHandler: (() => void) | null = null;
+    const overlayEntries = overlayEntriesRef.current;
     setStatus("loading");
 
     loadKakaoMap().then((nextStatus) => {
@@ -157,6 +166,7 @@ export function useKakaoMap(
     return () => {
       cancelled = true;
       resizeObserver?.disconnect();
+      clearOverlayEntries(overlayEntries);
       if (initializedMap && backgroundClickHandler && window.kakao) {
         window.kakao.maps.event.removeListener(
           initializedMap,
@@ -203,87 +213,80 @@ export function useKakaoMap(
   }, [mapBottomInset, selectedPointBottomInset, status]);
 
   useEffect(() => {
-    overlaysRef.current.forEach((overlay) => overlay.setMap(null));
-    overlaysRef.current = [];
-
     const kakaoMaps = window.kakao?.maps;
-    if (status !== "ready" || !mapRef.current || !kakaoMaps) return;
+    const map = mapRef.current;
+    const overlayEntries = overlayEntriesRef.current;
 
-    const pointsInBounds = bounds
-      ? points.filter((point) =>
-          bounds.contain(
-            new kakaoMaps.LatLng(point.coordinates.lat, point.coordinates.lng),
-          ),
-        )
-      : points;
+    if (status !== "ready" || !map || !kakaoMaps) {
+      clearOverlayEntries(overlayEntries);
+      return;
+    }
 
-    clusterPoints(pointsInBounds, level).forEach((cluster) => {
-      const content = document.createElement("button");
-      content.type = "button";
+    const clusters = clusterPoints(
+      getPointsInBounds(points, bounds, kakaoMaps),
+      level,
+    );
+    const activeOverlayKeys = new Set<string>();
+
+    clusters.forEach((cluster) => {
+      const overlayKey = `cluster:${cluster.id}`;
+      const positionKey = getPositionKey(cluster.center);
       const isSinglePoint = cluster.points.length === 1;
+      const firstPoint = cluster.points[0];
       const isSelected =
-        isSinglePoint && cluster.points[0].id === selectedPointId;
-      content.className =
-        !isSinglePoint
-          ? getClusterClassName(cluster.points.length)
-          : getOverlayClassName(cluster.points[0], isSelected, activeFilter);
-      if (cluster.points.length === 1 && cluster.points[0].kind === "place") {
-        content.style.setProperty(
-          "--marker-color",
-          getPlaceMarkerColor(cluster.points[0])
-        );
-      }
-      content.innerHTML =
-        cluster.points.length > 1
-          ? `<span>${cluster.points.length}</span>`
-          : getOverlayContent(cluster.points[0], activeFilter);
-      if (cluster.points.length === 1 && cluster.points[0].kind === "spot") {
-        replaceBrokenMarkerImage(content, cluster.points[0]);
-      }
-      content.addEventListener("click", (event) => {
-        event.stopPropagation();
-        if (cluster.points.length > 1 && mapRef.current && window.kakao) {
-          const anchor = new kakaoMaps.LatLng(
-            cluster.center.lat,
-            cluster.center.lng
-          );
-          mapRef.current.setLevel(Math.max(2, mapRef.current.getLevel() - 2), {
-            anchor
-          });
-          mapRef.current.panTo(anchor);
-          return;
-        }
+        isSinglePoint && firstPoint.id === selectedPointId;
 
-        onSelectPoint(cluster.points[0].id);
-        focusMapOn(cluster.center, selectedPointBottomInset);
-      });
+      activeOverlayKeys.add(overlayKey);
 
-      const overlay = new kakaoMaps.CustomOverlay({
-        position: new kakaoMaps.LatLng(cluster.center.lat, cluster.center.lng),
-        content,
+      const entry = getReusableOverlayEntry({
+        kakaoMaps,
+        map,
+        overlayEntries,
+        overlayKey,
+        contentTag: "button",
+        positionKey,
+        position: cluster.center,
         yAnchor: 1,
-        zIndex: isSelected ? 20 : cluster.points.length > 1 ? 8 : 10
+        zIndex: getClusterZIndex(cluster, isSelected),
       });
-      overlay.setMap(mapRef.current);
-      overlaysRef.current.push(overlay);
+
+      updateClusterOverlayContent({
+        activeFilter,
+        cluster,
+        content: entry.content,
+        firstPoint,
+        focusMapOn,
+        isSelected,
+        kakaoMaps,
+        map,
+        onSelectPoint,
+        selectedPointBottomInset,
+      });
+      entry.overlay.setZIndex(getClusterZIndex(cluster, isSelected));
     });
 
     if (currentLocation) {
-      const content = document.createElement("div");
-      content.className = "current-location-marker";
+      const overlayKey = "current-location";
+      activeOverlayKeys.add(overlayKey);
 
-      const overlay = new kakaoMaps.CustomOverlay({
-        position: new kakaoMaps.LatLng(
-          currentLocation.lat,
-          currentLocation.lng
-        ),
-        content,
+      const entry = getReusableOverlayEntry({
+        kakaoMaps,
+        map,
+        overlayEntries,
+        overlayKey,
+        contentTag: "div",
+        positionKey: getPositionKey(currentLocation),
+        position: currentLocation,
         yAnchor: 0.5,
-        zIndex: 35
+        zIndex: 35,
       });
-      overlay.setMap(mapRef.current);
-      overlaysRef.current.push(overlay);
+
+      entry.content.className = "current-location-marker";
+      entry.content.innerHTML = "";
+      entry.content.onclick = null;
     }
+
+    removeInactiveOverlayEntries(overlayEntries, activeOverlayKeys);
   }, [
     bounds,
     currentLocation,
@@ -350,6 +353,163 @@ function getDistanceMeters(
 
 function toRadians(degrees: number) {
   return (degrees * Math.PI) / 180;
+}
+
+function clearOverlayEntries(overlayEntries: Map<string, MapOverlayEntry>) {
+  overlayEntries.forEach(({ overlay }) => overlay.setMap(null));
+  overlayEntries.clear();
+}
+
+function removeInactiveOverlayEntries(
+  overlayEntries: Map<string, MapOverlayEntry>,
+  activeOverlayKeys: Set<string>,
+) {
+  overlayEntries.forEach((entry, overlayKey) => {
+    if (activeOverlayKeys.has(overlayKey)) return;
+
+    entry.overlay.setMap(null);
+    overlayEntries.delete(overlayKey);
+  });
+}
+
+function getReusableOverlayEntry({
+  kakaoMaps,
+  map,
+  overlayEntries,
+  overlayKey,
+  contentTag,
+  position,
+  positionKey,
+  yAnchor,
+  zIndex,
+}: {
+  kakaoMaps: KakaoMaps;
+  map: KakaoMapInstance;
+  overlayEntries: Map<string, MapOverlayEntry>;
+  overlayKey: string;
+  contentTag: "button" | "div";
+  position: Coordinates;
+  positionKey: string;
+  yAnchor: number;
+  zIndex: number;
+}) {
+  const existingEntry = overlayEntries.get(overlayKey);
+
+  if (existingEntry?.positionKey === positionKey) {
+    return existingEntry;
+  }
+
+  existingEntry?.overlay.setMap(null);
+
+  const content = document.createElement(contentTag);
+  if (content instanceof HTMLButtonElement) {
+    content.type = "button";
+  }
+
+  const overlay = new kakaoMaps.CustomOverlay({
+    position: new kakaoMaps.LatLng(position.lat, position.lng),
+    content,
+    yAnchor,
+    zIndex,
+  });
+
+  overlay.setMap(map);
+
+  const nextEntry = { content, overlay, positionKey };
+  overlayEntries.set(overlayKey, nextEntry);
+  return nextEntry;
+}
+
+function updateClusterOverlayContent({
+  activeFilter,
+  cluster,
+  content,
+  firstPoint,
+  focusMapOn,
+  isSelected,
+  kakaoMaps,
+  map,
+  onSelectPoint,
+  selectedPointBottomInset,
+}: {
+  activeFilter?: MapFilter;
+  cluster: MarkerCluster;
+  content: HTMLElement;
+  firstPoint: MapPoint;
+  focusMapOn: (coordinates: Coordinates, bottomInset: number) => void;
+  isSelected: boolean;
+  kakaoMaps: KakaoMaps;
+  map: KakaoMapInstance;
+  onSelectPoint: (id: string | null) => void;
+  selectedPointBottomInset: number;
+}) {
+  const isSinglePoint = cluster.points.length === 1;
+
+  content.className = !isSinglePoint
+    ? getClusterClassName(cluster.points.length)
+    : getOverlayClassName(firstPoint, isSelected, activeFilter);
+  content.style.removeProperty("--marker-color");
+
+  if (isSinglePoint && firstPoint.kind === "place") {
+    content.style.setProperty("--marker-color", getPlaceMarkerColor(firstPoint));
+  }
+
+  content.innerHTML =
+    cluster.points.length > 1
+      ? `<span>${cluster.points.length}</span>`
+      : getOverlayContent(firstPoint, activeFilter);
+
+  if (isSinglePoint && firstPoint.kind === "spot") {
+    replaceBrokenMarkerImage(content, firstPoint);
+  }
+
+  content.onclick = (event) => {
+    event.stopPropagation();
+    if (cluster.points.length > 1) {
+      const anchor = new kakaoMaps.LatLng(
+        cluster.center.lat,
+        cluster.center.lng,
+      );
+      map.setLevel(Math.max(2, map.getLevel() - 2), {
+        anchor,
+      });
+      map.panTo(anchor);
+      return;
+    }
+
+    onSelectPoint(firstPoint.id);
+    focusMapOn(cluster.center, selectedPointBottomInset);
+  };
+}
+
+function getClusterZIndex(cluster: MarkerCluster, isSelected: boolean) {
+  return isSelected ? 20 : cluster.points.length > 1 ? 8 : 10;
+}
+
+function getPositionKey(coordinates: Coordinates) {
+  return `${coordinates.lat}:${coordinates.lng}`;
+}
+
+function getPointsInBounds(
+  points: MapPoint[],
+  bounds: KakaoBounds | null,
+  kakaoMaps: NonNullable<Window["kakao"]>["maps"],
+) {
+  if (!bounds) return points;
+
+  const pointsInBounds: MapPoint[] = [];
+
+  points.forEach((point) => {
+    if (
+      bounds.contain(
+        new kakaoMaps.LatLng(point.coordinates.lat, point.coordinates.lng),
+      )
+    ) {
+      pointsInBounds.push(point);
+    }
+  });
+
+  return pointsInBounds;
 }
 
 function getOverlayClassName(

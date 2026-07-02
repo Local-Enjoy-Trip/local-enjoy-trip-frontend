@@ -70,25 +70,39 @@ export function filterMapPoints({
 }
 
 export function clusterPoints(points: MapPoint[], level: number) {
-  const groups = new Map<string, MapPoint[]>();
+  const groups = new Map<
+    string,
+    { latTotal: number; lngTotal: number; points: MapPoint[] }
+  >();
 
   points.forEach((point) => {
     const key = getClusterKey(point, level);
-    groups.set(key, [...(groups.get(key) ?? []), point]);
+    const group = groups.get(key);
+
+    if (group) {
+      group.latTotal += point.coordinates.lat;
+      group.lngTotal += point.coordinates.lng;
+      group.points.push(point);
+      return;
+    }
+
+    groups.set(key, {
+      latTotal: point.coordinates.lat,
+      lngTotal: point.coordinates.lng,
+      points: [point],
+    });
   });
 
-  return Array.from(groups.entries()).map<MarkerCluster>(([id, group]) => ({
-    id,
-    center: {
-      lat:
-        group.reduce((total, point) => total + point.coordinates.lat, 0) /
-        group.length,
-      lng:
-        group.reduce((total, point) => total + point.coordinates.lng, 0) /
-        group.length
-    },
-    points: group
-  }));
+  return Array.from(groups.entries()).map<MarkerCluster>(
+    ([id, { latTotal, lngTotal, points }]) => ({
+      id,
+      center: {
+        lat: latTotal / points.length,
+        lng: lngTotal / points.length,
+      },
+      points,
+    }),
+  );
 }
 
 export function getFallbackPosition(coordinates: { lat: number; lng: number }) {
