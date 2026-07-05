@@ -715,7 +715,8 @@ export function MapPage() {
 
         {pendingViewport && drawerSnap !== "full" ? (
           <button
-            className={`pointer-events-auto absolute left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-[#FD4003]/15 bg-white px-3 py-2 text-xs font-extrabold whitespace-nowrap text-[#FD4003] shadow-[0_7px_17px_rgba(17,17,17,0.16)] disabled:opacity-60 ${
+            aria-label="현재 보이는 지도 영역에서 다시 검색"
+            className={`pointer-events-auto absolute left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-[#FD4003]/15 bg-white px-3 py-2 text-xs font-extrabold whitespace-nowrap text-[#FD4003] shadow-[0_7px_17px_rgba(17,17,17,0.16)] disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003] ${
               filter === "place"
                 ? "top-[calc(178px+env(safe-area-inset-top))]"
                 : "top-[calc(126px+env(safe-area-inset-top))]"
@@ -738,7 +739,8 @@ export function MapPage() {
 
         {drawerSnap === "hidden" ? (
           <button
-            className="pointer-events-auto absolute bottom-[calc(84px+env(safe-area-inset-bottom))] left-1/2 inline-flex h-9 -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#FD4003]/15 bg-white px-3.5 text-xs font-extrabold whitespace-nowrap text-[#FD4003] shadow-[0_7px_18px_rgba(17,17,17,0.18)]"
+            aria-label="지도 목록 보기"
+            className="pointer-events-auto absolute bottom-[calc(84px+env(safe-area-inset-bottom))] left-1/2 inline-flex h-9 -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#FD4003]/15 bg-white px-3.5 text-xs font-extrabold whitespace-nowrap text-[#FD4003] shadow-[0_7px_18px_rgba(17,17,17,0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
             onClick={() => setDrawerSnap("default")}
             type="button"
           >

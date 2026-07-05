@@ -143,7 +143,9 @@ function ChoiceButton({
 }) {
   return (
     <button
-      className={`relative min-h-16 rounded-2xl border px-3 text-[0.95rem] font-black transition-all ${
+      aria-label={`${label} 선택`}
+      aria-pressed={selected}
+      className={`relative min-h-16 rounded-2xl border px-3 text-[0.95rem] font-black transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003] ${
         selected
           ? "border-[#1F3D35] bg-[#1F3D35] text-white shadow-[0_8px_20px_rgba(31,61,53,0.16)]"
           : "border-[#ECE8E1] bg-[#FAF9F7] text-[#69645E]"
@@ -648,7 +650,7 @@ function AiCourseCreator() {
           </div>
         ) : null}
         <header className="flex items-center justify-between px-5 pt-[calc(18px+env(safe-area-inset-top))]">
-          <button aria-label="닫기" className="grid size-10 place-items-center rounded-full border-0 bg-white" onClick={() => navigate("/course")} type="button"><X size={22} /></button>
+          <button aria-label="AI 추천 결과 닫기" className="grid size-10 place-items-center rounded-full border-0 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" onClick={() => navigate("/course")} type="button"><X size={22} /></button>
           <span className="rounded-full bg-[#EAF2EC] px-3 py-1.5 text-xs font-black text-[#1F3D35]">AI 추천 완성</span>
           <span className="size-10" />
         </header>
@@ -680,10 +682,10 @@ function AiCourseCreator() {
           <h2 className="mt-2 mb-0 text-xl font-black">이 코스가 마음에 드나요?</h2>
           <p className="mt-2 text-sm font-semibold text-[#817B73]">담아두면 내 코스에서 언제든 편집하고 친구와 함께 볼 수 있어요.</p>
           {saveNotice ? <p className="mt-3 mb-0 rounded-xl bg-[#FFF7ED] px-3 py-2 text-xs font-bold text-[#A04A14]">{saveNotice}</p> : null}
-          <button className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#AAB8AE]" disabled={isSaving} onClick={saveRecommendation} type="button"><Plus size={20} />{isSaving ? "담는 중..." : "내 코스에 담기"}</button>
+          <button aria-label="AI 추천 코스를 내 코스에 담기" className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#AAB8AE] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" disabled={isSaving} onClick={saveRecommendation} type="button"><Plus size={20} />{isSaving ? "담는 중..." : "내 코스에 담기"}</button>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <button className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A]" onClick={() => { const nextVersion = version + 1; setVersion(nextVersion); void requestAiCourse(nextVersion); }} type="button"><RefreshCw size={17} />새로운 추천</button>
-            <button className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A]" onClick={reset} type="button"><RotateCcw size={17} />처음부터</button>
+            <button aria-label="새로운 AI 추천 다시 받기" className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" onClick={() => { const nextVersion = version + 1; setVersion(nextVersion); void requestAiCourse(nextVersion); }} type="button"><RefreshCw size={17} />새로운 추천</button>
+            <button aria-label="코스 생성 처음부터 다시 시작하기" className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" onClick={reset} type="button"><RotateCcw size={17} />처음부터</button>
           </div>
         </div>
       </section>
@@ -694,7 +696,7 @@ function AiCourseCreator() {
   return (
     <section className="fixed inset-0 z-50 mx-auto flex w-full max-w-[430px] flex-col overflow-y-auto bg-white px-5 pt-[calc(18px+env(safe-area-inset-top))] pb-[calc(20px+env(safe-area-inset-bottom))] text-[#171717]">
       <header className="flex items-center justify-between">
-        <button aria-label="이전" className="grid size-10 place-items-center rounded-full border-0 bg-[#F5F3EF]" onClick={goBack} type="button"><ArrowLeft size={22} /></button>
+        <button aria-label="이전 단계로 이동" className="grid size-10 place-items-center rounded-full border-0 bg-[#F5F3EF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" onClick={goBack} type="button"><ArrowLeft size={22} /></button>
         <div className="flex gap-1.5">{[0, 1, 2, 3].map((item) => <span className={`h-1.5 rounded-full transition-all ${item === step ? "w-8 bg-[#FD4003]" : item < step ? "w-4 bg-[#1F3D35]" : "w-4 bg-[#E7E3DC]"}`} key={item} />)}</div>
         <span className="text-sm font-black text-[#FD4003]">{step + 1}/4</span>
       </header>
@@ -708,12 +710,12 @@ function AiCourseCreator() {
         ) : (
           <>
             <div className="text-center"><span className="text-5xl">🗺️</span><h1 className="mt-5 mb-0 text-[1.8rem] leading-tight font-black tracking-[-0.05em]">어떤 속도로 둘러볼까요?</h1><p className="mt-2 text-sm font-bold text-[#9A958E]">머무는 시간과 장소 수를 조절할게요.</p></div>
-            <div className="mt-10 grid gap-3">{paces.map((item) => <button className={`flex min-h-20 items-center rounded-2xl border px-5 text-left ${pace === item.value ? "border-[#1F3D35] bg-[#EEF4EF]" : "border-[#ECE8E1] bg-[#FAF9F7]"}`} key={item.value} onClick={() => setPace(item.value)} type="button"><span className="min-w-0 flex-1"><strong className="block font-black text-[#282622]">{item.value}</strong><span className="mt-1 block text-xs font-bold text-[#928C84]">{item.description}</span></span>{pace === item.value ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><Check size={15} /></span> : null}</button>)}</div>
+            <div className="mt-10 grid gap-3">{paces.map((item) => <button aria-label={`${item.value} 속도 선택`} aria-pressed={pace === item.value} className={`flex min-h-20 items-center rounded-2xl border px-5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003] ${pace === item.value ? "border-[#1F3D35] bg-[#EEF4EF]" : "border-[#ECE8E1] bg-[#FAF9F7]"}`} key={item.value} onClick={() => setPace(item.value)} type="button"><span className="min-w-0 flex-1"><strong className="block font-black text-[#282622]">{item.value}</strong><span className="mt-1 block text-xs font-bold text-[#928C84]">{item.description}</span></span>{pace === item.value ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><Check size={15} /></span> : null}</button>)}</div>
           </>
         )}
       </main>
 
-      <button className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C]" disabled={!selections[step]} onClick={() => step < 3 ? setStep(step + 1) : void requestAiCourse(version)} type="button">{step === 3 ? <><WandSparkles size={20} />내 코스 추천받기</> : <>다음<ArrowRight size={19} /></>}</button>
+      <button aria-label={step === 3 ? "선택한 조건으로 내 코스 추천받기" : "다음 단계로 이동"} className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" disabled={!selections[step]} onClick={() => step < 3 ? setStep(step + 1) : void requestAiCourse(version)} type="button">{step === 3 ? <><WandSparkles size={20} />내 코스 추천받기</> : <>다음<ArrowRight size={19} /></>}</button>
     </section>
   );
 }

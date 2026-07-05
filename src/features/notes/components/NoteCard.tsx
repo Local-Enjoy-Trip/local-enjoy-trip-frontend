@@ -43,11 +43,12 @@ export function NoteCard({
 
   return (
     <article
+      aria-current={selected ? "true" : undefined}
       className={`relative flex flex-none snap-start flex-col overflow-hidden rounded-[20px] border bg-white shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-[border-color,box-shadow,transform] ${selected ? "border-[#FD4003] shadow-[0_8px_22px_rgba(253,64,3,0.16)]" : "border-[#BDBDBD]"} ${wide ? "h-[270px] w-full" : "h-[270px] w-[200px]"} ${className}`}
     >
       <button
         aria-label={`${authorName}의 쪽지 상세 보기`}
-        className="flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent p-0 text-left"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent p-0 text-left focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[#FD4003]"
         onClick={onSelect}
         type="button"
       >
@@ -105,7 +106,8 @@ export function NoteCard({
           {showSavedIcon ? (
             <button
               aria-label={note.saved ? "쪽지 저장 해제" : "쪽지 저장"}
-              className="grid size-6 place-items-center border-0 bg-transparent text-[#202020]"
+              aria-pressed={Boolean(note.saved)}
+              className="grid size-6 place-items-center border-0 bg-transparent text-[#202020] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
               onClick={(event) => {
                 event.stopPropagation();
                 onToggleSave?.();
@@ -123,7 +125,7 @@ export function NoteCard({
           {showAddToCourse ? (
             <button
               aria-label="쪽지를 코스에 추가"
-              className="grid size-6 place-items-center border-0 bg-transparent text-[#202020]"
+              className="grid size-6 place-items-center border-0 bg-transparent text-[#202020] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
               onClick={(event) => {
                 event.stopPropagation();
                 onAddToCourse?.();

@@ -42,6 +42,7 @@ export function FallbackMapLayer({
         if (cluster.points.length > 1) {
           return (
             <button
+              aria-label={`${cluster.points.length}개 장소 묶음 선택`}
               className={`map-cluster-marker absolute -translate-x-1/2 -translate-y-full ${
                 cluster.points.length >= 100 ? "is-large" : ""
               }`}
@@ -58,6 +59,8 @@ export function FallbackMapLayer({
         if (point.kind === "place") {
           return (
             <button
+              aria-label={`${point.name} 선택`}
+              aria-pressed={isSelected}
               className={`place-star-marker absolute -translate-x-1/2 -translate-y-full ${
                 isSelected ? "is-selected z-10" : ""
               }`}
@@ -81,6 +84,8 @@ export function FallbackMapLayer({
 
         return (
           <button
+            aria-label={`${isFriendMarker ? authorName : point.name} 선택`}
+            aria-pressed={isSelected}
             className={`${isFriendMarker ? "friend-profile-marker" : "spot-avatar-marker"} absolute -translate-x-1/2 -translate-y-full ${
               isSelected ? "is-selected z-10" : ""
             }`}

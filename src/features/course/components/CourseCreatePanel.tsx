@@ -19,7 +19,8 @@ const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 export function CourseCreatePanel({ onClick }: { onClick: () => void }) {
   return (
     <button
-      className="mx-5 mt-8 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[22px] border border-[#FFE0D2] bg-[#FFF7F2] p-4 text-left shadow-[0_10px_24px_rgba(253,64,3,0.07)] transition-transform active:scale-[0.985]"
+      aria-label="새 하루 코스 만들기"
+      className="mx-5 mt-8 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[22px] border border-[#FFE0D2] bg-[#FFF7F2] p-4 text-left shadow-[0_10px_24px_rgba(253,64,3,0.07)] transition-transform active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
       onClick={onClick}
       type="button"
     >
@@ -121,7 +122,8 @@ export function CourseCreateSheet({
       {createMode === "choice" ? (
         <div className="grid gap-3">
           <button
-            className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#E9E5DE] bg-white px-4 text-left"
+            aria-label="직접 만들기 선택"
+            className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#E9E5DE] bg-white px-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
             onClick={() => setCreateMode("direct")}
             type="button"
           >
@@ -140,7 +142,8 @@ export function CourseCreateSheet({
           </button>
 
           <button
-            className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#DDE5DD] bg-[#F6FAF6] px-4 text-left"
+            aria-label="AI 추천받기 선택"
+            className="flex min-h-16 items-center gap-3 rounded-2xl border border-[#DDE5DD] bg-[#F6FAF6] px-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
             onClick={() => navigate("/course/new?mode=ai")}
             type="button"
           >
@@ -197,7 +200,8 @@ export function CourseCreateSheet({
           </div>
 
           <button
-            className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-extrabold text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C]"
+            aria-label="코스 생성하기"
+            className="min-h-14 rounded-2xl border-0 bg-[#1F3D35] font-extrabold text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
             disabled={!draftTitle.trim() || isCreating}
             type="submit"
           >
@@ -238,7 +242,7 @@ export function CourseDraftCalendar({
       <div className="flex items-center justify-between gap-2 bg-[#F8F4EC] px-2.5 py-2.5">
         <button
           aria-label="이전 달"
-          className="grid size-8 flex-none place-items-center rounded-full border border-[#E4DDD2] bg-white text-[#4E4941] shadow-sm"
+          className="grid size-8 flex-none place-items-center rounded-full border border-[#E4DDD2] bg-white text-[#4E4941] shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
           onClick={() => onMonthChange(addMonths(month, -1))}
           type="button"
         >
@@ -252,7 +256,7 @@ export function CourseDraftCalendar({
 
         <button
           aria-label="다음 달"
-          className="grid size-8 flex-none place-items-center rounded-full border border-[#E4DDD2] bg-white text-[#4E4941] shadow-sm"
+          className="grid size-8 flex-none place-items-center rounded-full border border-[#E4DDD2] bg-white text-[#4E4941] shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
           onClick={() => onMonthChange(addMonths(month, 1))}
           type="button"
         >
@@ -288,6 +292,8 @@ export function CourseDraftCalendar({
 
             return (
               <button
+                aria-label={`${dateValue} 선택`}
+                aria-pressed={selected}
                 className={`grid aspect-square min-h-8 place-items-center rounded-xl text-[11px] font-black transition ${
                   selected
                     ? "bg-[#FD4003] text-white shadow-[0_8px_16px_rgba(253,64,3,0.25)]"
