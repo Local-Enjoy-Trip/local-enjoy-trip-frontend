@@ -216,6 +216,14 @@ const createItems = [
   },
 ];
 
+function isNavItemActive(pathname: string, itemPath: string) {
+  if (itemPath === "/") {
+    return pathname === "/";
+  }
+
+  return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+}
+
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -294,11 +302,13 @@ export function AppShell() {
       >
         {navItems.slice(0, 2).map((item) => {
           const Icon = item.icon;
+          const isCurrent = isNavItemActive(location.pathname, item.to);
 
           return (
             <NavLink
-              className="grid min-h-[54px] place-items-center content-center gap-0.5 rounded-xl text-[0.67rem] text-black transition-transform duration-150 active:scale-[0.94]"
+              aria-current={isCurrent ? "page" : undefined}
               aria-label={item.label}
+              className="grid min-h-[54px] place-items-center content-center gap-0.5 rounded-xl text-[0.67rem] text-black transition-transform duration-150 active:scale-[0.94] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
               key={item.to}
               to={item.to}
             >
@@ -357,13 +367,15 @@ export function AppShell() {
             }`}
             id="create-menu"
             role="menu"
+            aria-hidden={!isCreateMenuOpen}
           >
             {createItems.map((item, index) => {
               const Icon = item.icon;
 
               return (
                 <button
-                  className={`flex min-h-[56px] w-full items-center justify-between rounded-xl border-0 bg-white px-3.5 text-left text-black transition-colors hover:bg-[#f4f4f4] focus-visible:bg-[#f4f4f4] focus-visible:outline-none ${
+                  aria-label={item.label}
+                  className={`flex min-h-[56px] w-full items-center justify-between rounded-xl border-0 bg-white px-3.5 text-left text-black transition-colors hover:bg-[#f4f4f4] focus-visible:bg-[#f4f4f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003] ${
                     index > 0 ? "border-t border-solid border-black/10" : ""
                   }`}
                   key={item.to}
@@ -389,10 +401,11 @@ export function AppShell() {
           <button
             aria-controls="create-menu"
             aria-expanded={isCreateMenuOpen}
+            aria-haspopup="menu"
             aria-label={
               isCreateMenuOpen ? "만들기 메뉴 닫기" : "만들기 메뉴 열기"
             }
-            className={`grid h-12 w-12 place-items-center rounded-full border-0 text-white outline-none transition-[background-color,box-shadow,transform] duration-200 active:scale-95 ${
+            className={`grid h-12 w-12 place-items-center rounded-full border-0 text-white outline-none transition-[background-color,box-shadow,transform] duration-200 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003] ${
               isCreateMenuOpen
                 ? "bg-black shadow-[0_8px_18px_rgba(17,17,17,0.2)]"
                 : "bg-[#FF4300] shadow-[0_8px_18px_rgba(255,67,0,0.24)]"
@@ -412,11 +425,13 @@ export function AppShell() {
 
         {navItems.slice(2).map((item) => {
           const Icon = item.icon;
+          const isCurrent = isNavItemActive(location.pathname, item.to);
 
           return (
             <NavLink
-              className="grid min-h-[54px] place-items-center content-center gap-0.5 rounded-xl text-[0.67rem] text-black transition-transform duration-150 active:scale-[0.94]"
+              aria-current={isCurrent ? "page" : undefined}
               aria-label={item.label}
+              className="grid min-h-[54px] place-items-center content-center gap-0.5 rounded-xl text-[0.67rem] text-black transition-transform duration-150 active:scale-[0.94] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
               key={item.to}
               to={item.to}
             >

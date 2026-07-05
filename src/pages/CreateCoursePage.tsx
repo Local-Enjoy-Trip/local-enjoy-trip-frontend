@@ -1,14 +1,17 @@
 import {
   createCourse,
-  generateAiCourse,
   type CourseCreateRequest,
   type CourseItemRequest,
-  type AiCourseCompanion,
-  type AiCourseTheme,
-  type AiCoursePace,
   type CourseResponse,
 } from "@/features/course/courseApi";
-import { getAttractionDetail } from "@/features/attractions/attractionApi";
+import { generateCourse } from "@/features/ai-course/generateCourse";
+import type {
+  AiCourseCompanion,
+  AiCoursePace,
+  AiCourseTheme,
+  GeneratedCourse,
+  GeneratedCourseStop,
+} from "@/features/ai-course/types";
 import { normalizeCourseTags } from "@/features/course/courseTags";
 import { loadKakaoMap } from "@/features/map/lib/kakaoMap";
 import type {
@@ -34,28 +37,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { SpotLogo } from "@/shared/ui/SpotLogo";
 
 type DirectStop = { id: number; name: string };
-type AiRecommendationStop = {
-  attractionId?: number;
-  category: string;
-  description: string;
-  id: number;
-  imageUrl: string;
-  lat: number;
-  lng: number;
-  noteId?: number;
-  title: string;
-};
-type AiRecommendationCourse = {
-  area: string;
-  collaborators: string[];
-  companion: string;
-  id: string;
-  pace: string;
-  savedAt: string;
-  stops: AiRecommendationStop[];
-  styles: string[];
-  title: string;
-};
 type ZoomLockedKakaoMapInstance = KakaoMapInstance & {
   setZoomable?: (zoomable: boolean) => void;
 };
@@ -92,9 +73,9 @@ const paces = [
   { value: "알차게", description: "5곳 안팎, 동네를 꽉 채운 일정" },
 ];
 
-function toCourseCreateRequest(course: AiRecommendationCourse): CourseCreateRequest | null {
+function toCourseCreateRequest(course: GeneratedCourse): CourseCreateRequest | null {
   const items = course.stops.flatMap<CourseItemRequest>((stop, index) => {
-    if (stop.attractionId) {
+    if (stop.attractionId && stop.placeIdMatched) {
       return [{
         attractionId: stop.attractionId,
         day: 1,
@@ -143,7 +124,9 @@ function ChoiceButton({
 }) {
   return (
     <button
-      className={`relative min-h-16 rounded-2xl border px-3 text-[0.95rem] font-black transition-all ${
+      aria-label={`${label} 선택`}
+      aria-pressed={selected}
+      className={`relative min-h-16 rounded-2xl border px-3 text-[0.95rem] font-black transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003] ${
         selected
           ? "border-[#1F3D35] bg-[#1F3D35] text-white shadow-[0_8px_20px_rgba(31,61,53,0.16)]"
           : "border-[#ECE8E1] bg-[#FAF9F7] text-[#69645E]"
@@ -162,7 +145,7 @@ function FallbackAiRoutePreviewMap({
   stops,
 }: {
   area: string;
-  stops: AiRecommendationStop[];
+  stops: GeneratedCourseStop[];
 }) {
   const validStops = stops.filter(
     (stop) =>
@@ -254,7 +237,7 @@ function AiRoutePreviewMap({
   stops,
 }: {
   area: string;
-  stops: AiRecommendationStop[];
+  stops: GeneratedCourseStop[];
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<ZoomLockedKakaoMapInstance | null>(null);
@@ -409,12 +392,13 @@ function AiCourseCreator() {
   const [companion, setCompanion] = useState("");
   const [styles, setStyles] = useState<string[]>([]);
   const [pace, setPace] = useState("");
-  const [phase, setPhase] = useState<"questions" | "loading" | "result">("questions");
+  const [phase, setPhase] = useState<"questions" | "loading" | "result" | "error">("questions");
   const [version, setVersion] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState("");
+  const [generationError, setGenerationError] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(8);
-  const [recommendation, setRecommendation] = useState<AiRecommendationCourse | null>(null);
+  const [recommendation, setRecommendation] = useState<GeneratedCourse | null>(null);
   const aiRequestIdRef = useRef(0);
 
   useEffect(() => {
@@ -472,58 +456,33 @@ function AiCourseCreator() {
 
     try {
       setSaveNotice("");
-      const response = await generateAiCourse({
+      setGenerationError("");
+      const course = await generateCourse({
+        areaLabel: area,
         regionName,
         companion: comp,
+        companionLabel: companion,
         themes: selectedThemes.length > 0 ? selectedThemes : ["WALK"],
         pace: selectedPace,
+        paceLabel: pace,
+        styleLabels: styles,
+        version: requestVersion,
       });
 
       if (aiRequestIdRef.current !== requestId) return;
-
-      const details = await Promise.all(
-        response.stops.map((stop) =>
-          getAttractionDetail(stop.attractionId).catch(() => null),
-        ),
-      );
-
-      if (aiRequestIdRef.current !== requestId) return;
-
-      const stops: AiRecommendationStop[] = response.stops.map((stop, index) => {
-        const detail = details[index];
-        const address = detail?.address || stop.addr1 || "";
-
-        return {
-          id: index + 1,
-          attractionId: stop.attractionId,
-          title: detail?.title || stop.title,
-          category: address ? address.split(" ").slice(0, 2).join(" ") : "관광지",
-          description: address || detail?.overview || "",
-          imageUrl: detail?.imageUrl || stop.firstImage || "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=720&q=80",
-          lat: detail?.latitude ?? 0,
-          lng: detail?.longitude ?? 0,
-        };
-      });
 
       setLoadingProgress(100);
-
-      setRecommendation({
-        id: `ai-${Date.now()}-${requestVersion}`,
-        title: response.title || `${area} AI 추천 코스`,
-        area,
-        companion,
-        styles,
-        pace,
-        savedAt: new Date().toISOString(),
-        collaborators: [],
-        stops,
-      });
+      setRecommendation(course);
       setPhase("result");
     } catch (error) {
       if (aiRequestIdRef.current !== requestId) return;
       console.error("AI course generation failed", error);
-      setSaveNotice("AI 코스 생성에 실패했습니다. 다시 시도해 주세요.");
-      setPhase("questions");
+      setGenerationError(
+        error instanceof Error
+          ? error.message
+          : "추천 코스를 준비하지 못했어요.",
+      );
+      setPhase("error");
     }
   }
 
@@ -558,6 +517,7 @@ function AiCourseCreator() {
     setVersion(0);
     setStep(0);
     setRecommendation(null);
+    setGenerationError("");
     setPhase("questions");
   }
 
@@ -625,8 +585,51 @@ function AiCourseCreator() {
     );
   }
 
+  if (phase === "error") {
+    return (
+      <section className="fixed inset-0 z-50 mx-auto grid w-full max-w-[430px] place-items-center bg-[#F8F6F1] px-6 text-center text-[#171717]">
+        <div>
+          <div className="mx-auto grid size-20 place-items-center rounded-3xl bg-white text-[#FD4003] shadow-[0_14px_34px_rgba(31,61,53,0.1)]">
+            <WandSparkles size={32} />
+          </div>
+          <h1 className="mt-7 mb-0 text-2xl font-black tracking-tighter">
+            추천을 준비하지 못했어요
+          </h1>
+          <p className="mt-3 mb-0 text-sm leading-relaxed font-bold text-[#817B73]">
+            {generationError || "AI 응답과 샘플 코스가 모두 유효하지 않았어요."}
+          </p>
+          <div className="mt-7 grid grid-cols-2 gap-2">
+            <button
+              className="min-h-12 rounded-2xl bg-[#F2F0EB] text-sm font-black text-[#55504A]"
+              onClick={reset}
+              type="button"
+            >
+              처음부터
+            </button>
+            <button
+              className="min-h-12 rounded-2xl bg-[#1F3D35] text-sm font-black text-white"
+              onClick={() => void requestAiCourse(version)}
+              type="button"
+            >
+              다시 시도
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (phase === "result") {
     if (!recommendation) return null;
+    const matchedStopCount = recommendation.stops.filter((stop) => stop.placeIdMatched).length;
+    const canSaveRecommendation = matchedStopCount >= 2;
+    const resultBadge =
+      recommendation.source === "server"
+        ? "AI 추천 완성"
+        : recommendation.source === "mock"
+          ? "샘플 추천"
+          : "Fallback 추천";
+
     return (
       <section className="fixed inset-0 z-50 mx-auto w-full max-w-[430px] overflow-y-auto bg-[#F7F5F0] pb-[calc(28px+env(safe-area-inset-bottom))] text-[#171717]">
         {isSaving ? (
@@ -648,8 +651,8 @@ function AiCourseCreator() {
           </div>
         ) : null}
         <header className="flex items-center justify-between px-5 pt-[calc(18px+env(safe-area-inset-top))]">
-          <button aria-label="닫기" className="grid size-10 place-items-center rounded-full border-0 bg-white" onClick={() => navigate("/course")} type="button"><X size={22} /></button>
-          <span className="rounded-full bg-[#EAF2EC] px-3 py-1.5 text-xs font-black text-[#1F3D35]">AI 추천 완성</span>
+          <button aria-label="AI 추천 결과 닫기" className="grid size-10 place-items-center rounded-full border-0 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" onClick={() => navigate("/course")} type="button"><X size={22} /></button>
+          <span className="rounded-full bg-[#EAF2EC] px-3 py-1.5 text-xs font-black text-[#1F3D35]">{resultBadge}</span>
           <span className="size-10" />
         </header>
 
@@ -658,6 +661,11 @@ function AiCourseCreator() {
           <p className="mt-5 mb-1 text-sm font-black text-[#FD4003]">{companion} · {pace}</p>
           <h1 className="m-0 text-[2rem] leading-tight font-black tracking-tighter">{recommendation.title}</h1>
           <p className="mt-2 text-sm font-bold text-[#817B73]">지금의 취향으로 고른 {recommendation.stops.length}곳을 소개할게요.</p>
+          {recommendation.notice ? (
+            <p className="mx-auto mt-4 mb-0 max-w-[320px] rounded-2xl bg-white px-4 py-3 text-xs leading-relaxed font-bold text-[#7B6D5C] shadow-[0_8px_20px_rgba(31,38,35,0.05)]">
+              {recommendation.notice}
+            </p>
+          ) : null}
         </div>
 
         <AiRoutePreviewMap area={area} stops={recommendation.stops} />
@@ -678,12 +686,16 @@ function AiCourseCreator() {
         <div className="mx-5 mt-8 rounded-[26px] bg-white p-5 text-center shadow-[0_10px_30px_rgba(31,38,35,0.06)]">
           <div className="text-3xl">💚</div>
           <h2 className="mt-2 mb-0 text-xl font-black">이 코스가 마음에 드나요?</h2>
-          <p className="mt-2 text-sm font-semibold text-[#817B73]">담아두면 내 코스에서 언제든 편집하고 친구와 함께 볼 수 있어요.</p>
+          <p className="mt-2 text-sm font-semibold text-[#817B73]">
+            {canSaveRecommendation
+              ? "담아두면 내 코스에서 언제든 편집하고 친구와 함께 볼 수 있어요."
+              : "실제 장소 ID 확인 전이라 샘플 코스로만 보여드려요."}
+          </p>
           {saveNotice ? <p className="mt-3 mb-0 rounded-xl bg-[#FFF7ED] px-3 py-2 text-xs font-bold text-[#A04A14]">{saveNotice}</p> : null}
-          <button className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#AAB8AE]" disabled={isSaving} onClick={saveRecommendation} type="button"><Plus size={20} />{isSaving ? "담는 중..." : "내 코스에 담기"}</button>
+          <button aria-label="AI 추천 코스를 내 코스에 담기" className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#AAB8AE] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" disabled={isSaving || !canSaveRecommendation} onClick={saveRecommendation} type="button"><Plus size={20} />{isSaving ? "담는 중..." : "내 코스에 담기"}</button>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <button className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A]" onClick={() => { const nextVersion = version + 1; setVersion(nextVersion); void requestAiCourse(nextVersion); }} type="button"><RefreshCw size={17} />새로운 추천</button>
-            <button className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A]" onClick={reset} type="button"><RotateCcw size={17} />처음부터</button>
+            <button aria-label="새로운 AI 추천 다시 받기" className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" onClick={() => { const nextVersion = version + 1; setVersion(nextVersion); void requestAiCourse(nextVersion); }} type="button"><RefreshCw size={17} />새로운 추천</button>
+            <button aria-label="코스 생성 처음부터 다시 시작하기" className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-0 bg-[#F2F0EB] text-sm font-black text-[#55504A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" onClick={reset} type="button"><RotateCcw size={17} />처음부터</button>
           </div>
         </div>
       </section>
@@ -694,7 +706,7 @@ function AiCourseCreator() {
   return (
     <section className="fixed inset-0 z-50 mx-auto flex w-full max-w-[430px] flex-col overflow-y-auto bg-white px-5 pt-[calc(18px+env(safe-area-inset-top))] pb-[calc(20px+env(safe-area-inset-bottom))] text-[#171717]">
       <header className="flex items-center justify-between">
-        <button aria-label="이전" className="grid size-10 place-items-center rounded-full border-0 bg-[#F5F3EF]" onClick={goBack} type="button"><ArrowLeft size={22} /></button>
+        <button aria-label="이전 단계로 이동" className="grid size-10 place-items-center rounded-full border-0 bg-[#F5F3EF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" onClick={goBack} type="button"><ArrowLeft size={22} /></button>
         <div className="flex gap-1.5">{[0, 1, 2, 3].map((item) => <span className={`h-1.5 rounded-full transition-all ${item === step ? "w-8 bg-[#FD4003]" : item < step ? "w-4 bg-[#1F3D35]" : "w-4 bg-[#E7E3DC]"}`} key={item} />)}</div>
         <span className="text-sm font-black text-[#FD4003]">{step + 1}/4</span>
       </header>
@@ -708,12 +720,12 @@ function AiCourseCreator() {
         ) : (
           <>
             <div className="text-center"><span className="text-5xl">🗺️</span><h1 className="mt-5 mb-0 text-[1.8rem] leading-tight font-black tracking-[-0.05em]">어떤 속도로 둘러볼까요?</h1><p className="mt-2 text-sm font-bold text-[#9A958E]">머무는 시간과 장소 수를 조절할게요.</p></div>
-            <div className="mt-10 grid gap-3">{paces.map((item) => <button className={`flex min-h-20 items-center rounded-2xl border px-5 text-left ${pace === item.value ? "border-[#1F3D35] bg-[#EEF4EF]" : "border-[#ECE8E1] bg-[#FAF9F7]"}`} key={item.value} onClick={() => setPace(item.value)} type="button"><span className="min-w-0 flex-1"><strong className="block font-black text-[#282622]">{item.value}</strong><span className="mt-1 block text-xs font-bold text-[#928C84]">{item.description}</span></span>{pace === item.value ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><Check size={15} /></span> : null}</button>)}</div>
+            <div className="mt-10 grid gap-3">{paces.map((item) => <button aria-label={`${item.value} 속도 선택`} aria-pressed={pace === item.value} className={`flex min-h-20 items-center rounded-2xl border px-5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003] ${pace === item.value ? "border-[#1F3D35] bg-[#EEF4EF]" : "border-[#ECE8E1] bg-[#FAF9F7]"}`} key={item.value} onClick={() => setPace(item.value)} type="button"><span className="min-w-0 flex-1"><strong className="block font-black text-[#282622]">{item.value}</strong><span className="mt-1 block text-xs font-bold text-[#928C84]">{item.description}</span></span>{pace === item.value ? <span className="grid size-7 place-items-center rounded-full bg-[#1F3D35] text-white"><Check size={15} /></span> : null}</button>)}</div>
           </>
         )}
       </main>
 
-      <button className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C]" disabled={!selections[step]} onClick={() => step < 3 ? setStep(step + 1) : void requestAiCourse(version)} type="button">{step === 3 ? <><WandSparkles size={20} />내 코스 추천받기</> : <>다음<ArrowRight size={19} /></>}</button>
+      <button aria-label={step === 3 ? "선택한 조건으로 내 코스 추천받기" : "다음 단계로 이동"} className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-0 bg-[#1F3D35] font-black text-white disabled:bg-[#E8E5DF] disabled:text-[#AAA49C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]" disabled={!selections[step]} onClick={() => step < 3 ? setStep(step + 1) : void requestAiCourse(version)} type="button">{step === 3 ? <><WandSparkles size={20} />내 코스 추천받기</> : <>다음<ArrowRight size={19} /></>}</button>
     </section>
   );
 }

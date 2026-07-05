@@ -495,20 +495,21 @@ export function MapVisibleDrawer({
         }`}
       >
         <button
-          className="grid size-10 touch-manipulation select-none place-items-center rounded-full border border-black/5 bg-white text-[#1e2a26] shadow-[0_6px_15px_rgba(17,17,17,0.16)]"
+          aria-label="현재 위치로 지도 이동"
+          className="grid size-10 touch-manipulation select-none place-items-center rounded-full border border-black/5 bg-white text-[#1e2a26] shadow-[0_6px_15px_rgba(17,17,17,0.16)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
           onClick={onRequestLocation}
           type="button"
-          aria-label="현재 위치"
         >
           <Crosshair size={18} strokeWidth={2.4} />
         </button>
       </div>
 
       <button
+        aria-expanded={drawerSnap === "full"}
         aria-label={
           drawerSnap === "full" ? "드로어 기본 높이로 내리기" : "드로어 전체로 펼치기"
         }
-        className="mx-auto block h-10 w-full cursor-grab touch-none border-0 bg-transparent active:cursor-grabbing"
+        className="mx-auto block h-10 w-full cursor-grab touch-none border-0 bg-transparent active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#FD4003]"
         data-map-drawer-handle
         onPointerCancel={handleHandlePointerCancel}
         onPointerDown={handleHandlePointerDown}
@@ -537,7 +538,7 @@ export function MapVisibleDrawer({
             <div className="mb-4 flex items-start gap-3">
               <button
                 aria-label="장소 목록으로 돌아가기"
-                className="grid size-9 flex-none place-items-center rounded-full border-0 bg-[#F4F3EF] text-[#4B4741]"
+                className="grid size-9 flex-none place-items-center rounded-full border-0 bg-[#F4F3EF] text-[#4B4741] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
                 onClick={() => {
                   if (isCreatingCourse) {
                     setIsCreatingCourse(false);
@@ -589,7 +590,8 @@ export function MapVisibleDrawer({
                 />
 
                 <button
-                  className="mt-1 h-12 rounded-2xl border-0 bg-[#1F3D35] text-sm font-black text-white shadow-[0_10px_22px_rgba(31,61,53,0.18)]"
+                  aria-label={`${newCourseTitle.trim() || courseTarget.name} 코스 생성하기`}
+                  className="mt-1 h-12 rounded-2xl border-0 bg-[#1F3D35] text-sm font-black text-white shadow-[0_10px_22px_rgba(31,61,53,0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
                   disabled={isSubmittingCourse}
                   onClick={submitNewCourse}
                   type="button"
@@ -607,7 +609,8 @@ export function MapVisibleDrawer({
                 <div className="max-h-[280px] overflow-y-auto grid gap-2 pr-0.5">
                   {myCourses.map((course) => (
                     <button
-                      className="flex items-center gap-3 rounded-xl border border-[#EEEAE2] bg-white p-3 text-left"
+                      aria-label={`${course.title}에 ${courseTarget.name} 추가`}
+                      className="flex items-center gap-3 rounded-xl border border-[#EEEAE2] bg-white p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
                       disabled={isSubmittingCourse}
                       key={course.id}
                       onClick={() => addToExistingCourse(course.id, course.title)}
@@ -629,7 +632,8 @@ export function MapVisibleDrawer({
                 </div>
               )}
               <button
-                className="mt-1 flex items-center gap-3 rounded-xl border border-dashed border-[#D8D3C9] bg-[#FAF9F6] p-3 text-left"
+                aria-label={`${courseTarget.name}으로 새 코스 만들기`}
+                className="mt-1 flex items-center gap-3 rounded-xl border border-dashed border-[#D8D3C9] bg-[#FAF9F6] p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
                 onClick={createCourseWithTarget}
                 type="button"
               >
@@ -667,12 +671,14 @@ export function MapVisibleDrawer({
                   ["note", "쪽지", allVisibleNotes.length],
                 ] as const).map(([value, label, count]) => (
                   <button
+                    aria-controls={`map-drawer-${value}-panel`}
                     aria-selected={activeTab === value}
-                    className={`h-10 rounded-xl text-sm font-black ${
+                    className={`h-10 rounded-xl text-sm font-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003] ${
                       activeTab === value
                         ? "bg-white text-[#171717]"
                         : "bg-transparent text-[#888178]"
                     }`}
+                    id={`map-drawer-${value}-tab`}
                     key={value}
                     onClick={() => changeTab(value)}
                     role="tab"
@@ -687,6 +693,7 @@ export function MapVisibleDrawer({
             <AnimatePresence custom={tabDirection} initial={false} mode="wait">
               <motion.div
                 animate={{ opacity: 1, x: 0 }}
+                aria-labelledby={`map-drawer-${activeTab}-tab`}
                 className="min-h-[280px]"
                 custom={tabDirection}
                 drag="x"
@@ -699,6 +706,8 @@ export function MapVisibleDrawer({
                   if (info.offset.x < -45) changeTab("note");
                   if (info.offset.x > 45) changeTab("place");
                 }}
+                id={`map-drawer-${activeTab}-panel`}
+                role="tabpanel"
                 transition={{ duration: 0.2, ease: "easeOut" }}
               >
                 {activeTab === "note" ? (
@@ -743,6 +752,7 @@ export function MapVisibleDrawer({
                           onAddToCourse={openCourseSelector}
                           onSelect={() => openPointDetail(point)}
                           onToggleSave={onToggleSave}
+                          selected={selectedPoint?.id === point.id}
                         />
                       </div>
                     ))}
@@ -757,7 +767,8 @@ export function MapVisibleDrawer({
               ? allVisibleNotes.length
               : allVisiblePlaces.length) > visibleItemCount ? (
               <button
-                className="mt-3 h-11 w-full rounded-xl border border-[#E6E1D8] bg-white text-sm font-black text-[#514D47]"
+                aria-label={`${activeTab === "note" ? "쪽지" : "장소"} 더 보기`}
+                className="mt-3 h-11 w-full rounded-xl border border-[#E6E1D8] bg-white text-sm font-black text-[#514D47] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
                 onClick={showMoreItems}
                 type="button"
               >
@@ -822,7 +833,7 @@ function CourseDateCalendar({
         <div className="flex flex-none items-center gap-1">
           <button
             aria-label="이전 달"
-            className="grid size-8 place-items-center rounded-full border-0 bg-white text-[#514D47]"
+            className="grid size-8 place-items-center rounded-full border-0 bg-white text-[#514D47] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
             onClick={() => onMonthChange(addMonths(month, -1))}
             type="button"
           >
@@ -830,7 +841,7 @@ function CourseDateCalendar({
           </button>
           <button
             aria-label="다음 달"
-            className="grid size-8 place-items-center rounded-full border-0 bg-white text-[#514D47]"
+            className="grid size-8 place-items-center rounded-full border-0 bg-white text-[#514D47] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
             onClick={() => onMonthChange(addMonths(month, 1))}
             type="button"
           >
@@ -840,6 +851,8 @@ function CourseDateCalendar({
       </div>
 
       <button
+        aria-label="날짜 미정 선택"
+        aria-pressed={undecided}
         className={`mt-3 h-10 w-full rounded-xl border text-xs font-black transition ${
           undecided
             ? "border-[#1F3D35] bg-[#1F3D35] text-white"
@@ -871,6 +884,8 @@ function CourseDateCalendar({
 
           return (
             <button
+              aria-label={`${dateValue} 선택`}
+              aria-pressed={selected}
               className={`grid aspect-square place-items-center rounded-xl text-xs font-black transition ${
                 selected
                   ? "bg-[#FD4003] text-white shadow-[0_7px_14px_rgba(253,64,3,0.22)]"
@@ -939,7 +954,7 @@ function PointDetailPanel({
       <div className="sticky top-0 z-10 -mx-4 mb-4 grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 bg-white px-4 pt-4 pb-3">
         <button
           aria-label="목록으로 돌아가기"
-          className="grid size-9 flex-none place-items-center rounded-full border-0 bg-[#F4F3EF] text-[#4B4741]"
+          className="grid size-9 flex-none place-items-center rounded-full border-0 bg-[#F4F3EF] text-[#4B4741] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
           onClick={onBack}
           type="button"
         >
@@ -958,7 +973,8 @@ function PointDetailPanel({
         <div className="flex flex-none items-start gap-4">
           <button
             aria-label={point.saved ? "저장 해제" : "저장"}
-            className="grid min-w-7 place-items-center border-0 bg-transparent text-[#FD4003]"
+            aria-pressed={point.saved}
+            className="grid min-w-7 place-items-center border-0 bg-transparent text-[#FD4003] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
             onClick={() => onToggleSave(point)}
             type="button"
           >
@@ -969,7 +985,7 @@ function PointDetailPanel({
           </button>
           <button
             aria-label="코스에 추가하기"
-            className="grid min-w-7 place-items-center border-0 bg-transparent text-[#171717]"
+            className="grid min-w-7 place-items-center border-0 bg-transparent text-[#171717] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
             onClick={() => onAddToCourse(point)}
             type="button"
           >

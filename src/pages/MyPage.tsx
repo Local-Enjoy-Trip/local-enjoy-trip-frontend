@@ -45,11 +45,12 @@ function LoginPrompt() {
         <p className="mt-2 mb-0 text-sm leading-relaxed font-semibold text-[#746F67]">
           저장한 쪽지와 친구 요청을 계정에 연결해 관리할 수 있어요.
         </p>
-        <button
-          className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F3D35] text-sm font-black text-white"
-          onClick={() => navigate("/login")}
-          type="button"
-        >
+          <button
+            aria-label="로그인 페이지로 이동"
+            className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#1F3D35] text-sm font-black text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
+            onClick={() => navigate("/login")}
+            type="button"
+          >
           로그인하기
         </button>
       </article>
@@ -274,6 +275,7 @@ export function MyPage() {
             onClick={openPwaInstallPrompt}
           />
           <button
+            aria-label={logoutMutation.isPending ? "로그아웃 진행 중" : "로그아웃 확인 열기"}
             className="flex min-h-14 w-full items-center gap-4 rounded-xl bg-white px-1 text-left text-[#D5483D] disabled:opacity-50"
             disabled={logoutMutation.isPending}
             onClick={() => setShowLogoutConfirm(true)}
@@ -423,7 +425,8 @@ function MenuButton({
 }) {
   return (
     <button
-      className="flex min-h-14 w-full items-center gap-4 rounded-xl bg-white px-1 text-left text-[#22272B]"
+      aria-label={`${label}로 이동`}
+      className="flex min-h-14 w-full items-center gap-4 rounded-xl bg-white px-1 text-left text-[#22272B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
       onClick={onClick}
       type="button"
     >

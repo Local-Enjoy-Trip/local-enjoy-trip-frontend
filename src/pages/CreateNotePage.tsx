@@ -445,7 +445,7 @@ export function CreateNotePage() {
                     />
                     <button
                       aria-label={`${tag || "태그"} 태그 삭제`}
-                      className="text-[#A8A8A8]"
+                      className="rounded-full text-[#A8A8A8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4300]"
                       onClick={() => removeTag(index)}
                       type="button"
                     >
@@ -455,7 +455,7 @@ export function CreateNotePage() {
                 ))}
                 <button
                   aria-label="태그 추가"
-                  className="grid size-8 flex-none place-items-center bg-[#F5F5F5] text-[#A8A8A8] transition-colors hover:text-[#FF4300]"
+                  className="grid size-8 flex-none place-items-center bg-[#F5F5F5] text-[#A8A8A8] transition-colors hover:text-[#FF4300] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4300]"
                   onClick={addTag}
                   type="button"
                 >
@@ -469,8 +469,11 @@ export function CreateNotePage() {
             <h2 className="m-0 text-sm font-extrabold">공개 범위</h2>
             <div className="flex justify-end">
               <button
+                aria-controls="note-visibility-menu"
                 aria-expanded={isVisibilityOpen}
-                className="inline-flex h-9 items-center rounded-none bg-[#F2F2F2] text-[#171717]"
+                aria-haspopup="menu"
+                aria-label={`공개 범위 변경, 현재 ${selectedVisibility.label}`}
+                className="inline-flex h-9 items-center rounded-none bg-[#F2F2F2] text-[#171717] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4300]"
                 onClick={() => setIsVisibilityOpen((isOpen) => !isOpen)}
                 type="button"
               >
@@ -489,18 +492,25 @@ export function CreateNotePage() {
             </div>
 
             {isVisibilityOpen ? (
-              <div className="absolute top-[calc(100%+8px)] right-0 z-20 grid w-[166px] gap-1 rounded-2xl border border-[#EEEEEE] bg-white p-1.5 shadow-[0_16px_34px_rgba(17,17,17,0.12)]">
+              <div
+                aria-label="공개 범위 선택"
+                className="absolute top-[calc(100%+8px)] right-0 z-20 grid w-[166px] gap-1 rounded-2xl border border-[#EEEEEE] bg-white p-1.5 shadow-[0_16px_34px_rgba(17,17,17,0.12)]"
+                id="note-visibility-menu"
+                role="menu"
+              >
                 {visibilityOptions.map(({ value, label, Icon }) => {
                   const isSelected = visibility === value;
 
                   return (
                     <button
+                      aria-checked={isSelected}
                       className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-left text-xs font-black ${
                         isSelected
                           ? "bg-[#FFF0EA] text-[#FF4300]"
                           : "text-[#5F5B56]"
                       }`}
                       key={value}
+                      role="menuitemradio"
                       type="button"
                       onClick={() => {
                         setVisibility(value);
@@ -519,6 +529,7 @@ export function CreateNotePage() {
         </section>
 
         <button
+          aria-label={isEditing ? "쪽지 수정 완료" : "쪽지 등록하기"}
           className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[20px] border border-transparent bg-[#FF4300] text-sm font-black text-white shadow-[0_12px_24px_rgba(255,67,0,0.18)] transition-[opacity,transform,box-shadow] active:scale-[0.99] disabled:border-[#FFD3C4] disabled:bg-[#FFF1EC] disabled:text-[#D97A5D] disabled:shadow-none"
           disabled={!body.trim() || noteMutation.isPending}
           type="submit"

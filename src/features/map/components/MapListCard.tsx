@@ -101,6 +101,7 @@ export function MapListCard({
 
   return (
     <article
+      aria-current={selected ? "true" : undefined}
       className={`relative h-[176px] overflow-hidden rounded-[20px] bg-[#302d2a] shadow-[0_8px_20px_rgba(17,17,17,0.12)] ${
         featured ? "mb-2" : ""
       }`}
@@ -122,7 +123,7 @@ export function MapListCard({
 
       <button
         aria-label={`${point.name} 상세 보기`}
-        className="absolute inset-0 z-10 border-0 bg-transparent p-0 text-left"
+        className="absolute inset-0 z-10 border-0 bg-transparent p-0 text-left focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[#FD4003]"
         onClick={onSelect}
         type="button"
       >
@@ -144,8 +145,9 @@ export function MapListCard({
 
       <div className="absolute right-3 bottom-3 z-20 flex items-center gap-2">
         <button
-          aria-label={point.saved ? "찜 해제" : "찜"}
-          className="grid size-8 place-items-center border-0 bg-transparent text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.45)]"
+          aria-label={point.saved ? `${point.name} 찜 해제` : `${point.name} 찜`}
+          aria-pressed={point.saved}
+          className="grid size-8 place-items-center border-0 bg-transparent text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.45)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
           onClick={() => onToggleSave?.(point)}
           type="button"
         >
@@ -157,8 +159,8 @@ export function MapListCard({
           />
         </button>
         <button
-          aria-label="추가할 코스 선택"
-          className="grid size-8 place-items-center border-0 bg-transparent text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.45)]"
+          aria-label={`${point.name} 추가할 코스 선택`}
+          className="grid size-8 place-items-center border-0 bg-transparent text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.45)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FD4003]"
           onClick={() => onAddToCourse?.(point)}
           type="button"
         >
