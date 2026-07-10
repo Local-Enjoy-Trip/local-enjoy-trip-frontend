@@ -78,17 +78,19 @@ self.addEventListener("fetch", (event) => {
         return cachedResponse;
       }
 
-      return fetch(request).then((response) => {
-        if (!response || response.status !== 200) {
-          return response;
-        }
+      return fetch(request)
+        .then((response) => {
+          if (!response || response.status !== 200) {
+            return response;
+          }
 
-        const responseClone = response.clone();
-        caches.open(RUNTIME_CACHE).then((cache) => {
-          cache.put(request, responseClone);
-        });
-        return response;
-      });
+          const responseClone = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => {
+            cache.put(request, responseClone);
+          });
+          return response;
+        })
+        .catch(() => Response.error());
     })
   );
 });

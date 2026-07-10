@@ -4,12 +4,40 @@ import { AuthTransitionShell } from "./AuthTransitionShell";
 import { RequireAuth } from "../features/auth/RequireAuth";
 import { AppShell } from "../shared/components/AppShell";
 
+const CHUNK_RELOAD_KEY = "spot:chunk-reload-attempted";
+
+function isChunkLoadError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+
+  return (
+    message.includes("Failed to fetch dynamically imported module") ||
+    message.includes("Importing a module script failed")
+  );
+}
+
+function reloadOnceAfterChunkError() {
+  if (sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+    return;
+  }
+
+  sessionStorage.setItem(CHUNK_RELOAD_KEY, "true");
+  window.location.reload();
+}
+
 function lazyPage<TModule extends Record<TExport, ComponentType>, TExport extends string>(
   importer: () => Promise<TModule>,
   exportName: TExport,
 ) {
   return lazy(() =>
-    importer().then((module) => ({ default: module[exportName] })),
+    importer()
+      .then((module) => ({ default: module[exportName] }))
+      .catch((error) => {
+        if (isChunkLoadError(error)) {
+          reloadOnceAfterChunkError();
+        }
+
+        throw error;
+      }),
   );
 }
 
