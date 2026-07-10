@@ -1,11 +1,10 @@
-/* global self, caches, fetch, URL */
+/* global self, caches, fetch, URL, Response */
 
-const CACHE_VERSION = "spot-pwa-v2";
+const CACHE_VERSION = "spot-pwa-v3";
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
 const APP_SHELL_ASSETS = [
-  "/",
   "/site.webmanifest",
   "/icons/favicon-32x32.png",
   "/icons/apple-touch-icon.png",
@@ -37,6 +36,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -53,23 +58,13 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          const responseClone = response.clone();
-          caches.open(APP_SHELL_CACHE).then((cache) => {
-            cache.put("/", responseClone);
-          });
-          return response;
-        })
-        .catch(() => caches.match("/"))
+        .catch(() => Response.error())
     );
     return;
   }
 
   const shouldCache =
-    ["font", "image", "manifest", "script", "style"].includes(
-      request.destination
-    ) ||
-    url.pathname.startsWith("/assets/") ||
+    ["font", "image", "manifest"].includes(request.destination) ||
     url.pathname.startsWith("/data/") ||
     url.pathname.startsWith("/icons/");
 
